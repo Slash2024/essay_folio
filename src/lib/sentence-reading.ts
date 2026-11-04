@@ -27,13 +27,26 @@ export function sourceParagraphs(text:string):TextAnchor[]{
  return result;
 }
 const abbreviations=new Set(['mr','mrs','ms','dr','prof','sr','jr','st','vs','e.g','i.e','u.s','u.k','a.m','p.m','no','fig','vol']);
+function apostrophe(text:string,index:number,start:number,end:number,inSingleQuote:boolean):boolean {
+ const previous=text[index-1]||'',next=text[index+1]||'';
+ if(/[A-Za-z]/.test(previous)&&/[A-Za-z]/.test(next))return true;
+ // Typing/pasting may introduce a space in “China 's” or “don ’t”.
+ if(/\s/.test(previous)&&/[A-Za-z]\s+$/.test(text.slice(start,index))&&/^(?:s|t|d|m|re|ve|ll)\b/i.test(text.slice(index+1,end)))return true;
+ // A plural possessive has no closing quote; a real closing quote wins.
+ return !inSingleQuote&&(/[A-Za-z]/.test(previous)&&!/[A-Za-z]/.test(next)||/s\s+$/i.test(text.slice(start,index))&&/\s/.test(next));
+}
+function hasClosingQuote(text:string,index:number,end:number,close:string):boolean {
+ for(let i=text.indexOf(close,index+1);i>=0&&i<end;i=text.indexOf(close,i+1))if(!/[A-Za-z0-9]/.test(text[i+1]||'')&&(close!=="'"&&close!=='’'||!/[A-Za-z]/.test(text[i-1]||'')||!/[A-Za-z]/.test(text[i+1]||'')))return true;
+ return false;
+}
 function splitParagraph(text:string,start:number,end:number):TextAnchor[]{
  const out:TextAnchor[]=[];let begin=start;const quoteStack:string[]=[];
  function emit(until:number){let a=begin,b=until;while(a<b&&/\s/.test(text[a]))a++;while(b>a&&/\s/.test(text[b-1]))b--;if(a<b)out.push({start:a,end:b});begin=until;}
  for(let i=start;i<end;i++){
   const c=text[i],prev=text[i-1]||'',next=text[i+1]||'';
-  if(c==='“'||c==='‘'&&!/[A-Za-z]/.test(prev)){quoteStack.push(c==='“'?'”':'’');continue;}
-  if(c==='"'||c==="'"&&(!/[A-Za-z]/.test(prev)||quoteStack.at(-1)==="'")){if(quoteStack.at(-1)===c)quoteStack.pop();else quoteStack.push(c);}
+  if((c==="'"||c==='’'||c==='‘')&&apostrophe(text,i,start,end,quoteStack.at(-1)==="'"||quoteStack.at(-1)==='’'))continue;
+  if(c==='“'||c==='‘'){const close=c==='“'?'”':'’';if(hasClosingQuote(text,i,end,close))quoteStack.push(close);continue;}
+  if(c==='"'||c==="'"){if(quoteStack.at(-1)===c)quoteStack.pop();else if(hasClosingQuote(text,i,end,c))quoteStack.push(c);}
   else if((c==='”'||c==='’')&&quoteStack.at(-1)===c)quoteStack.pop();
   if(!/[.!?]/.test(c))continue;
   if(c==='.'&&/\d/.test(prev)&&/\d/.test(next))continue;
@@ -41,11 +54,13 @@ function splitParagraph(text:string,start:number,end:number):TextAnchor[]{
   const prefix=text.slice(start,i);const word=prefix.match(/([A-Za-z]+(?:\.[A-Za-z]+)*)$/)?.[1]||'';
   if(c==='.'&&(abbreviations.has(word.toLowerCase())||/^[A-Z]$/.test(word)&&/[A-Z]/.test(text.slice(i+1,end).trimStart()[0]||'')))continue;
   let stop=i+1,stack=[...quoteStack];while(stop<end&&/[.!?"”’')\]]/.test(text[stop])){const q=text[stop];if(stack.at(-1)===q)stack.pop();stop++;}
-  if(stack.length)continue;
+  // Full stops still end sentences inside a quotation. Quoted exclamations
+  // can belong to a surrounding sentence, e.g. He said “Great!” and smiled.
+  if(stack.length&&c!=='.')continue;
   const rest=text.slice(stop,end);if(rest&&!/^\s/.test(rest))continue;
   // A quoted clause followed by “and …” remains part of the same sentence.
   if(stop>i+1&&/^[\s]+[a-z]/.test(rest))continue;
-  emit(stop);i=stop-1;quoteStack.length=0;
+  emit(stop);i=stop-1;quoteStack.splice(0,quoteStack.length,...stack);
  }
  emit(end);return out;
 }
