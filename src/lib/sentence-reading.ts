@@ -92,18 +92,19 @@ export function validateReadingLayout(value:unknown,text:string):ReadingLayout {
  return {openingEnd:v.openingEnd,endingStart:v.endingStart};
 }
 const canonical=(s:string)=>s.replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/\s+/g,' ').trim();
-function exactSurfaceRange(text:string,quote:string,at:TextAnchor):TextAnchor|null {
+export function exactSurfaceRange(text:string,quote:string,at:TextAnchor):TextAnchor|null {
  if(canonical(text.slice(at.start,at.end))===canonical(quote))return at;
  const starts=[at.start],ends=[at.end];for(let i=1;i<=8&&at.start-i>=0&&!/[A-Za-z0-9]/.test(text[at.start-i]);i++)starts.push(at.start-i);for(let i=1;i<=8&&at.end+i<=text.length&&!/[A-Za-z0-9]/.test(text[at.end+i-1]);i++)ends.push(at.end+i);
  for(const start of starts)for(const end of ends)if(canonical(text.slice(start,end))===canonical(quote))return {start,end};return null;
 }
 export function sentenceDisplays(text:string,rows:ReadingRow[],located:LocatedReviewNote[]):SentenceDisplay[]{
- const patches=located.flatMap(n=>{if(n.note.kind!=='correction'||!n.note.original||!n.note.replacement||!n.range)return [];const quote=locateQuote(text,n.note.original);const range=quote?exactSurfaceRange(text,n.note.original,quote):null;if(!range||range.start<n.range.start-8||range.end>n.range.end+8)return [];return [{range,note:n.note}];});
+ located=located.filter(n=>!n.note.hidden);
+ const patches=located.flatMap(n=>{if(n.note.display==='notes'||n.note.kind!=='correction'||!n.note.original||!n.note.replacement||!n.range)return [];const quote=locateQuote(text,n.note.original);const range=quote?exactSurfaceRange(text,n.note.original,quote):null;if(!range||range.start<n.range.start-8||range.end>n.range.end+8)return [];return [{range,note:n.note}];});
  return rows.map(row=>{
   const linked=located.filter(n=>n.note.kind!=='task'&&n.range&&n.range.start<row.end&&n.range.end>row.start);
   const local=patches.filter(p=>p.range.start>=row.start&&p.range.end<=row.end&&linked.some(n=>n.note.id===p.note.id));
   const safe=local.filter(p=>!patches.some(q=>q!==p&&q.range.start<p.range.end&&q.range.end>p.range.start)).sort((a,b)=>a.range.start-b.range.start);
   const parts:DiffPart[]=[];let position=row.start;for(const p of safe){if(p.range.start>position)parts.push({value:text.slice(position,p.range.start),type:'same'});parts.push(...wordDiff(text.slice(p.range.start,p.range.end),plain(p.note.replacement!)));position=p.range.end;}if(position<row.end)parts.push({value:text.slice(position,row.end),type:'same'});
-  return {row,notes:linked,parts,inlineNoteIds:safe.map(p=>p.note.id),needsCheck:linked.some(n=>n.note.kind==='correction'&&!safe.some(p=>p.note.id===n.note.id))};
+  return {row,notes:linked,parts,inlineNoteIds:safe.map(p=>p.note.id),needsCheck:linked.some(n=>n.note.kind==='correction'&&n.note.display!=='notes'&&!safe.some(p=>p.note.id===n.note.id))};
  });
 }

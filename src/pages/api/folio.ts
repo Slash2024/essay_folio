@@ -1,3 +1,4 @@
+import {curatedNotes,validateCuratedNote,curationChanges,validateCurationSize,type CurationData,type CurationVersion,type ReviewCuration} from '../../lib/review-curation';
 import {validateReadingLayout} from '../../lib/sentence-reading';
 import { reviewNotes, validateStudyEntry, interactionId, type ReviewStudy } from '../../lib/review-interactions';
 import { analyzedReview, ensureHistory, saveVersion, versions, migrateHistory } from '../../server/history';
@@ -39,7 +40,7 @@ export const POST:APIRoute=async({request})=>{
         await put(recordId,'deleted',{id:recordId,deletedAt:new Date().toISOString()},row);
       }
       try {
-      for(const kind of ['review','snapshot','notice','revision']) {
+      for(const kind of ['review','snapshot','notice','revision','curationVersion']) {
         // Always drain the first page: advancing an offset while deleting skips rows.
         while(true) {
           const batch=await list(kind,{writingId:recordId,limit:100});
@@ -118,6 +119,25 @@ export const POST:APIRoute=async({request})=>{
     if(action==='saveTemplates') {const prior=await find('templates');const previous=prior?decode<Record<string,string>>(prior):{};const t={small:str(body.small,16000),large:str(body.large,16000),englishTwoLarge:body.englishTwoLarge===undefined?(previous.englishTwoLarge||DEFAULT_TEMPLATES.englishTwoLarge):str(body.englishTwoLarge,16000)};if(!t.small.trim()||!t.large.trim()||!t.englishTwoLarge.trim())throw new Error('所有提示词均不能为空');await put('templates','templates',t,await find('templates'));return json({templates:t});}
     if(action==='saveRubrics') {const prior=await find('rubrics');const previous=prior?decode<Record<string,string>>(prior):{};const r={small:str(body.small,16000),large:str(body.large,16000),englishTwoLarge:body.englishTwoLarge===undefined?(previous.englishTwoLarge||DEFAULT_RUBRICS.englishTwoLarge):str(body.englishTwoLarge,16000)};if(!r.small.trim()||!r.large.trim()||!r.englishTwoLarge.trim())throw new Error('所有评分标准均不能为空');await put('rubrics','rubrics',r,await find('rubrics'));return json({rubrics:r});}
     if(action==='migrateHistory')return json({migrated:await migrateHistory()});
+    if(action==='saveReviewCuration'||action==='getReviewCurationVersion') {
+      const row=await find(id(body.reviewId));if(!row||row.kind!=='review')return json({error:'批阅不存在'},404);const r=decode<Review>(row);
+      const writingRow=await find(r.writingId);if(!writingRow||writingRow.kind!=='writing')return json({error:'记录不存在'},404);
+      if(action==='getReviewCurationVersion') {const versionId=id(body.versionId);if(!r.curation?.history.some(h=>h.id===versionId))return json({error:'批阅整理版本不存在'},404);const saved=await find(versionId);if(!saved||saved.kind!=='curationVersion')return json({error:'批阅整理版本不存在'},404);const version=decode<CurationVersion>(saved);if(version.reviewId!==r.id||version.writingId!==r.writingId)return json({error:'批阅整理版本不匹配'},400);return json({version});}
+      const current=r.curation;if(Number(body.baseRevision)!==(current?.revision||0))return json({error:'批阅整理已在其他页面更新，请重新打开本稿后再保存；当前文字请先复制保留。'},409);
+      const bound=r.revisionId?await find(r.revisionId):null;const original=bound?.kind==='revision'?decode<{writingId:string;text:string}>(bound):null;if(!original||original.writingId!==r.writingId)return json({error:'批阅对应正文为 not given，无法保存人工整理'},400);
+      const base=reviewNotes(parseReview(r.markdown));let data:CurationData={notes:{...current?.notes}},changes:CurationVersion['changes']=[],label='';
+      if(body.operation==='upsert') {let note;try{note=validateCuratedNote(body.note,original.text,base,data.notes[body.note?.id]);}catch(e){return json({error:(e as Error).message},400);}const before=data.notes[note.id]||base.find(n=>n.id===note.id);changes=curationChanges(before as any,note);data.notes[note.id]=note;label=`整理「${note.title}」`;}
+      else if(body.operation==='restoreNote') {const noteId=id(body.noteId);if(!base.some(n=>n.id===noteId))return json({error:'批阅原始建议不存在；个人笔记可选择暂不采纳'},400);const before=data.notes[noteId];delete data.notes[noteId];changes=curationChanges(before,base.find(n=>n.id===noteId) as any);label='恢复单条自动解析';}
+      else if(body.operation==='reset') {changes=[{field:'人工整理',before:`${Object.keys(data.notes).length} 条`,after:'恢复自动解析，历史记录保留'}];data={notes:{}};label='恢复自动解析';}
+      else if(body.operation==='restoreVersion') {const versionId=id(body.versionId);let target:CurationData;if(versionId==='initial')target={notes:{}};else{if(!current?.history.some(h=>h.id===versionId))return json({error:'批阅整理版本不存在'},404);const saved=await find(versionId);if(!saved||saved.kind!=='curationVersion')return json({error:'批阅整理版本不存在'},404);const version=decode<CurationVersion>(saved);if(version.reviewId!==r.id||version.writingId!==r.writingId)return json({error:'批阅整理版本不匹配'},400);target=version.data;}
+        data={notes:{}};try{for(const [key,note] of Object.entries(target.notes)){if(key!==note.id)throw new Error('批阅整理版本格式不正确');data.notes[key]=validateCuratedNote(note,original.text,base,note);}}catch(e){return json({error:(e as Error).message},400);}changes=[{field:'整理稿',before:`版本 ${current?.revision||0}`,after:versionId==='initial'?'自动解析初始版':`历史版本 ${versionId}`}];label='恢复历史整理稿';}
+      else return json({error:'批阅整理操作不正确'},400);
+      try{validateCurationSize(data);}catch(e){return json({error:(e as Error).message},400);}
+      if(JSON.stringify(data.notes)===JSON.stringify(current?.notes||{}))return json({review:analyzedReview(r),unchanged:true});
+      const createdAt=new Date().toISOString(),version=(current?.revision||0)+1,versionId=`curation-${crypto.randomUUID()}`;
+      const info={id:versionId,version,createdAt,label};const snapshot:CurationVersion={...info,writingId:r.writingId,reviewId:r.id,data,changes};
+      const curation:ReviewCuration={...data,revision:version,updatedAt:createdAt,history:[...(current?.history||[]),info]};const next={...r,curation};if(new TextEncoder().encode(JSON.stringify(next)).length>370000)return json({error:'批阅整理与原始文件合计过大，请缩短说明后保存'},400);await put(versionId,'curationVersion',snapshot);await put(r.id,'review',next,row);return json({review:analyzedReview(next)});
+    }
     if(action==='saveReviewLayout') {
       const row=await find(id(body.reviewId));if(!row||row.kind!=='review')return json({error:'批阅不存在'},404);
       const r=decode<Review>(row);const writingRow=await find(r.writingId);if(!writingRow||writingRow.kind!=='writing')return json({error:'记录不存在'},404);
@@ -130,7 +150,7 @@ export const POST:APIRoute=async({request})=>{
       const row=await find(id(body.reviewId));if(!row||row.kind!=='review')return json({error:'批阅不存在'},404);
       const r=decode<Review>(row);const writingRow=await find(r.writingId);if(!writingRow||writingRow.kind!=='writing')return json({error:'记录不存在'},404);
       const current=r.study;if(Number(body.baseRevision)!==(current?.revision||0))return json({error:'批阅复习记录已更新，请重新打开本稿后再操作。'},409);
-      const noteId=id(body.noteId);if(!reviewNotes(parseReview(r.markdown)).some(n=>n.id===noteId))return json({error:'批阅建议编号不正确'},400);
+      const noteId=id(body.noteId);if(!curatedNotes(parseReview(r.markdown),r.curation).some(n=>n.id===noteId))return json({error:'批阅建议编号不正确'},400);
       const versionRow=r.revisionId?await find(r.revisionId):null;const version=versionRow?.kind==='revision'?decode<{writingId:string;text:string}>(versionRow):null;
       let entry;try{entry=validateStudyEntry(body.entry,version?.writingId===r.writingId?version.text:'');}catch(e){return json({error:(e as Error).message},400);}
       const study:ReviewStudy={...current,revision:(current?.revision||0)+1,updatedAt:new Date().toISOString(),entries:{...current?.entries,[noteId]:entry}};
@@ -160,10 +180,10 @@ export const POST:APIRoute=async({request})=>{
     if(action==='analytics') {const [ws,rs]=await Promise.all([all('writing'),all('review')]);return json({writings:ws.map(r=>{const w=decode<Writing>(r);return {id:w.id,questionId:w.questionId,status:w.status,createdAt:w.createdAt,submittedAt:w.submittedAt};}),reviews:rs.map(r=>analyzedReview(decode<Review>(r)))});}
     if(action==='export') {
       await migrateHistory();
-      const [ws,rs,vs]=await Promise.all([all('writing'),all('review'),all('revision')]);
+      const [ws,rs,vs,cs]=await Promise.all([all('writing'),all('review'),all('revision'),all('curationVersion')]);
       // Strict allowlist: no prompts, settings, notices or secrets leave the archive.
       const writings=ws.map(row=>{const w=decode<Writing>(row);return {id:w.id,questionId:w.questionId,text:w.text,status:w.status,createdAt:w.createdAt,updatedAt:w.updatedAt,submittedAt:w.submittedAt,parentId:w.parentId,revision:w.revision||1,lastEditedAt:w.lastEditedAt,versions:vs.filter(v=>v.writingId===w.id).map(v=>decode<any>(v)).sort((a,b)=>a.version-b.version)};});
-      const reviews=rs.map(row=>{const r=analyzedReview(decode<Review>(row));return {id:r.id,writingId:r.writingId,questionId:r.questionId,filename:r.filename,markdown:r.markdown,createdAt:r.createdAt,label:r.label,writingRevision:r.writingRevision,revisionId:r.revisionId,binding:r.binding,analysis:r.analysis,issueOverrides:r.issueOverrides,analysisUpdatedAt:r.analysisUpdatedAt,study:r.study};});
+      const reviews=rs.map(row=>{const r=analyzedReview(decode<Review>(row));return {id:r.id,writingId:r.writingId,questionId:r.questionId,filename:r.filename,markdown:r.markdown,createdAt:r.createdAt,label:r.label,writingRevision:r.writingRevision,revisionId:r.revisionId,binding:r.binding,analysis:r.analysis,issueOverrides:r.issueOverrides,analysisUpdatedAt:r.analysisUpdatedAt,study:r.study,curation:r.curation,curationHistory:cs.filter(c=>c.writingId===r.writingId).map(c=>decode<CurationVersion>(c)).filter(c=>c.reviewId===r.id&&r.curation?.history.some(h=>h.id===c.id)).sort((a,b)=>a.version-b.version)};});
       return json({questions:questionsJson,writings,reviews});
     }
     return json({error:'不支持的操作'},400);

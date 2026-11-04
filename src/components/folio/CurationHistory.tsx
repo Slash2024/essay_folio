@@ -1,0 +1,9 @@
+import {useState} from 'react';
+import type {Review} from '../../lib/folio';
+import type {CurationVersion} from '../../lib/review-curation';
+import {api,dateLabel} from '../../lib/client';
+export default function CurationHistory({review,busy,onRestore}:{review:Review;busy:boolean;onRestore:(id:string)=>Promise<boolean>}){
+ const [selected,setSelected]=useState<CurationVersion|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(false);const history=review.curation?.history||[];
+ async function inspect(id:string){setLoading(true);setError('');try{const d=await api('getReviewCurationVersion',{reviewId:review.id,versionId:id});setSelected(d.version);}catch(e){setError((e as Error).message);}finally{setLoading(false);}}
+ return <section className="curation-history"><h4>整理修改记录</h4><p>每次保存、恢复都会保留版本。恢复后仍可找回其他版本；收藏和复习状态保留。</p>{!history.length?<p className="caption">还没有人工整理记录。</p>:<ol>{[...history].reverse().map(h=><li key={h.id}><div><strong>整理 V{h.version} · {h.label}</strong><small>{dateLabel(h.createdAt)}</small></div><button className="text-button" disabled={busy||loading} onClick={()=>inspect(h.id)}>查看修改</button><button className="text-button" disabled={busy||loading} onClick={()=>onRestore(h.id)}>恢复此版</button></li>)}</ol>}{loading&&<p className="caption">正在读取修改记录…</p>}{error&&<p className="error" role="alert">{error}</p>}{selected&&<div className="curation-history-detail"><h5>整理 V{selected.version} 的修改内容</h5>{selected.changes.map((c,i)=><article key={i}><strong>{c.field}</strong><div><section><small>修改前</small><pre>{c.before}</pre></section><section><small>修改后</small><pre>{c.after}</pre></section></div></article>)}<button className="text-button" onClick={()=>setSelected(null)}>收起修改内容</button></div>}</section>;
+}

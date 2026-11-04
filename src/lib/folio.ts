@@ -1,3 +1,4 @@
+import type {ReviewCuration,CurationVersion} from './review-curation';
 import type {ReviewStudy} from './review-interactions';
 import type { ReviewAnalysis, IssueCategory } from './review-analysis';
 import reviewSettings from '../data/review-settings.json';
@@ -5,7 +6,7 @@ export type Exam = 'one' | 'two';
 export type EssayType = 'small' | 'large';
 export interface Question { id: string; exam?: Exam; chartType?: string; year: number; type: EssayType; title: string; directions: string; images: string[]; source: string; sourceLabel: string; provenance: string }
 export interface Writing { id: string; questionId: string; text: string; status: 'draft'|'submitted'|'reviewed'; createdAt: string; updatedAt: string; revision?: number; lastEditedAt?: string; submittedAt?: string; parentId?: string; promptSnapshot?: string; rubricSnapshot?: string; questionSnapshot?: Question }
-export interface Review { id: string; writingId: string; questionId: string; filename: string; markdown: string; createdAt: string; label: string; writingRevision?: number; revisionId?:string; binding?:'latest'|'legacySnapshot'; analysis?:ReviewAnalysis; issueOverrides?:Record<string,IssueCategory[]>; analysisUpdatedAt?:string; study?:ReviewStudy }
+export interface Review { id: string; writingId: string; questionId: string; filename: string; markdown: string; createdAt: string; label: string; writingRevision?: number; revisionId?:string; binding?:'latest'|'legacySnapshot'; analysis?:ReviewAnalysis; issueOverrides?:Record<string,IssueCategory[]>; analysisUpdatedAt?:string; study?:ReviewStudy;curation?:ReviewCuration;curationHistory?:CurationVersion[] }
 export interface Notice { id: string; writingId: string; state: 'sending'|'accepted'|'failed'; createdAt: string; error?: string }
 export type TemplateKey = 'small' | 'large' | 'englishTwoLarge';
 export interface Templates { small: string; large: string; englishTwoLarge: string }
