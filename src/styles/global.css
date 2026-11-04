@@ -66,3 +66,5 @@
 .curation-supplement{display:block;white-space:pre-wrap;font-size:15px;line-height:1.9;background:#f6f3fb;border:1px dashed #c9b8df;padding:10px 12px;border-radius:5px;margin-top:12px;color:#655079}.curation-supplement>span{display:block;font-family:var(--font-sans);font-size:9px;color:#8d78a6;margin-bottom:5px}.sentence-note-heading h5{overflow-wrap:anywhere}
 
 .reading-sentence:disabled{opacity:1;cursor:default}.curation-editor-actions{position:sticky;bottom:0;background:#fff;padding-bottom:5px;z-index:2}
+
+.curation-quote-find{border-top:1px solid #e1e9ed;margin-top:14px;padding-top:3px}.curation-range-picker .curation-quote-find textarea{min-height:65px;font-size:12px}.curation-range-picker>.button{margin-top:9px}
