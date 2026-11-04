@@ -1,9 +1,10 @@
+import type {ReadingLayout} from './sentence-reading';
 import type {ReviewAnalysis} from './review-analysis';
 import {plain,suggestCategories} from './review-analysis';
 export type StudyStatus='unread'|'revisit'|'mastered';
 export interface TextAnchor {start:number;end:number}
 export interface StudyEntry {status:StudyStatus;starred:boolean;anchor?:TextAnchor|null}
-export interface ReviewStudy {revision:number;updatedAt:string;entries:Record<string,StudyEntry>}
+export interface ReviewStudy {revision:number;updatedAt:string;entries:Record<string,StudyEntry>;layout?:ReadingLayout}
 export interface ReviewNote {id:string;kind:'correction'|'optimization'|'task';title:string;original:string|null;replacement:string|null;explanation:string|null;position:string|null;categories:string[]}
 export function interactionId(prefix:string,value:string){let h=2166136261;for(let i=0;i<value.length;i++)h=Math.imul(h^value.charCodeAt(i),16777619);return `${prefix}-${(h>>>0).toString(36)}-${value.length}`;}
 export function reviewNotes(a:ReviewAnalysis):ReviewNote[]{

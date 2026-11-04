@@ -1,3 +1,4 @@
+import {validateReadingLayout} from '../../lib/sentence-reading';
 import { reviewNotes, validateStudyEntry, interactionId, type ReviewStudy } from '../../lib/review-interactions';
 import { analyzedReview, ensureHistory, saveVersion, versions, migrateHistory } from '../../server/history';
 import { ISSUE_CATEGORIES, parseReview, type IssueCategory } from '../../lib/review-analysis';
@@ -117,6 +118,14 @@ export const POST:APIRoute=async({request})=>{
     if(action==='saveTemplates') {const prior=await find('templates');const previous=prior?decode<Record<string,string>>(prior):{};const t={small:str(body.small,16000),large:str(body.large,16000),englishTwoLarge:body.englishTwoLarge===undefined?(previous.englishTwoLarge||DEFAULT_TEMPLATES.englishTwoLarge):str(body.englishTwoLarge,16000)};if(!t.small.trim()||!t.large.trim()||!t.englishTwoLarge.trim())throw new Error('所有提示词均不能为空');await put('templates','templates',t,await find('templates'));return json({templates:t});}
     if(action==='saveRubrics') {const prior=await find('rubrics');const previous=prior?decode<Record<string,string>>(prior):{};const r={small:str(body.small,16000),large:str(body.large,16000),englishTwoLarge:body.englishTwoLarge===undefined?(previous.englishTwoLarge||DEFAULT_RUBRICS.englishTwoLarge):str(body.englishTwoLarge,16000)};if(!r.small.trim()||!r.large.trim()||!r.englishTwoLarge.trim())throw new Error('所有评分标准均不能为空');await put('rubrics','rubrics',r,await find('rubrics'));return json({rubrics:r});}
     if(action==='migrateHistory')return json({migrated:await migrateHistory()});
+    if(action==='saveReviewLayout') {
+      const row=await find(id(body.reviewId));if(!row||row.kind!=='review')return json({error:'批阅不存在'},404);
+      const r=decode<Review>(row);const writingRow=await find(r.writingId);if(!writingRow||writingRow.kind!=='writing')return json({error:'记录不存在'},404);
+      const current=r.study;if(Number(body.baseRevision)!==(current?.revision||0))return json({error:'批阅复习记录已更新，请重新打开本稿后再操作。'},409);
+      const versionRow=r.revisionId?await find(r.revisionId):null;const version=versionRow?.kind==='revision'?decode<{writingId:string;text:string}>(versionRow):null;if(!version||version.writingId!==r.writingId)return json({error:'批阅对应正文为 not given，无法设置分组'},400);
+      let layout;try{layout=validateReadingLayout(body.layout,version.text);}catch(e){return json({error:(e as Error).message},400);}
+      const study:ReviewStudy={...current,revision:(current?.revision||0)+1,updatedAt:new Date().toISOString(),entries:current?.entries||{},layout};const next={...r,study};await put(r.id,'review',next,row);return json({review:analyzedReview(next)});
+    }
     if(action==='saveReviewStudy') {
       const row=await find(id(body.reviewId));if(!row||row.kind!=='review')return json({error:'批阅不存在'},404);
       const r=decode<Review>(row);const writingRow=await find(r.writingId);if(!writingRow||writingRow.kind!=='writing')return json({error:'记录不存在'},404);
@@ -124,7 +133,7 @@ export const POST:APIRoute=async({request})=>{
       const noteId=id(body.noteId);if(!reviewNotes(parseReview(r.markdown)).some(n=>n.id===noteId))return json({error:'批阅建议编号不正确'},400);
       const versionRow=r.revisionId?await find(r.revisionId):null;const version=versionRow?.kind==='revision'?decode<{writingId:string;text:string}>(versionRow):null;
       let entry;try{entry=validateStudyEntry(body.entry,version?.writingId===r.writingId?version.text:'');}catch(e){return json({error:(e as Error).message},400);}
-      const study:ReviewStudy={revision:(current?.revision||0)+1,updatedAt:new Date().toISOString(),entries:{...current?.entries,[noteId]:entry}};
+      const study:ReviewStudy={...current,revision:(current?.revision||0)+1,updatedAt:new Date().toISOString(),entries:{...current?.entries,[noteId]:entry}};
       const next={...r,study};await put(r.id,'review',next,row);return json({review:analyzedReview(next)});
     }
     if(action==='addReviewExpression') {

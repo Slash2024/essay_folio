@@ -5,7 +5,7 @@ try{await build({stdin:{contents:"export {POST} from './src/pages/api/folio'; ex
  const {POST,db}=await import(join(dir,'api.mjs'));async function call(action,body={}){const r=await POST({request:new Request('https://test.invalid/api/folio',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,...body})})});return {status:r.status,...await r.json()};}
  const id='qa-test-api',text='This is my original essay.';let r=await call('submit',{id,questionId:'2024-large',text,prompt:'private prompt',rubric:'private rubric'});assert.equal(r.status,200);assert.equal(r.versions.length,1);let w=r.writing;
  r=await call('edit',{id,text,baseUpdatedAt:w.updatedAt});assert(r.unchanged);assert.equal(r.versions.length,1);
- r=await call('edit',{id,text:'This is my corrected essay.',baseUpdatedAt:w.updatedAt});assert.equal(r.versions.length,2);assert.equal(r.versions[0].text,text);w=r.writing;
+ r=await call('edit',{id,text:'This is my corrected essay. Another sentence.',baseUpdatedAt:w.updatedAt});assert.equal(r.versions.length,2);assert.equal(r.versions[0].text,text);w=r.writing;
  r=await call('review',{id:'qa-review',writingId:id,baseUpdatedAt:'stale',markdown:'8. 评分\n预估分数：14/20分。',filename:'review.md'});assert.equal(r.status,409);
  r=await call('review',{id:'qa-review',writingId:id,baseUpdatedAt:w.updatedAt,markdown:'5. 最值得记住的错误\n- 主谓一致错误。\n8. 评分\n预估分数：14/20分。',filename:'review.md'});assert.equal(r.status,200);assert.equal(r.review.revisionId,id+'-v2');assert.equal(r.review.analysis.score.point,14);w=r.writing;
  assert.equal((await call('edit',{id,text:'Disallowed change.',baseUpdatedAt:w.updatedAt})).status,409);
@@ -25,7 +25,12 @@ try{await build({stdin:{contents:"export {POST} from './src/pages/api/folio'; ex
  const lib=(await call('expressions')).library;r=await call('addReviewExpression',{reviewId:'qa-review',expressionIndex:0,baseRevision:lib.revision,kind:'sentence',value:'make progress',meaning:'学习'});assert.equal(r.status,200);assert.equal(r.library.sentences.at(-1).template,'make progress');assert.equal(r.library.revision,lib.revision+1);
  assert.equal((await call('addReviewExpression',{reviewId:'qa-review',expressionIndex:0,baseRevision:lib.revision,kind:'sentence',value:'make progress'})).status,409);
  const duplicate=await call('addReviewExpression',{reviewId:'qa-review',expressionIndex:0,baseRevision:r.library.revision,kind:'sentence',value:'make progress'});assert.equal(duplicate.duplicate,true);
- const studyExport=await call('export');assert.equal(studyExport.reviews[0].study.entries[note.id].starred,true);assert.equal(studyExport.reviews[0].markdown,payload.markdown);
+ const readingText='This is my corrected essay. Another sentence.';const layout={openingEnd:readingText.indexOf('.')+1,endingStart:readingText.indexOf('Another')};
+ r=await call('saveReviewLayout',{reviewId:'qa-review',baseRevision:1,layout});assert.equal(r.status,200);assert.equal(r.review.study.entries[note.id].starred,true);assert.deepEqual(r.review.study.layout,layout);
+ assert.equal((await call('saveReviewLayout',{reviewId:'qa-review',baseRevision:1,layout})).status,409);
+ assert.equal((await call('saveReviewLayout',{reviewId:'qa-review',baseRevision:2,layout:{openingEnd:999,endingStart:0}})).status,400);
+ r=await call('saveReviewStudy',{reviewId:'qa-review',noteId:note.id,baseRevision:2,entry:{status:'mastered',starred:true}});assert.equal(r.status,200);assert.deepEqual(r.review.study.layout,layout);
+ const studyExport=await call('export');assert.equal(studyExport.reviews[0].study.entries[note.id].starred,true);assert.equal(studyExport.reviews[0].markdown,payload.markdown);assert.deepEqual(studyExport.reviews[0].study.layout,layout);
  const data=await call('export');assert.equal(data.writings[0].versions.length,2);assert.equal(data.reviews[0].revisionId,id+'-v2');assert.equal(data.reviews[0].analysis.issues[0].manual,true);assert(!JSON.stringify(data).includes('private prompt'));assert(!JSON.stringify(data).includes('private rubric'));
  assert.equal((await call('delete',{id,confirmed:true,baseUpdatedAt:w.updatedAt})).status,200);assert.equal([...db.values()].filter(x=>x.kind==='revision'||x.kind==='review').length,0);assert.equal((await call('draft',{id,questionId:'2024-large',text:'stale'})).status,410);
  console.log('PASS: submitted baseline, no-op and manual revisions, stale import rejection, review binding/lock, manual categories, export allowlist, cascade delete');
