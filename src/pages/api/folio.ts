@@ -1,3 +1,4 @@
+import {CURATION_GUIDE_VERSION,type CurationGuidePreference} from '../../lib/curation-guide';
 import {curatedNotes,validateCuratedNote,curationChanges,validateCurationSize,type CurationData,type CurationVersion,type ReviewCuration} from '../../lib/review-curation';
 import {validateReadingLayout} from '../../lib/sentence-reading';
 import { reviewNotes, validateStudyEntry, interactionId, type ReviewStudy } from '../../lib/review-interactions';
@@ -24,6 +25,13 @@ export const POST:APIRoute=async({request})=>{
     if(action==='login') {const cfg=await accessConfig();if(!equal(String(body.code||''),cfg.code))return json({error:'访问码不正确'},401);return json({ok:true},200,{'Set-Cookie':`folio_session=${await makeSession(cfg.signing)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`});}
     if(action==='logout')return json({ok:true},200,{'Set-Cookie':'folio_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0'});
     if(!await authorized(request))return json({error:'请先输入个人访问码'},401);
+    if(action==='getCurationGuide'||action==='saveCurationGuide') {
+      const key='preference-curation-guide-v1',row=await find(key);if(row&&row.kind!=='preference')return json({error:'记录类型不正确'},400);const previous=row?decode<CurationGuidePreference>(row):null;
+      if(action==='getCurationGuide')return json({guide:previous});
+      if(body.version!==CURATION_GUIDE_VERSION||!['unseen','completed','skipped'].includes(body.status))return json({error:'输入的引导设置不正确'},400);
+      if(previous?.version===CURATION_GUIDE_VERSION&&previous.status===body.status)return json({guide:previous,unchanged:true});
+      const guide:CurationGuidePreference={version:CURATION_GUIDE_VERSION,status:body.status,updatedAt:new Date().toISOString()};await put(key,'preference',guide,row);return json({guide});
+    }
     if(action==='list') {const p=await list('writing',{offset:Math.max(0,Number(body.offset)||0),limit:30,questionId:body.questionId?str(body.questionId,100):'',status:body.status?str(body.status,20):''});return json({items:p.rows.map(r=>decode<Writing>(r)),total:p.total,hasNext:p.hasNext});}
     if(action==='get') {const row=await find(id(body.id));if(!row||row.kind!=='writing')return json({error:'记录不存在'},404);const [reviews,notices]=await Promise.all([list('review',{writingId:row._id,limit:100}),list('notice',{writingId:row._id,limit:20})]);const writing=decode<Writing>(row);const history=await ensureHistory(writing);const fresh=await list('review',{writingId:row._id,limit:100});return json({writing,reviews:fresh.rows.map(r=>analyzedReview(decode<Review>(r))).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||b.id.localeCompare(a.id)),versions:history,notices:notices.rows.map(r=>decode<Notice>(r))});}
     if(action==='delete') {

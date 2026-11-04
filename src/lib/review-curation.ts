@@ -36,3 +36,5 @@ export function curationChanges(before:CuratedNote|undefined,after:CuratedNote|u
  return fields.filter(([key])=>JSON.stringify(before?.[key])!==JSON.stringify(after?.[key])).map(([key,label])=>({field:label,before:format(key,before?.[key]),after:format(key,after?.[key])}));
 }
 export function validateCurationSize(data:CurationData){if(Object.keys(data.notes).length>150||new TextEncoder().encode(JSON.stringify(data)).length>120000)throw new Error('批阅整理内容过多，请缩短说明后再保存');}
+
+export function findSourceMatches(original:string,quote:string):TextAnchor[]{const matches:TextAnchor[]=[];if(!quote.trim())return matches;for(let start=original.indexOf(quote);start>=0;start=original.indexOf(quote,start+1))matches.push({start,end:start+quote.length});return matches;}
