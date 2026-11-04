@@ -1,0 +1,9 @@
+---
+import FolioApp from '../components/folio/FolioApp';
+import '../styles/global.css';
+Astro.response.headers.set('Cache-Control','no-store');
+Astro.response.headers.set('X-Robots-Tag','noindex, nofollow');
+Astro.response.headers.set('X-Content-Type-Options','nosniff');
+Astro.response.headers.set('Referrer-Policy','same-origin');
+---
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="robots" content="noindex,nofollow"/><meta name="theme-color" content="#087c77"/><meta name="description" content="个人考研英语一与英语二写作档案：真题、作文、Markdown 批阅与手动提醒。"/><title>Essay Folio · 英语写作档案</title><link rel="icon" type="image/svg+xml" href="/favicon.svg"/></head><body><FolioApp client:only="react"><div slot="fallback" class="loading-shell">正在打开写作档案…</div></FolioApp></body></html>

@@ -1,0 +1,285 @@
+{
+  "revision": 0,
+  "updatedAt": null,
+  "tolerance": "balanced",
+  "sentences": [
+    {
+      "id": "reason-driven",
+      "category": "原因 / 通用句式",
+      "title": "正向驱动",
+      "template": "Driven by {{A}}, {{B}}...",
+      "notes": "",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-translate",
+      "category": "原因 / 通用句式",
+      "title": "自然转化",
+      "template": "...naturally translates into...",
+      "notes": "",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-empower",
+      "category": "原因 / 通用句式",
+      "title": "动作赋能",
+      "template": "..., empowering {{sb}} to {{do sth}}",
+      "notes": "",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-stem",
+      "category": "原因 / 通用句式",
+      "title": "深层归因：来源与叠加",
+      "template": "...stems from {{A}}, coupled with {{B}}.",
+      "notes": "",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-heart",
+      "category": "原因 / 通用句式",
+      "title": "深层归因：核心所在",
+      "template": "At its heart lies {{C}}",
+      "notes": "",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-paramount",
+      "category": "原因 / 通用句式",
+      "title": "揭示与强调",
+      "template": "Particularly paramount is {{A}}",
+      "notes": "",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-light",
+      "category": "原因 / 通用句式",
+      "title": "揭示问题",
+      "template": "...sheds light on {{B}}",
+      "notes": "",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-households",
+      "category": "原因 / 个体 / 家长期待",
+      "title": "家长重视与持续鼓励",
+      "template": "A growing number of households attach paramount importance to {{A}}, which naturally translates into persistent encouragement for children to {{do sth}}.",
+      "notes": "",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-peers",
+      "category": "原因 / 个体 / 同辈压力",
+      "title": "竞争环境与同辈压力",
+      "template": "Swept up in a cut-throat environment, individuals are relentlessly empowered by peer pressure to {{do sth}}.",
+      "notes": "",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-perseverance",
+      "category": "原因 / 个体 / 个人优点",
+      "title": "品质与坚持",
+      "template": "Particularly paramount is {{品质}}, which empowers individuals to weather setbacks and sustain their efforts despite delayed gratification.",
+      "notes": "例：perseverance（坚持不懈）。",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-resilience",
+      "category": "原因 / 个体 / 个人优点",
+      "title": "情绪韧性与挑战",
+      "template": "{{A}} offers emotional resilience when difficulties arise, rendering daunting challenges far easier to confront.",
+      "notes": "A：Mutual support（相互支持）。",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-gratification",
+      "category": "原因 / 个体 / 个人缺点",
+      "title": "即时满足与长远利益",
+      "template": "People are inherently wired to prioritize {{A}} over {{B}}, which helps explain their reluctance to {{do sth}}.",
+      "notes": "A：immediate gratification（即时满足）；B：lasting benefits（长远益处）；do sth：undertake demanding tasks（承担有难度的任务）。",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-conduct",
+      "category": "原因 / 个体 / 个人缺点",
+      "title": "不当行为的归因",
+      "template": "Their improper conduct stems from {{A}}, coupled with {{B}}.",
+      "notes": "A：selfishness（自私）；B：an obsession with the huge profits they reap（对所获巨额利润的痴迷）。",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-economy",
+      "category": "原因 / 经济 / 收入与消费能力",
+      "title": "购买力与可支配收入",
+      "template": "Purchasing power has ceased to be a major bottleneck to consumption, as China enjoys robust economic momentum that elevates disposable incomes, empowering consumers to afford {{A}} previously beyond their reach.",
+      "notes": "",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-policy",
+      "category": "原因 / 政策 / 公共投入",
+      "title": "有针对性的公共措施",
+      "template": "Recent years have seen targeted government measures to promote {{A}}, an initiative that continues to {{具体扣题}}.",
+      "notes": "结尾选项：benefit sb / improve sth / 其他具体扣题内容。",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-system",
+      "category": "原因 / 政策 / 体系缺失",
+      "title": "供给不足与需求忽视",
+      "template": "{{A}} often fall short of providing {{B}} regarding {{C}}. At its heart lies a dearth of attention to the genuine demands of {{sb}}.",
+      "notes": "保留原句 often fall，匹配时也接受 falls 等词形变化；本功能只标记表达，不判断语法。",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-technology",
+      "category": "原因 / 科技 / 平台与资源可及性",
+      "title": "科技创新与空间限制",
+      "template": "China is riding the wave of technological innovation, where the ripple effects of {{A}} have empowered us to transcend spatial constraints and reshape the way we {{do sth}}.",
+      "notes": "",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-media",
+      "category": "原因 / 传播 / 媒介与价值塑造",
+      "title": "媒介塑造认知与行动",
+      "template": "Pervasive media coverage sheds light on {{social issues}}, reshaping public perceptions and naturally translating heightened awareness into {{具体行动}}.",
+      "notes": "结尾示例：concrete action；或落实到具体行动，结合题目填写。",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-awareness",
+      "category": "原因 / 意识 / 环保等",
+      "title": "意识觉醒与责任",
+      "template": "As the public wakes up to {{A}} concerns, individuals attach paramount importance to {{B}}, reconsidering how everyday choices affect {{A变式或具体行动}}.",
+      "notes": "A：ecological（生态）；B：environmental responsibility（环保责任）；A变式：nature（自然）。",
+      "substitutions": "",
+      "enabled": true
+    },
+    {
+      "id": "reason-culture",
+      "category": "原因 / 文化 / 开放与认同",
+      "title": "文化活力与认同",
+      "template": "China's vibrant and ever-evolving culture of {{文化内容}} naturally empowers {{sb}} to {{文化行动}}.",
+      "notes": "文化行动选项：embrace cultural diversity / preserve traditional heritage。",
+      "substitutions": "",
+      "enabled": true
+    }
+  ],
+  "words": [
+    {
+      "id": "reason-word-1",
+      "term": "perseverance",
+      "meaning": "坚持不懈",
+      "forms": [
+        "persevere",
+        "perseverant"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "reason-word-2",
+      "term": "mutual support",
+      "meaning": "相互支持",
+      "forms": [],
+      "enabled": true
+    },
+    {
+      "id": "reason-word-3",
+      "term": "immediate gratification",
+      "meaning": "即时满足",
+      "forms": [],
+      "enabled": true
+    },
+    {
+      "id": "reason-word-4",
+      "term": "lasting benefits",
+      "meaning": "长远益处",
+      "forms": [],
+      "enabled": true
+    },
+    {
+      "id": "reason-word-5",
+      "term": "undertake demanding tasks",
+      "meaning": "承担有难度的任务",
+      "forms": [],
+      "enabled": true
+    },
+    {
+      "id": "reason-word-6",
+      "term": "selfishness",
+      "meaning": "自私",
+      "forms": [
+        "selfish"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "reason-word-7",
+      "term": "an obsession with the huge profits they reap",
+      "meaning": "对所获巨额利润的痴迷",
+      "forms": [],
+      "enabled": true
+    },
+    {
+      "id": "reason-word-8",
+      "term": "ecological",
+      "meaning": "生态",
+      "forms": [
+        "ecology",
+        "ecologically"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "reason-word-9",
+      "term": "environmental responsibility",
+      "meaning": "环保责任",
+      "forms": [],
+      "enabled": true
+    },
+    {
+      "id": "reason-word-10",
+      "term": "nature",
+      "meaning": "自然",
+      "forms": [
+        "natural",
+        "naturally"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "reason-word-11",
+      "term": "embrace cultural diversity",
+      "meaning": "拥抱文化多样性",
+      "forms": [],
+      "enabled": true
+    },
+    {
+      "id": "reason-word-12",
+      "term": "preserve traditional heritage",
+      "meaning": "保护传统文化遗产",
+      "forms": [],
+      "enabled": true
+    }
+  ],
+  "sourceText": "原因\n\n通用句式\n\n正向驱动：Driven by [A], [B]... / ...naturally translates into...\n动作赋能：..., empowering sb to [do sth]\n深层归因：...stems from [A], coupled with [B]. At its heart lies [C]\n揭示/强调：Particularly paramount is [A] / ...sheds light on [B]\n\n1. 个体\n\n家长：期待\nA growing number of households attach paramount importance to A, which naturally translates into persistent encouragement for children to [do sth].\n\n同辈：压力\nSwept up in a cut-throat environment, individuals are relentlessly empowered by peer pressure to [do sth].\n\n个人\n优点\nParticularly paramount is …, which empowers individuals to weather setbacks and sustain their efforts despite delayed gratification.\neg. perseverance\n\nA offers emotional resilience when difficulties arise, rendering daunting challenges far easier to confront.\nA：Mutual support相互支持\n\n缺点\nPeople are inherently wired to prioritize A over B, which helps explain their reluctance to do sth.\nA：immediate gratification 即时满足\nB：lasting benefits长远益处\ndo sth：undertake demanding tasks承担有难度的任务\n\nTheir improper conduct stems from A, coupled with B.\nA：selfishness自私\nB：an obsession with the huge profits they reap对所获巨额利润的痴迷\n\n2. 经济：收入与消费能力\nPurchasing power has ceased to be a major bottleneck to consumption, as China enjoys robust economic momentum that elevates disposable incomes, empowering consumers to afford A previously beyond their reach.\n\n3. 政策\n公共投入\nRecent years have seen targeted government measures to promote A, an initiative that continues to benefit sb / improve sth /具体扣题\n\n体系缺失\nA often fall short of providing B regarding C. At its heart lies a dearth of attention to the genuine demands of sb.\n\n4. 科技：平台与资源可及性\nChina is riding the wave of technological innovation, where the ripple effects of [A] have empowered us to transcend spatial constraints and reshape the way we [do sth].\n\n5. 传播：媒介与价值塑造\nPervasive media coverage sheds light on [social issues], reshaping public perceptions and naturally translating heightened awareness into concrete action/落实到具体行动（扣题）.\n\n6. 意识（eg.环保）\nAs the public wakes up to [A concerns] , individuals attach paramount importance to B, reconsidering how everyday choices affect A变式 / 落实到具体行动（扣题）.\nA：ecological生态\nB：environmental responsibility环保责任\nA变式：nature自然\n\n7. 文化：开放与认同\nChina's vibrant and ever-evolving culture of...naturally empowers sb to [embrace cultural diversity / preserve traditional heritage]."
+}
