@@ -21,7 +21,9 @@ export const POST:APIRoute=async({request})=>{
     if(!sameOrigin(request))return json({error:'请求来源不匹配，请刷新后重试'},403);
     if(Number(request.headers.get('content-length')||0)>420000)return json({error:'文件过大'},413);
     const raw=await request.text();if(new TextEncoder().encode(raw).length>420000)return json({error:'文件过大'},413);
-    const body=JSON.parse(raw);const action=body.action;
+    let body;try{body=JSON.parse(raw);}catch{return json({error:'输入内容不是有效 JSON'},400);}
+    if(!body||typeof body!=='object'||Array.isArray(body))return json({error:'输入内容必须为对象'},400);
+    const action=body.action;
     if(action==='login') {const cfg=await accessConfig();if(!equal(String(body.code||''),cfg.code))return json({error:'访问码不正确'},401);return json({ok:true},200,{'Set-Cookie':`folio_session=${await makeSession(cfg.signing)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000`});}
     if(action==='logout')return json({ok:true},200,{'Set-Cookie':'folio_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0'});
     if(!await authorized(request))return json({error:'请先输入个人访问码'},401);
@@ -65,8 +67,18 @@ export const POST:APIRoute=async({request})=>{
       const recordId=id(body.id);const q=questionMap.get(str(body.questionId,100));if(!q)throw new Error('请选择有效真题');
       const text=str(body.text,60000);if(action==='submit'&&!text.trim())throw new Error('请先输入作文正文');
       const row=await find(recordId);if(row?.kind==='deleted')return json({error:'记录已删除，请新建写作，避免旧页面重新保存已删除内容。'},410);if(row&&row.kind!=='writing')throw new Error('记录类型不正确');const old=row?decode<Writing>(row):null;
-      if(old&&old.status!=='draft'){if(action==='submit')return json({writing:old,alreadySubmitted:true});throw new Error('已提交稿件请使用“编辑本稿”修改正文');}
-      const now=new Date().toISOString();const w:Writing={id:recordId,questionId:q.id,text,status:action==='submit'?'submitted':'draft',createdAt:old?.createdAt||now,updatedAt:now,...(body.parentId?{parentId:id(body.parentId)}:{})};
+      if(old&&old.questionId!==q.id)return json({error:'记录题目不匹配，请重新打开记录'},409);
+      if(old&&old.status!=='draft'){
+        if(action==='submit'){
+          if(old.text!==text)return json({error:'记录已提交，当前正文与云端不一致；请先复制保留当前文字，再重新打开记录。'},409);
+          return json({writing:old,alreadySubmitted:true,versions:await ensureHistory(old)});
+        }
+        throw new Error('已提交稿件请使用“编辑本稿”修改正文');
+      }
+      // Retrying an identical save must not advance the concurrency token.
+      if(old&&action==='draft'&&old.text===text)return json({writing:old,unchanged:true,versions:[]});
+      if(old&&body.baseUpdatedAt!==old.updatedAt)return json({error:'记录已在其他页面更新，请先复制保留当前文字，再重新打开记录。'},409);
+      const now=new Date(Math.max(Date.now(),old?Date.parse(old.updatedAt)+1:0)).toISOString();const w:Writing={id:recordId,questionId:q.id,text,status:action==='submit'?'submitted':'draft',createdAt:old?.createdAt||now,updatedAt:now,...(body.parentId?{parentId:id(body.parentId)}:{})};
       if(action==='submit'){w.revision=1;w.submittedAt=now;w.promptSnapshot=str(body.prompt,16000);w.rubricSnapshot=str(body.rubric??DEFAULT_RUBRICS[templateKey(q)],16000);w.questionSnapshot=q;}
       await put(recordId,'writing',w,row);if(action==='submit')await saveVersion(w,'submitted',now);return json({writing:w,versions:action==='submit'?await versions(w.id):[]});
     }
@@ -104,10 +116,30 @@ export const POST:APIRoute=async({request})=>{
       await put(event,'notice',n,stored);return json({notice:n});
     }
     if(action==='review') {
-      const writingId=id(body.writingId);const row=await find(writingId);if(!row||row.kind!=='writing')throw new Error('请先保存对应作文');const w=decode<Writing>(row);if(w.status==='draft')throw new Error('请先提交作文，再关联批阅结果');
-      if(str(body.baseUpdatedAt,100)!==w.updatedAt)return json({error:'记录已更新，请重新打开记录并核对正文后导入批阅。'},409);await ensureHistory(w);const bound=await saveVersion(w,(w.revision||1)>1?'edit':'submitted');
-      const markdown=str(body.markdown,300000);if(!markdown.trim())throw new Error('批阅内容不能为空');const r:Review={id:id(body.id),writingId,questionId:w.questionId,filename:str(body.filename,180),markdown,createdAt:new Date().toISOString(),label:str(body.label||'批阅结果',100),writingRevision:w.revision||1,revisionId:bound.id,binding:'latest'};
-      const prior=await find(r.id);if(prior?.kind==='review')return json({review:decode<Review>(prior)});await put(r.id,'review',r);w.status='reviewed';w.updatedAt=r.createdAt;await put(w.id,'writing',w,row);return json({review:analyzedReview(r),writing:w,versions:await versions(w.id)});
+      const writingId=id(body.writingId),reviewId=id(body.id);
+      const row=await find(writingId);if(!row||row.kind!=='writing')throw new Error('请先保存对应作文');
+      const w=decode<Writing>(row);if(w.status==='draft')throw new Error('请先提交作文，再关联批阅结果');
+      const markdown=str(body.markdown,300000),filename=str(body.filename,180),label=str(body.label||'批阅结果',100);
+      if(!markdown.trim())throw new Error('批阅内容不能为空');
+      const prior=await find(reviewId);
+      if(prior){
+        if(prior.kind!=='review')return json({error:'批阅编号已被其他记录使用'},409);
+        const saved=decode<Review>(prior);
+        if(saved.writingId!==writingId||saved.questionId!==w.questionId||saved.markdown!==markdown||saved.filename!==filename||saved.label!==label||saved.writingRevision!==(w.revision||1)||saved.revisionId!==`${w.id}-v${w.revision||1}`)
+          return json({error:'批阅编号对应的记录或内容不一致，请重新导入'},409);
+        const history=await ensureHistory(w);
+        // A previous attempt may have inserted the review before the writing update failed.
+        if(w.status!=='reviewed'){
+          w.status='reviewed';w.updatedAt=new Date(Math.max(Date.now(),Date.parse(w.updatedAt)+1)).toISOString();
+          await put(w.id,'writing',w,row);
+        }
+        return json({review:analyzedReview(saved),writing:w,versions:history,duplicate:true});
+      }
+      if(str(body.baseUpdatedAt,100)!==w.updatedAt)return json({error:'记录已更新，请重新打开记录并核对正文后导入批阅。'},409);
+      await ensureHistory(w);const bound=await saveVersion(w,(w.revision||1)>1?'edit':'submitted');
+      const r:Review={id:reviewId,writingId,questionId:w.questionId,filename,markdown,createdAt:new Date(Math.max(Date.now(),Date.parse(w.updatedAt)+1)).toISOString(),label,writingRevision:w.revision||1,revisionId:bound.id,binding:'latest'};
+      await put(r.id,'review',r);w.status='reviewed';w.updatedAt=r.createdAt;await put(w.id,'writing',w,row);
+      return json({review:analyzedReview(r),writing:w,versions:await versions(w.id)});
     }
     if(action==='expressions') {
       const row=await find('expression-library');
