@@ -23,7 +23,11 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2026-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "回复信",
+      "介绍信"
+    ]
   },
   {
     "id": "2026-english-two-large",
@@ -64,7 +68,11 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2025-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "回复信",
+      "介绍信"
+    ]
   },
   {
     "id": "2025-english-two-large",
@@ -105,7 +113,11 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2024-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "建议信",
+      "回复信"
+    ]
   },
   {
     "id": "2024-english-two-large",
@@ -146,7 +158,10 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2023-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "通知"
+    ]
   },
   {
     "id": "2023-english-two-large",
@@ -187,7 +202,10 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2022-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "邀请信"
+    ]
   },
   {
     "id": "2022-english-two-large",
@@ -228,7 +246,11 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2021-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "建议信",
+      "推荐信"
+    ]
   },
   {
     "id": "2021-english-two-large",
@@ -269,7 +291,10 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2020-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "通知"
+    ]
   },
   {
     "id": "2020-english-two-large",
@@ -310,7 +335,11 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2019-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "回复信",
+      "介绍信"
+    ]
   },
   {
     "id": "2019-english-two-large",
@@ -351,7 +380,10 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2018-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "邀请信"
+    ]
   },
   {
     "id": "2018-english-two-large",
@@ -392,7 +424,10 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2017-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "推荐信"
+    ]
   },
   {
     "id": "2017-english-two-large",
@@ -433,7 +468,10 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2016-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "通知"
+    ]
   },
   {
     "id": "2016-english-two-large",
@@ -474,7 +512,10 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2015-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "推荐信"
+    ]
   },
   {
     "id": "2015-english-two-large",
@@ -515,7 +556,10 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2014-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "建议信"
+    ]
   },
   {
     "id": "2014-english-two-large",
@@ -556,7 +600,10 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2013-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "邀请信"
+    ]
   },
   {
     "id": "2013-english-two-large",
@@ -597,7 +644,10 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2012-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "建议信"
+    ]
   },
   {
     "id": "2012-english-two-large",
@@ -638,7 +688,10 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2011-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "推荐信"
+    ]
   },
   {
     "id": "2011-english-two-large",
@@ -679,7 +732,10 @@
     "source": "https://english-exam.lazynote.cn/kaoyan/sections/2010-english-one/section3-part-a/",
     "sourceLabel": "公开原题整理页",
     "provenance": "按来源题面转录，未导入参考范文；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "通知"
+    ]
   },
   {
     "id": "2010-english-two-large",
@@ -720,7 +776,10 @@
     "source": "https://github.com/ayaka-notes/201-english/blob/main/1/2009年-英语一.tex",
     "sourceLabel": "公开真题集转录",
     "provenance": "按来源转录，保留原题要求；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "建议信"
+    ]
   },
   {
     "id": "2008-large",
@@ -746,7 +805,11 @@
     "source": "https://github.com/ayaka-notes/201-english/blob/main/1/2008年-英语一.tex",
     "sourceLabel": "公开真题集转录",
     "provenance": "按来源转录，保留原题要求；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "道歉信",
+      "建议信"
+    ]
   },
   {
     "id": "2007-large",
@@ -772,6 +835,9 @@
     "source": "https://github.com/ayaka-notes/201-english/blob/main/1/2007年-英语一.tex",
     "sourceLabel": "公开真题集转录",
     "provenance": "按来源转录，保留原题要求；主题名称为检索标签。",
-    "exam": "one"
+    "exam": "one",
+    "smallCategories": [
+      "建议信"
+    ]
   }
 ]

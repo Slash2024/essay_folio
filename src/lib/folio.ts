@@ -4,7 +4,9 @@ import type { ReviewAnalysis, IssueCategory } from './review-analysis';
 import reviewSettings from '../data/review-settings.json';
 export type Exam = 'one' | 'two';
 export type EssayType = 'small' | 'large';
-export interface Question { id: string; exam?: Exam; chartType?: string; year: number; type: EssayType; title: string; directions: string; images: string[]; source: string; sourceLabel: string; provenance: string }
+export const SMALL_ESSAY_CATEGORIES = ['邀请信','感谢信','建议信','推荐信','通知','投诉信','回复信','介绍信','道歉信','辞职信','求职信/申请信','纪要'] as const;
+export type SmallEssayCategory = typeof SMALL_ESSAY_CATEGORIES[number];
+export interface Question { id: string; exam?: Exam; chartType?: string; smallCategories?: SmallEssayCategory[]; year: number; type: EssayType; title: string; directions: string; images: string[]; source: string; sourceLabel: string; provenance: string }
 export interface Writing { id: string; questionId: string; text: string; status: 'draft'|'submitted'|'reviewed'; createdAt: string; updatedAt: string; revision?: number; lastEditedAt?: string; submittedAt?: string; parentId?: string; promptSnapshot?: string; rubricSnapshot?: string; questionSnapshot?: Question }
 export interface Review { id: string; writingId: string; questionId: string; filename: string; markdown: string; createdAt: string; label: string; writingRevision?: number; revisionId?:string; binding?:'latest'|'legacySnapshot'; analysis?:ReviewAnalysis; issueOverrides?:Record<string,IssueCategory[]>; analysisUpdatedAt?:string; study?:ReviewStudy;curation?:ReviewCuration;curationHistory?:CurationVersion[] }
 export interface Notice { id: string; writingId: string; state: 'sending'|'accepted'|'failed'; createdAt: string; error?: string }
