@@ -30,6 +30,10 @@ npm test
 
 服务端从 Wix Secrets 读取 `ESSAY_ACCESS`（访问配置）及 `ESSAY_BARK_KEY`（推送密钥）。只记录密钥名称，不保存或导出值。实际作文、批阅和整理记录在 Wix `EssayArchive` 集合中，源码迁移不会搬动、重置或备份该集合。题库、题图、默认表达库、提示词和评分标准属于源码。
 
+## 架构
+
+模块划分、记录关系、写入顺序及测试边界见 [docs/architecture.md](docs/architecture.md)。
+
 ## 后续开发
 
 按 [CONTRIBUTING.md](CONTRIBUTING.md) 使用分支、PR、检查和发布记录。部署继续由 Wix 承载；GitHub 管理源码、代码差异和版本说明。

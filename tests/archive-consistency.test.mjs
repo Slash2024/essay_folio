@@ -1,0 +1,113 @@
+import {build} from 'esbuild';
+import assert from 'node:assert/strict';
+import {after, beforeEach, test} from 'node:test';
+import {mkdtemp, rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+
+const dir = await mkdtemp(join(tmpdir(), 'folio-consistency-'));
+const archive = `
+export const db = new Map();
+export const failures = new Set();
+export const decode = row => JSON.parse(row.payload);
+export async function find(id) { return db.get(id) || null; }
+export async function put(id, kind, payload, existing) {
+  if (failures.delete(kind)) throw Error('Injected storage failure');
+  if (!existing && db.has(id)) throw Error('Duplicate ID');
+  const row = {_id: id, kind, writingId: payload.writingId || '', payload: JSON.stringify(payload)};
+  db.set(id, row);
+  return row;
+}
+export async function list(kind, {writingId = '', offset = 0, limit = 50} = {}) {
+  const rows = [...db.values()].filter(row => row.kind === kind && (!writingId || row.writingId === writingId));
+  return {rows: rows.slice(offset, offset + limit), total: rows.length, hasNext: rows.length > offset + limit};
+}
+export async function all(kind) { return [...db.values()].filter(row => row.kind === kind); }
+export async function deleteRow(id) { db.delete(id); }
+`;
+await build({
+  stdin: {contents: "export {POST} from './src/pages/api/folio'; export {db, failures} from './src/server/archive';", resolveDir: process.cwd()},
+  bundle: true, platform: 'node', format: 'esm', outfile: join(dir, 'api.mjs'),
+  plugins: [{name: 'isolated-storage', setup(b) {
+    b.onResolve({filter: /server\/archive$|^\.\/archive$/}, () => ({path: 'archive', namespace: 'test'}));
+    b.onResolve({filter: /server\/session$/}, () => ({path: 'session', namespace: 'test'}));
+    b.onLoad({filter: /.*/, namespace: 'test'}, ({path}) => ({loader: 'js', contents: path === 'archive' ? archive : `
+      export const authorized=async()=>true, sameOrigin=()=>true, equal=(a,b)=>a===b,
+        makeSession=async()=>'', accessConfig=async()=>({}),
+        secret=async()=>{throw Error('No external services in tests')}, SITE_ORIGIN='https://test.invalid';
+    `}));
+  }}],
+});
+const {POST, db, failures} = await import(join(dir, 'api.mjs'));
+after(() => rm(dir, {recursive: true, force: true}));
+beforeEach(() => { db.clear(); failures.clear(); });
+async function raw(body) {
+  const response = await POST({request: new Request('https://test.invalid/api/folio', {
+    method: 'POST', headers: {'content-type': 'application/json'}, body,
+  })});
+  return {status: response.status, ...await response.json()};
+}
+const call = (action, data = {}) => raw(JSON.stringify({action, ...data}));
+const writing = {id: 'synthetic-writing', questionId: '2024-large', text: 'A synthetic essay.', prompt: 'Test prompt', rubric: 'Test rubric'};
+const review = {id: 'synthetic-review', writingId: writing.id, markdown: '8. 评分\n预估分数：14/20分。', filename: 'synthetic.md', label: 'Synthetic review'};
+
+test('stale draft save and submit preserve the newer cloud text', async () => {
+  const first = await call('draft', writing);
+  const next = await call('draft', {...writing, text: 'Newer cloud text.', baseUpdatedAt: first.writing.updatedAt});
+  assert.equal(next.status, 200);
+  assert.notEqual(next.writing.updatedAt, first.writing.updatedAt);
+  for (const action of ['draft', 'submit']) {
+    const stale = await call(action, {...writing, text: 'Stale tab text.', baseUpdatedAt: first.writing.updatedAt});
+    assert.equal(stale.status, 409);
+    assert.equal(JSON.parse(db.get(writing.id).payload).text, 'Newer cloud text.');
+  }
+  assert.equal((await call('draft', {...writing, text: 'Missing version.'})).status, 409);
+  assert.equal((await call('draft', {...writing, questionId: '2023-large', baseUpdatedAt: next.writing.updatedAt})).status, 409);
+});
+
+test('identical draft retries return the saved revision without rewriting', async () => {
+  const first = await call('draft', writing);
+  const stored = db.get(writing.id);
+  const retry = await call('draft', {...writing, baseUpdatedAt: null});
+  assert.equal(db.get(writing.id), stored);
+  assert.equal(retry.status, 200);
+  assert.equal(retry.writing.updatedAt, first.writing.updatedAt);
+});
+
+test('submit retry recovers a missing version after partial persistence', async () => {
+  failures.add('revision');
+  assert.equal((await call('submit', writing)).status, 500);
+  assert.equal(db.has(writing.id), true);
+  const retry = await call('submit', writing);
+  assert.equal(retry.status, 200);
+  assert.equal(retry.versions.length, 1);
+  assert.equal(retry.versions[0].text, writing.text);
+  assert.equal(retry.alreadySubmitted, true);
+  assert.equal((await call('submit', {...writing, text: 'Different retry body.'})).status, 409);
+});
+
+test('review retry repairs the writing status and returns a complete response', async () => {
+  const submitted = await call('submit', writing);
+  const request = {...review, baseUpdatedAt: submitted.writing.updatedAt};
+  failures.add('writing');
+  assert.equal((await call('review', request)).status, 500);
+  assert.equal(db.has(review.id), true);
+  const retry = await call('review', request);
+  assert.equal(retry.status, 200);
+  assert.equal(retry.writing.status, 'reviewed');
+  assert.equal(retry.review.analysis.score.point, 14);
+  assert.equal(retry.versions.length, 1);
+  const repeated = await call('review', request);
+  assert.equal(repeated.status, 200);
+  assert.equal(repeated.writing.updatedAt, retry.writing.updatedAt);
+  assert.equal([...db.values()].filter(row => row.kind === 'review').length, 1);
+  assert.equal((await call('review', {...request, markdown: 'Different retry content.'})).status, 409);
+  const other = await call('submit', {...writing, id: 'another-writing'});
+  assert.equal((await call('review', {...request, writingId: other.writing.id, baseUpdatedAt: other.writing.updatedAt})).status, 409);
+});
+
+test('malformed JSON and non-object bodies are client errors', async () => {
+  for (const body of ['{', 'null', '[]', '1', '"text"']) {
+    assert.equal((await raw(body)).status, 400);
+  }
+});
