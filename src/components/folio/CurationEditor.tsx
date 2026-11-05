@@ -1,9 +1,11 @@
+import {useUnsavedChanges} from '../../hooks/useUnsavedChanges';
 import {useRef,useState} from 'react';
 import type {ReadingRow} from '../../lib/sentence-reading';
 import {sourceParagraphs} from '../../lib/sentence-reading';
 import {KIND_LABELS,DISPLAY_LABELS,EMPHASIS_LABELS,findSourceMatches,type CuratedNote} from '../../lib/review-curation';
 export default function CurationEditor({initial,original,rows,busy,error,onSave,onCancel,onGuide}:{initial:CuratedNote;original:string;rows:ReadingRow[];busy:boolean;error:string;onSave:(note:CuratedNote)=>Promise<boolean>;onCancel:()=>void;onGuide?:()=>void}){
  const [draft,setDraft]=useState(initial),[localError,setLocalError]=useState(''),[rangeError,setRangeError]=useState(''),[quote,setQuote]=useState(''),[matches,setMatches]=useState<{start:number;end:number}[]>([]),[match,setMatch]=useState('');const source=useRef<HTMLTextAreaElement>(null);
+ useUnsavedChanges(JSON.stringify(draft)!==JSON.stringify(initial),busy);
  const set=<K extends keyof CuratedNote>(key:K,value:CuratedNote[K])=>setDraft(old=>({...old,[key]:value}));
  function choose(value:string){setRangeError('');if(value==='global'||value==='unlocated'){setDraft(old=>({...old,scope:value,anchor:null}));return;}const [start,end]=value.split(':').map(Number);setDraft(old=>({...old,scope:'range',anchor:{start,end}}));requestAnimationFrame(()=>{source.current?.focus();source.current?.setSelectionRange(start,end);});}
  function useSelection(){const el=source.current;if(!el||el.selectionEnd<=el.selectionStart){setRangeError('请先在原文中选择词语或句子，再使用当前选区。');return;}const start=el.selectionStart,end=el.selectionEnd;setDraft(old=>({...old,scope:'range',anchor:{start,end}}));setLocalError('');setRangeError('');}

@@ -106,7 +106,14 @@ export function exactSurfaceRange(text:string,quote:string,at:TextAnchor):TextAn
 }
 export function sentenceDisplays(text:string,rows:ReadingRow[],located:LocatedReviewNote[],alignments?:AlignmentStore):SentenceDisplay[]{
  located=located.filter(n=>!n.note.hidden);
- const patches=located.flatMap(n=>{if(n.note.display==='notes'||n.note.kind!=='correction'||!n.note.original||!n.note.replacement||!n.range)return [];const quote=locateQuote(text,n.note.original);const range=quote?exactSurfaceRange(text,n.note.original,quote):null;if(!range||range.start<n.range.start-8||range.end>n.range.end+8)return [];return [{range,note:n.note}];});
+ const patches=located.flatMap(n=>{if(n.note.display==='notes'||n.note.kind!=='correction'||!n.note.original||!n.note.replacement||!n.range)return [];let range:TextAnchor|null=null;
+   // A manually chosen surface disambiguates repeated wording; automatic
+   // matches must remain unique. Keep every patch inside the chosen range.
+   if(n.source==='manual'||n.note.origin&&n.note.scope==='range'){
+    range=exactSurfaceRange(text,n.note.original,n.range);
+    if(!range){const local=locateQuote(text.slice(n.range.start,n.range.end),n.note.original);if(local)range=exactSurfaceRange(text,n.note.original,{start:n.range.start+local.start,end:n.range.start+local.end});}
+   }else{const quote=locateQuote(text,n.note.original);range=quote?exactSurfaceRange(text,n.note.original,quote):null;}
+   if(!range||range.start<n.range.start-8||range.end>n.range.end+8)return [];return [{range,note:n.note}];});
  return rows.map(row=>{
   const linked=located.filter(n=>n.note.kind!=='task'&&n.range&&n.range.start<row.end&&n.range.end>row.start);
   const local=patches.filter(p=>p.range.start>=row.start&&p.range.end<=row.end&&linked.some(n=>n.note.id===p.note.id));

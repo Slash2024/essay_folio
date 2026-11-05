@@ -1,0 +1,124 @@
+name: Audit verification build
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit-build.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+      - name: Install isolated browser runner
+        run: |
+          npm install --prefix "$RUNNER_TEMP/folio-browser" --no-save playwright
+          "$RUNNER_TEMP/folio-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Verify actual UI with synthetic storage
+        run: |
+          node --input-type=module <<'BROWSER'
+          import {build} from 'esbuild';
+          import {readFile,mkdtemp,mkdir,writeFile} from 'node:fs/promises';
+          import {join} from 'node:path';
+          import {tmpdir} from 'node:os';
+          import assert from 'node:assert/strict';
+          const {chromium}=await import('file://'+process.env.RUNNER_TEMP+'/folio-browser/node_modules/playwright/index.mjs');
+          const root=process.cwd(),temp=await mkdtemp(join(tmpdir(),'folio-audit-'));
+          const test=await readFile('tests/archive-consistency.test.mjs','utf8');
+          const archive=test.match(/const archive = `([\s\S]*?)`;/)[1];
+          await build({stdin:{contents:"export {POST} from './src/pages/api/folio';export {db} from './src/server/archive';export {reviewNotes} from './src/lib/review-interactions';export {parseReview} from './src/lib/review-analysis';",resolveDir:root},bundle:true,platform:'node',format:'esm',outfile:join(temp,'api.mjs'),plugins:[{name:'isolated',setup(b){b.onResolve({filter:/server\/archive$|^\.\/archive$/},()=>({path:'archive',namespace:'test'}));b.onResolve({filter:/server\/session$/},()=>({path:'session',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},({path})=>({loader:'js',contents:path==='archive'?archive:"export const authorized=async()=>true,sameOrigin=()=>true,equal=(a,b)=>a===b,makeSession=async()=>'',accessConfig=async()=>({}),secret=async()=>{throw Error('External calls disabled during QA')},SITE_ORIGIN='https://test.invalid';"}));}}]});
+          const m=await import(join(temp,'api.mjs'));
+          async function api(action,data={}){const r=await m.POST({request:new Request('https://test.invalid/api/folio',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,...data})})});assert.equal(r.status,200);return r.json();}
+          const original='Parks serves residents. Parks serves residents.',md='3. 逐句批改\n【原句】：Parks serves residents.\n【修改与说明】\n修改为：Parks serve residents.\n说明：主谓一致。\n8. 评分\n预估分数：14/20分。';
+          const submitted=await api('submit',{id:'synthetic-audit',questionId:'2024-large',text:original,prompt:'Test prompt'});
+          await api('review',{id:'synthetic-review',writingId:'synthetic-audit',markdown:md,filename:'synthetic.md',label:'Synthetic review',baseUpdatedAt:submitted.writing.updatedAt});
+          await api('saveCurationGuide',{version:1,status:'completed'});
+          const note=m.reviewNotes(m.parseReview(md))[0],start=original.lastIndexOf('Parks serves residents.');
+          await api('saveReviewCuration',{reviewId:'synthetic-review',baseRevision:0,operation:'upsert',note:{...note,scope:'range',anchor:{start,end:original.length},display:'inline',shortNote:'',emphasis:'none',hidden:false,origin:'edited'}});
+          await api('saveReviewStudy',{reviewId:'synthetic-review',noteId:note.id,baseRevision:0,entry:{status:'revisit',starred:true}});
+          process.env.FOLIO_UI_PREVIEW='1';const {dev}=await import('astro');
+          const server=await dev({root,server:{host:'127.0.0.1',port:4328}});
+          const browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1440,height:1000}});
+          const errors=[],checks=[];context.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));
+          await context.route('**/api/folio',async route=>{if(route.request().method()==='GET')return route.fulfill({json:{authenticated:true}});const response=await m.POST({request:new Request('https://test.invalid/api/folio',{method:'POST',headers:{'content-type':'application/json'},body:route.request().postData()})});await route.fulfill({status:response.status,contentType:'application/json',body:await response.text()});});
+          await context.route('**/api/annotation-ai',route=>route.fulfill({json:{config:{configured:false,enabled:false,baseURL:'',model:'',revision:'',jsonMode:true}}}));
+          try{
+           const page=await context.newPage();await page.goto('http://127.0.0.1:4328/?record=synthetic-audit');
+           await page.getByRole('button',{name:'整理批注',exact:true}).waitFor();assert.equal(await page.title(),'Essay Folio · 英语写作档案');
+           const removed=await page.locator('[data-sentence-id]').allTextContents();assert.equal(removed.length,2);
+           assert.equal(await page.locator('[data-sentence-id]').nth(0).locator('del').count(),0);assert.equal(await page.locator('[data-sentence-id]').nth(1).locator('del').count(),1);
+           checks.push('manual repeated quote changes only the selected occurrence');
+           await page.getByRole('button',{name:'整理批注',exact:true}).click();
+           await page.getByRole('button',{name:'编辑这条批注',exact:true}).first().click();
+           await page.getByRole('textbox',{name:'批注标题',exact:true}).fill('Synthetic unsaved curation');
+           assert.equal(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;}),true);
+           const nav=page.getByRole('navigation',{name:'主导航'});
+           for(const action of [()=>nav.getByRole('button',{name:'真题库',exact:true}).click(),()=>page.getByRole('tab',{name:'全文对照',exact:true}).click(),()=>page.getByRole('button',{name:'Markdown 原文',exact:true}).click()]){
+            const dialog=page.waitForEvent('dialog');const click=action();const d=await dialog;await d.dismiss();await click;assert.equal(await page.getByRole('textbox',{name:'批注标题',exact:true}).inputValue(),'Synthetic unsaved curation');
+           }
+           checks.push('unsaved curation survives cancelled page, review-mode and tab changes');
+           await page.getByRole('button',{name:'保存整理',exact:true}).click();await page.getByRole('textbox',{name:'批注标题',exact:true}).waitFor({state:'hidden'});
+           const saved=await api('get',{id:'synthetic-audit'});assert.equal(saved.writing.text,original);assert.equal(saved.reviews[0].markdown,md);assert.equal(saved.reviews[0].curation.notes[note.id].title,'Synthetic unsaved curation');assert.equal(saved.reviews[0].study.entries[note.id].starred,true);
+           checks.push('save preserves essay, source Markdown and bookmark');
+           for(const name of ['真题库','表达库','我的收藏','批阅统计','提示词与备份']){
+            await nav.getByRole('button',{name,exact:true}).click();await page.getByRole('heading',{name,exact:true}).waitFor();
+            if(name==='真题库'){await page.getByRole('button',{name:'打开写作成就',exact:true}).click();await page.getByRole('button',{name:'关闭写作成就',exact:true}).click();}
+           }
+           checks.push('question library, achievements, expressions, bookmarks, analytics and settings render');
+           await page.setViewportSize({width:390,height:844});await nav.getByRole('button',{name:'我的收藏',exact:true}).click();await page.locator('.bookmark-card').waitFor();
+           assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await mkdir(process.env.RUNNER_TEMP+'/folio-qa',{recursive:true});
+           await page.screenshot({path:process.env.RUNNER_TEMP+'/folio-qa/mobile-bookmark.png',fullPage:false});
+           checks.push('390px bookmarks retain content without horizontal overflow');
+           assert.deepEqual(errors,[]);
+           await writeFile(process.env.RUNNER_TEMP+'/folio-qa/result.json',JSON.stringify({checks,errors},null,2));console.log(JSON.stringify({checks,errors}));
+          }finally{await browser.close();await server.stop();}
+          process.exit(0);
+          
+          BROWSER
+      - name: Build without production credentials
+        env:
+          WIX_CLIENT_ID: faf8e5aa-5dec-40eb-a4a3-17ca626abfcd
+          WIX_CLOUD_PROVIDER: KUBERNETES
+          WIX_CLIENT_INSTANCE_ID: set-at-release
+          WIX_CLIENT_PUBLIC_KEY: set-at-release
+          WIX_CLIENT_SECRET: set-at-release
+        run: node --input-type=module -e "import {build} from 'astro';await build({root:process.cwd()});process.exit(0);"
+      - name: Prepare verified source and build
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess,shutil,json
+          root=Path.cwd();out=Path('audit-release');out.mkdir()
+          tracked=[p for p in subprocess.check_output(['git','ls-files','-z']).decode().split('\0') if p]
+          for name in tracked:
+              assert not name.startswith('.env')
+              p=out/name;p.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(root/name,p)
+          for name in ['dist','.wix']:
+              shutil.copytree(root/name,out/name,ignore=shutil.ignore_patterns('.prerender','.cache'))
+          for p in (out/'dist/server').rglob('*'):
+              if p.suffix in {'.js','.mjs'}:assert '@@ASTRO_MANIFEST_REPLACE@@' not in p.read_text(errors='replace')
+          print(json.dumps({'commit':subprocess.check_output(['git','rev-parse','HEAD']).decode().strip(),'sourceFiles':len(tracked)}))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: folio-verified-release
+          path: audit-release/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: folio-qa-evidence
+          path: ${{ runner.temp }}/folio-qa/
+          if-no-files-found: ignore
+          retention-days: 3

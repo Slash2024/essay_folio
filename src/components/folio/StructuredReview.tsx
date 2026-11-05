@@ -1,3 +1,4 @@
+import {confirmUnsavedNavigation} from '../../lib/navigation';
 import {useMemo,useState} from 'react';
 import {ArrowRight,Copy,Plus} from 'lucide-react';
 import type {Review,Writing,Question} from '../../lib/folio';
@@ -23,7 +24,7 @@ export default function StructuredReview({question,review,writing,versions,onCha
  const bound=versions.find(v=>v.id===review.revisionId),original=bound?.text||'';
  const [tab,setTab]=useState<'annotations'|'compare'|'expressions'>('annotations'),[feedback,setFeedback]=useState(''),[compareMode,setCompareMode]=useState<'diff'|'side'|'original'|'revised'|'current'>('diff');
  async function copy(value:string,label:string){try{await navigator.clipboard.writeText(value);setFeedback(label+'已复制');}catch{setFeedback('复制失败，请检查剪贴板权限');}}
- function changeTab(value:typeof tab){setTab(value);setFeedback('');}
+ function changeTab(value:typeof tab){if(value!==tab&&!confirmUnsavedNavigation())return;setTab(value);setFeedback('');}
  return <div className="interactive-review">
  <div className="study-masthead"><div><h3>原文批注与复习</h3><p>原始批阅：{a.corrections.length} 条纠错 · {a.optimizations.length} 项可选优化 · {bound?`批阅对应 V${bound.version}`:'对应正文 not given'}</p></div><div className="study-score"><small>原始作文估分</small><strong>{a.score.point??'not given'}<span> / {a.score.max??'not given'}</span></strong><small>区间 {a.score.low===null?'not given':`${a.score.low}–${a.score.high}`}</small></div></div>
  {question&&a.score.max!==null&&a.score.max!==scoreMaximum(question.type)&&<p className="practice-standard-note">此批阅原始评分为 {a.score.max} 分制，与当前 {scoreMaximum(question.type)} 分制不符；保留原值，不自动换算，也不计入当前均分。</p>}

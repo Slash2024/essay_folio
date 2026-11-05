@@ -57,6 +57,15 @@ try{
  const whole={...note,id:'cross',original:'First sentence. Middle sentence.',replacement:'Combined sentence.'};const cross=sentenceDisplays(flat,ungrouped.rows,[{note:whole,range:{start:0,end:whole.original.length},source:'quote'}]);assert(cross[0].needsCheck&&cross[1].needsCheck);assert(cross.slice(0,2).every(r=>!r.inlineNoteIds.length));assert.equal(cross.map(r=>r.parts.map(p=>p.value).join('')).join(' '),flat);
  const overlapping={...note,id:'overlap',original:'parks serves',replacement:'parks serve'};const offset=text.indexOf('parks serves');const overlap=sentenceDisplays(text,parsed.rows,[...located,{note:overlapping,range:{start:offset,end:offset+12},source:'quote'}]).at(-1);assert.equal(overlap.inlineNoteIds.length,0);assert(overlap.needsCheck);assert.equal(overlap.notes.length,2);
  const optimization={...note,id:'o-1',kind:'optimization',replacement:'A useful extra sentence.'};const optional=sentenceDisplays(text,parsed.rows,[{note:optimization,range:at,source:'paragraph'}]).at(-1);assert.equal(optional.inlineNoteIds.length,0);assert.equal(optional.parts.map(p=>p.value).join(''),original);assert.equal(optional.notes.length,1);
+ const repeated='Parks serves residents. Parks serves residents.';
+ const repeatedOriginal='Parks serves residents.',secondStart=repeated.lastIndexOf(repeatedOriginal);
+ const repeatedNote={...note,id:'manual-repeat',original:repeatedOriginal,replacement:'Parks serve residents.',origin:'edited',scope:'range',anchor:{start:secondStart,end:repeated.length}};
+ const repeatedDisplays=sentenceDisplays(repeated,readingRows(repeated).rows,[{note:repeatedNote,range:repeatedNote.anchor,source:'manual'}]);
+ assert.deepEqual(repeatedDisplays[0].inlineNoteIds,[]);
+ assert.deepEqual(repeatedDisplays[1].inlineNoteIds,['manual-repeat']);
+ assert.equal(repeatedDisplays[1].parts.filter(p=>p.type!=='remove').map(p=>p.value).join(''),repeatedNote.replacement);
+ const ambiguousRepeat=sentenceDisplays(repeated,readingRows(repeated).rows,[{note:{...repeatedNote,origin:undefined,scope:undefined,anchor:undefined},range:{start:0,end:repeated.length},source:'quote'}]);
+ assert(ambiguousRepeat.every(r=>!r.inlineNoteIds.length),'automatic ambiguous matches remain unchanged');
  const wrong=sentenceDisplays(text,parsed.rows,[{note,range:{start:0,end:15},source:'manual'}]);assert(wrong.every(r=>!r.inlineNoteIds.length));
  console.log('PASS sentence reading: source offsets, quotes/abbreviations/decimals/possessives, natural paragraph and letter format groups, manual boundaries, exact inline diffs, cross-sentence/overlap/manual uncertainty, optional suggestions retained outside essay');
 }finally{await rm(dir,{recursive:true,force:true});}

@@ -127,3 +127,16 @@ test('analytics returns bound reviewed texts and rewrite links without writing d
  assert(!JSON.stringify(result).includes('CURRENT UNREVIEWED TEXT'));assert(!JSON.stringify(result).includes('UNRELATED TEXT'));
  assert.equal(JSON.stringify([...db]),before);
 });
+
+test('opening a writing includes every related review beyond the first 100', async () => {
+ await call('submit', writing);
+ for(let i=0;i<121;i++){
+  const payload={id:`review-${i}`,writingId:writing.id,questionId:writing.questionId,label:`Review ${i}`,filename:'synthetic.md',markdown:'8. 评分\n预估分数：14/20分。',createdAt:new Date(Date.UTC(2026,0,1,0,0,i)).toISOString()};
+  db.set(payload.id,{_id:payload.id,kind:'review',writingId:payload.writingId,payload:JSON.stringify(payload)});
+ }
+ db.set('foreign-review',{_id:'foreign-review',kind:'review',writingId:'other-writing',payload:JSON.stringify({id:'foreign-review',writingId:'other-writing',markdown:''})});
+ const result=await call('get',{id:writing.id});
+ assert.equal(result.status,200);assert.equal(result.reviews.length,121);
+ assert.equal(result.reviews[0].id,'review-120');assert.equal(result.reviews.at(-1).id,'review-0');
+ assert(result.reviews.every(r=>r.writingId===writing.id));
+});
