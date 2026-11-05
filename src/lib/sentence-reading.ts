@@ -28,6 +28,12 @@ export function sourceParagraphs(text:string):TextAnchor[]{
  return result;
 }
 const abbreviations=new Set(['mr','mrs','ms','dr','prof','sr','jr','st','vs','e.g','i.e','u.s','u.k','a.m','p.m','no','fig','vol']);
+const months=new Set(['jan','feb','mar','apr','may','jun','june','jul','july','aug','sep','sept','oct','nov','dec']);
+function continuesDate(word:string,rest:string):boolean {
+ // A month abbreviation before a day, year or connecting phrase is internal.
+ // At a true sentence end, e.g. "It starts in Nov. Please attend.", split normally.
+ return months.has(word.toLowerCase())&&(/^\s*(?:\d{1,2}(?:st|nd|rd|th)?\b|\d{4}\b)/i.test(rest)||/^\s*(?:to|through|and|or|of)\b/.test(rest));
+}
 function apostrophe(text:string,index:number,start:number,end:number,inSingleQuote:boolean):boolean {
  const previous=text[index-1]||'',next=text[index+1]||'';
  if(/[A-Za-z]/.test(previous)&&/[A-Za-z]/.test(next))return true;
@@ -53,7 +59,7 @@ function splitParagraph(text:string,start:number,end:number):TextAnchor[]{
   if(c==='.'&&/\d/.test(prev)&&/\d/.test(next))continue;
   if(c==='.'&&next==='.')continue;
   const prefix=text.slice(start,i);const word=prefix.match(/([A-Za-z]+(?:\.[A-Za-z]+)*)$/)?.[1]||'';
-  if(c==='.'&&(abbreviations.has(word.toLowerCase())||/^[A-Z]$/.test(word)&&/[A-Z]/.test(text.slice(i+1,end).trimStart()[0]||'')))continue;
+  if(c==='.'&&(abbreviations.has(word.toLowerCase())||continuesDate(word,text.slice(i+1,end))||/^[A-Z]$/.test(word)&&/[A-Z]/.test(text.slice(i+1,end).trimStart()[0]||'')))continue;
   let stop=i+1,stack=[...quoteStack];while(stop<end&&/[.!?"”’')\]]/.test(text[stop])){const q=text[stop];if(stack.at(-1)===q)stack.pop();stop++;}
   // Full stops still end sentences inside a quotation. Quoted exclamations
   // can belong to a surrounding sentence, e.g. He said “Great!” and smiled.
