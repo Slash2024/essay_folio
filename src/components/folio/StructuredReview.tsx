@@ -4,7 +4,7 @@ import type {Review,Writing,Question} from '../../lib/folio';
 import {scoreMaximum,wordCount} from '../../lib/folio';
 import type {WritingVersion} from '../../lib/revisions';
 import {wordDiff} from '../../lib/revisions';
-import {applyOverrides,parseReview,plain} from '../../lib/review-analysis';
+import {withScoreMaximum,applyOverrides,parseReview,plain} from '../../lib/review-analysis';
 import SentenceReview from './SentenceReview';
 import {api} from '../../lib/client';
 import MarkdownView from './MarkdownView';
@@ -19,7 +19,7 @@ function ExpressionCard({expression,usage,index,review,onFeedback}:{expression:s
  </article>;
 }
 export default function StructuredReview({question,review,writing,versions,onChange,focusNoteId,onConfigureAI}:{question?:Question;onConfigureAI?:()=>void;focusNoteId?:string;review:Review;writing:Writing|null;versions:WritingVersion[];onChange:(r:Review)=>void}){
- const a=useMemo(()=>review.analysis||applyOverrides(parseReview(review.markdown),review.issueOverrides),[review]);
+ const a=useMemo(()=>withScoreMaximum(review.analysis||applyOverrides(parseReview(review.markdown),review.issueOverrides),question||writing?.questionSnapshot),[review,question,writing?.questionSnapshot]);
  const bound=versions.find(v=>v.id===review.revisionId),original=bound?.text||'';
  const [tab,setTab]=useState<'annotations'|'compare'|'expressions'>('annotations'),[feedback,setFeedback]=useState(''),[compareMode,setCompareMode]=useState<'diff'|'side'|'original'|'revised'|'current'>('diff');
  async function copy(value:string,label:string){try{await navigator.clipboard.writeText(value);setFeedback(label+'已复制');}catch{setFeedback('复制失败，请检查剪贴板权限');}}

@@ -1,3 +1,4 @@
+import {scoreMaximum,type Question} from './folio';
 // A deterministic parser: only explicit content from the imported Markdown is extracted.
 export const PARSER_VERSION=1;
 export const SECTION_NAMES=['题目要求与完成情况','总体评价','逐句批改','模板基础上的个性化优化','最值得记住的错误','修改后的完整作文','最值得积累的表达','评分'] as const;
@@ -46,3 +47,9 @@ export function parseReview(markdown:string):ReviewAnalysis {
   return {parserVersion:PARSER_VERSION,sections,task,corrections,optimizations,issues,issueSource,expressions,revisedEssay,reportedWords:task['字数情况'],revisedReportedWords:revisedRaw?plain(revisedRaw).match(/(?:约\s*)?\d+\s*词/)?.[0]||null:null,score:{point:point===undefined||point===null?null:Number(point),low:range?Number(range[1]):null,high:range?Number(range[2]):null,max:max===undefined||max===null?null:Number(max),band:field(sections[7],['预估档次']),evidence:scoreText,advantages:field(sections[7],['得分优势']),deductions:field(sections[7],['主要扣分点'])},source:null,model:null};
 }
 export function applyOverrides(analysis:ReviewAnalysis,overrides?:Record<string,IssueCategory[]>):ReviewAnalysis{return {...analysis,issues:analysis.issues.map(i=>overrides&&Object.hasOwn(overrides,i.id)?{...i,categories:overrides[i.id],manual:true}:i)};}
+
+// The document supplies the earned score; the known task type supplies an omitted maximum.
+export function withScoreMaximum(analysis:ReviewAnalysis,question?:Pick<Question,'type'>):ReviewAnalysis {
+ if(analysis.score.max!==null||!question)return analysis;
+ return {...analysis,score:{...analysis.score,max:scoreMaximum(question.type)}};
+}

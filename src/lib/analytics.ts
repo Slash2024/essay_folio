@@ -1,6 +1,6 @@
 import type {Review,Question,Writing} from './folio';
 import {templateKey,scoreMaximum} from './folio';
-import {applyOverrides,parseReview,plain,suggestCategories,type ReviewIssue} from './review-analysis';
+import {withScoreMaximum,applyOverrides,parseReview,plain,suggestCategories,type ReviewIssue} from './review-analysis';
 import {curatedNotes} from './review-curation';
 import {reviewNotes,type ReviewNote} from './review-interactions';
 export type AnalyticsWriting=Pick<Writing,'id'|'questionId'|'status'|'createdAt'|'submittedAt'|'parentId'|'revision'>;
@@ -29,7 +29,7 @@ export function effectiveIssues(review:Review):AnalyticsIssue[]{
  const merged=new Map<string,AnalyticsIssue>();for(const item of result){const key=item.noteId||item.id,prior=merged.get(key);merged.set(key,prior?{...prior,categories:[...new Set([...prior.categories,...item.categories])]}:item);}return [...merged.values()];
 }
 export function latestReviews(reviews:Review[]){const map=new Map<string,Review>();for(const r of [...reviews].sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id)))map.set(r.writingId,r);return [...map.values()].sort((a,b)=>a.createdAt.localeCompare(b.createdAt));}
-export function analyzeGroup(reviews:Review[],questions:Question[],key:string){const map=new Map(questions.map(q=>[q.id,q]));const rows=latestReviews(reviews).filter(r=>{const q=map.get(r.questionId);return q&&templateKey(q)===key;}).map(r=>({review:r,question:map.get(r.questionId)!,analysis:{...(r.analysis||applyOverrides(parseReview(r.markdown),r.issueOverrides)),issues:effectiveIssues(r)}}));
+export function analyzeGroup(reviews:Review[],questions:Question[],key:string){const map=new Map(questions.map(q=>[q.id,q]));const rows=latestReviews(reviews).filter(r=>{const q=map.get(r.questionId);return q&&templateKey(q)===key;}).map(r=>({review:r,question:map.get(r.questionId)!,analysis:{...withScoreMaximum(r.analysis||applyOverrides(parseReview(r.markdown),r.issueOverrides),map.get(r.questionId)),issues:effectiveIssues(r)}}));
  const max=scoreMaximum(key==='small'?'small':'large');
  const scored=rows.filter(x=>x.analysis.score.point!==null&&x.analysis.score.max===max&&x.analysis.score.point>=0&&x.analysis.score.point<=max);
  const categories=new Map<string,typeof rows>();let unclassified=0;

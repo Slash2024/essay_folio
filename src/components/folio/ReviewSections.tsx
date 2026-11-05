@@ -1,8 +1,8 @@
 import {useMemo,useState} from 'react';
-import type {Review,Writing} from '../../lib/folio';
+import type {Review,Writing,Question} from '../../lib/folio';
 import {wordCount} from '../../lib/folio';
 import type {WritingVersion} from '../../lib/revisions';
-import {applyOverrides,parseReview,SECTION_NAMES,ISSUE_CATEGORIES,type ReviewIssue,type IssueCategory} from '../../lib/review-analysis';
+import {withScoreMaximum,applyOverrides,parseReview,SECTION_NAMES,ISSUE_CATEGORIES,type ReviewIssue,type IssueCategory} from '../../lib/review-analysis';
 import {api} from '../../lib/client';
 import MarkdownView from './MarkdownView';
 function Content({value}:{value:string|null|undefined}){return value?<MarkdownView markdown={value}/>:<span className="not-given">not given</span>;}
@@ -10,8 +10,8 @@ function IssueEditor({issue,review,onChange}:{issue:ReviewIssue;review:Review;on
  const [editing,setEditing]=useState(false),[values,setValues]=useState<IssueCategory[]>(issue.categories),[busy,setBusy]=useState(false),[error,setError]=useState('');
  return <article className="issue-card"><Content value={issue.evidence}/><div className="issue-tags">{issue.categories.length?issue.categories.map(c=><span key={c} className="issue-tag">{c}</span>):<span className="caption">待分类</span>}<small>{issue.manual?'手动分类':'规则建议'}</small><button className="text-button" onClick={()=>{setValues(issue.categories);setEditing(!editing);setError('');}}>调整分类</button></div>{editing&&<form className="category-editor" onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{const r=await api('saveIssueCategories',{reviewId:review.id,issueId:issue.id,categories:values,baseUpdatedAt:review.analysisUpdatedAt||''});onChange(r.review);setEditing(false);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}><div>{ISSUE_CATEGORIES.map(c=><label key={c}><input type="checkbox" checked={values.includes(c)} onChange={e=>setValues(e.target.checked?(c==='不计入问题'?[c]:[...values.filter(x=>x!=='不计入问题'),c]):values.filter(x=>x!==c))}/>{c}</label>)}</div><p className="caption">可多选，空选表示待分类；“不计入问题”将排除这一条。</p>{error&&<p className="error" role="alert">{error}</p>}<button className="button primary small" disabled={busy}>保存分类</button></form>}</article>;
 }
-export default function ReviewSections({review,writing,versions,onChange}:{review:Review;writing:Writing|null;versions:WritingVersion[];onChange:(r:Review)=>void}){
- const a=useMemo(()=>review.analysis||applyOverrides(parseReview(review.markdown),review.issueOverrides),[review]);const bound=versions.find(v=>v.id===review.revisionId);const prefix=`review-${review.id}`;
+export default function ReviewSections({question,review,writing,versions,onChange}:{question?:Question;review:Review;writing:Writing|null;versions:WritingVersion[];onChange:(r:Review)=>void}){
+ const a=useMemo(()=>withScoreMaximum(review.analysis||applyOverrides(parseReview(review.markdown),review.issueOverrides),question||writing?.questionSnapshot),[review,question,writing?.questionSnapshot]);const bound=versions.find(v=>v.id===review.revisionId);const prefix=`review-${review.id}`;
  return <div className="structured-review"><div className="analysis-score"><div><span>原始作文估分</span><strong>{a.score.point??'not given'} <small>/ {a.score.max??'not given'}</small></strong></div><div><span>合理区间</span><b>{a.score.low!==null?`${a.score.low}–${a.score.high}`:'not given'}</b></div><div><span>预估档次</span><Content value={a.score.band}/></div><div><span>批阅对应正文</span><b>{bound?`V${bound.version}`:'not given'}</b><small>系统计数 {bound?wordCount(bound.text):'not given'} words</small></div></div>
  {review.binding==='legacySnapshot'&&<p className="review-version-note">历史特例：此批阅已关联到核对后的送审快照 V{bound?.version??'not given'}。当前显示的正文是后来修改的 V{writing?.revision||1}，两者均保留，可在“修改记录”查看差异。正文现已锁定。</p>}
  <div className="analysis-info"><span>批阅工具：not given</span><span>模型：not given</span><span>规则解析 v{a.parserVersion} · {a.sections.filter(Boolean).length}/8 部分</span></div>
