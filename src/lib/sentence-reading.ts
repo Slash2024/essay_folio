@@ -7,15 +7,15 @@ export interface ReadingLayout {openingEnd:number;endingStart:number}
 export interface ReadingRow extends TextAnchor {id:string;number:number|null;paragraph:number;kind:'sentence'|'format';formatLabel?:string;text:string;section:ReadingSection}
 export interface LocatedReviewNote {note:ReviewNote;range:TextAnchor|null;source:string}
 export interface SentenceDisplay {row:ReadingRow;notes:LocatedReviewNote[];parts:DiffPart[];inlineNoteIds:string[];needsCheck:boolean}
-// Presentation only: substantial rewrites should be read as two complete sentences.
-// Count words rather than punctuation/whitespace, so small grammar fixes stay inline.
+// Only use sentence comparison when no useful unchanged phrase remains.
+// A large edit ratio alone must not hide a stable opening or clause.
 export function isSentenceRewrite(parts:DiffPart[]):boolean {
  const words=(value:string)=>(value.match(/[A-Za-z0-9]+(?:['’\-][A-Za-z0-9]+)*/g)||[]).length;
- let kept=0,removed=0,added=0,changes=0;
- for(const part of parts){const count=words(part.value);if(part.type==='same')kept+=count;else {if(part.type==='remove')removed+=count;else added+=count;if(count)changes++;}}
+ let kept=0,removed=0,added=0,stablePhrase=false;
+ for(const part of parts){const count=words(part.value);if(part.type==='same'){kept+=count;if(count>=3)stablePhrase=true;}else if(part.type==='remove')removed+=count;else added+=count;}
  if(removed+added<6)return false;
  const removal=removed/Math.max(1,kept+removed),addition=added/Math.max(1,kept+added);
- return Math.max(removal,addition)>=0.45||(changes>=4&&removal+addition>=0.6);
+ return !stablePhrase&&Math.min(removal,addition)>=0.8;
 }
 const salutations=/^(?:Dear\s+.+|To whom it may concern)[,，:：]?$/i;
 const closings=/^(?:Yours(?:\s+(?:sincerely|faithfully|truly))?|Sincerely(?:\s+yours)?|Best regards|Kind regards|Regards)[,.，]?$/i;

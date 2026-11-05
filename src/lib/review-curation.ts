@@ -10,7 +10,7 @@ export interface ReviewCuration extends CurationData {revision:number;updatedAt:
 export interface CurationChange {field:string;before:string;after:string}
 export interface CurationVersion extends CurationVersionInfo {writingId:string;reviewId:string;data:CurationData;changes:CurationChange[]}
 export const KIND_LABELS:Record<ReviewNote['kind'],string>={correction:'实际错误',optimization:'可选优化',keep:'原句可保留',personal:'个人笔记',task:'全文核对'};
-export const DISPLAY_LABELS:Record<NoteDisplay,string>={auto:'自动判断',inline:'局部词语删改',sentence:'完整句子对照',notes:'只在右侧展示'};
+export const DISPLAY_LABELS:Record<NoteDisplay,string>={auto:'短语成分对照（推荐）',inline:'逐词细节对照',sentence:'完整句子对照',notes:'只在右侧展示'};
 export const EMPHASIS_LABELS:Record<NoteEmphasis,string>={none:'不强调',bold:'加粗',underline:'下划线',highlight:'高亮'};
 const text=(value:unknown,max:number)=>{if(typeof value!=='string'||value.length>max)throw new Error('批阅整理字段格式或长度不正确');return value;};
 export function validateCuratedNote(value:unknown,original:string,base:ReviewNote[],existing?:CuratedNote):CuratedNote {
