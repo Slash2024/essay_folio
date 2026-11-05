@@ -53,7 +53,8 @@ test('latest review and exam separation are retained; priorities contain verifia
  assert.equal(insight.sampleCount,1);assert.equal(insight.patterns[0].id,'collocation');
  assert(insight.priorities.every(p=>p.evidence.length&&p.practice&&p.check));
  assert.equal(insight.priorities[0].evidence[0].reviewId,'r2');
- assert.equal(analyzeGroup(rs,questions,'englishTwoLarge').average,11);
+ const two=analyzeGroup(rs,questions,'englishTwoLarge');assert.equal(two.max,20);assert.equal(two.average,null);assert.equal(two.rows[0].analysis.score.max,15);assert.equal(two.rows[0].analysis.score.point,11);
+ const current=review('r4','w3','two',md('主谓一致错误。','主谓一致错误。','17/20分。'));assert.equal(analyzeGroup([...rs,current],questions,'englishTwoLarge').average,17);
 });
 test('rewrite comparison never turns omission into mastery and does not fabricate scores',()=>{
  const first=review(),second=review('r2','w2','q1',md('介词与固定搭配错误。','介词与固定搭配错误。','13–15分。'),'2026-01-04');

@@ -8,11 +8,12 @@ import { ISSUE_CATEGORIES, parseReview, type IssueCategory } from '../../lib/rev
 import type { APIRoute } from 'astro';
 import { accessConfig, authorized, equal, makeSession, sameOrigin, secret, SITE_ORIGIN } from '../../server/session';
 import { all, decode, find, list, put, deleteRow } from '../../server/archive';
-import { questionYearLabel, DEFAULT_TEMPLATES, DEFAULT_RUBRICS, templateKey, examName, type Question, type Writing, type Notice, type Review } from '../../lib/folio';
+import { practiceQuestion, sharedReviewSettings, questionYearLabel, DEFAULT_TEMPLATES, DEFAULT_RUBRICS, templateKey, examName, type Templates, type Question, type Writing, type Notice, type Review } from '../../lib/folio';
 import { DEFAULT_EXPRESSIONS, validateExpressions, type ExpressionLibrary } from '../../lib/expressions';
 import questionsJson from '../../data/questions.json';
 export const prerender=false;
-const questionMap=new Map((questionsJson as Question[]).map(q=>[q.id,q]));
+const practiceQuestions=(questionsJson as Question[]).map(practiceQuestion);
+const questionMap=new Map(practiceQuestions.map(q=>[q.id,q]));
 function json(body:unknown,status=200,headers:Record<string,string>={}){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...headers}});}
 function str(value:unknown,max=300000){if(typeof value!=='string'||value.length>max)throw new Error('输入内容格式或长度不正确');return value;}
 function id(value:unknown){const s=str(value,100);if(!/^[a-zA-Z0-9_-]+$/.test(s))throw new Error('记录编号不正确');return s;}
@@ -155,10 +156,10 @@ export const POST:APIRoute=async({request})=>{
       await put('expression-library','expressions',library,row);
       return json({library});
     }
-    if(action==='templates') {const [row,rubric]=await Promise.all([find('templates'),find('rubrics')]);return json({templates:{...DEFAULT_TEMPLATES,...(row?decode<Record<string,string>>(row):{})},rubrics:{...DEFAULT_RUBRICS,...(rubric?decode<Record<string,string>>(rubric):{})}});}
+    if(action==='templates') {const [row,rubric]=await Promise.all([find('templates'),find('rubrics')]);return json({templates:sharedReviewSettings(DEFAULT_TEMPLATES,row?decode<Partial<Templates>>(row):{}),rubrics:sharedReviewSettings(DEFAULT_RUBRICS,rubric?decode<Partial<Templates>>(rubric):{})});}
     if(action==='snapshot') {const writingId=id(body.writingId);const row=await find(writingId);if(!row||row.kind!=='writing')throw new Error('找不到对应作文');const w=decode<Writing>(row);const prompt=str(body.prompt,16000),rubric=str(body.rubric??DEFAULT_RUBRICS[templateKey(questionMap.get(w.questionId)!)],16000),text=str(body.text,60000);if(w.questionId!==body.questionId)throw new Error('记录题目不匹配');const snapshot={id:id(body.id),writingId,questionId:w.questionId,prompt,rubric,text,question:questionMap.get(w.questionId),createdAt:new Date().toISOString()};await put(snapshot.id,'snapshot',snapshot);return json({ok:true});}
-    if(action==='saveTemplates') {const prior=await find('templates');const previous=prior?decode<Record<string,string>>(prior):{};const t={small:str(body.small,16000),large:str(body.large,16000),englishTwoLarge:body.englishTwoLarge===undefined?(previous.englishTwoLarge||DEFAULT_TEMPLATES.englishTwoLarge):str(body.englishTwoLarge,16000)};if(!t.small.trim()||!t.large.trim()||!t.englishTwoLarge.trim())throw new Error('所有提示词均不能为空');await put('templates','templates',t,await find('templates'));return json({templates:t});}
-    if(action==='saveRubrics') {const prior=await find('rubrics');const previous=prior?decode<Record<string,string>>(prior):{};const r={small:str(body.small,16000),large:str(body.large,16000),englishTwoLarge:body.englishTwoLarge===undefined?(previous.englishTwoLarge||DEFAULT_RUBRICS.englishTwoLarge):str(body.englishTwoLarge,16000)};if(!r.small.trim()||!r.large.trim()||!r.englishTwoLarge.trim())throw new Error('所有评分标准均不能为空');await put('rubrics','rubrics',r,await find('rubrics'));return json({rubrics:r});}
+    if(action==='saveTemplates') {const t=sharedReviewSettings(DEFAULT_TEMPLATES,{small:str(body.small,16000),large:str(body.large,16000)});if(!t.small.trim()||!t.large.trim())throw new Error('所有提示词均不能为空');await put('templates','templates',t,await find('templates'));return json({templates:t});}
+    if(action==='saveRubrics') {const r=sharedReviewSettings(DEFAULT_RUBRICS,{small:str(body.small,16000),large:str(body.large,16000)});if(!r.small.trim()||!r.large.trim())throw new Error('所有评分标准均不能为空');await put('rubrics','rubrics',r,await find('rubrics'));return json({rubrics:r});}
     if(action==='migrateHistory')return json({migrated:await migrateHistory()});
     if(action==='saveReviewCuration'||action==='getReviewCurationVersion') {
       const row=await find(id(body.reviewId));if(!row||row.kind!=='review')return json({error:'批阅不存在'},404);const r=decode<Review>(row);
@@ -246,7 +247,7 @@ export const POST:APIRoute=async({request})=>{
       // Strict allowlist: no prompts, settings, notices or secrets leave the archive.
       const writings=ws.map(row=>{const w=decode<Writing>(row);return {id:w.id,questionId:w.questionId,text:w.text,status:w.status,createdAt:w.createdAt,updatedAt:w.updatedAt,submittedAt:w.submittedAt,parentId:w.parentId,revision:w.revision||1,lastEditedAt:w.lastEditedAt,versions:vs.filter(v=>v.writingId===w.id).map(v=>decode<any>(v)).sort((a,b)=>a.version-b.version)};});
       const reviews=rs.map(row=>{const r=analyzedReview(decode<Review>(row));return {id:r.id,writingId:r.writingId,questionId:r.questionId,filename:r.filename,markdown:r.markdown,createdAt:r.createdAt,label:r.label,writingRevision:r.writingRevision,revisionId:r.revisionId,binding:r.binding,analysis:r.analysis,issueOverrides:r.issueOverrides,analysisUpdatedAt:r.analysisUpdatedAt,study:r.study,curation:r.curation,alignments:r.alignments,curationHistory:cs.filter(c=>c.writingId===r.writingId).map(c=>decode<CurationVersion>(c)).filter(c=>c.reviewId===r.id&&r.curation?.history.some(h=>h.id===c.id)).sort((a,b)=>a.version-b.version)};});
-      return json({questions:questionsJson,writings,reviews});
+      return json({questions:practiceQuestions,writings,reviews});
     }
     return json({error:'不支持的操作'},400);
   } catch(e) { console.error('Folio request failed:',e instanceof Error?e.name:'Error');return json({error:e instanceof Error&&/^(输入|记录|请选择|请先|已提交|找不到|提醒|文件|批阅|两份|所有|单条|表达库)/.test(e.message)?e.message:'云端操作未成功，请稍后重试；尚未确认保存的内容请保留。'},500); }

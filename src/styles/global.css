@@ -122,3 +122,5 @@
 @media(max-width:700px){.annotation-config-grid,.annotation-preview-grid{grid-template-columns:minmax(0,1fr)}.annotation-key{grid-column:auto}.annotation-dialog{padding:20px 16px;width:calc(100% - 20px)}.annotation-dialog h2{font-size:18px}.annotation-dialog-actions{gap:10px;justify-content:flex-start}.annotation-dialog-actions .button{font-size:11px}.annotation-preview-grid .sentence-proof-diff{font-size:15px}.annotation-context{font-size:11px}}
 
 .sentence-body del+ins,.sentence-proof-diff del+ins{margin-left:.35em}
+
+.practice-standard-note{font-size:12px;line-height:1.85;color:#286555;background:#eef7f2;border-left:3px solid #74ad96;padding:10px 13px;margin:12px 0;overflow-wrap:anywhere}.original-directions{margin:15px 0;font-size:11px;color:#718797}.original-directions summary{cursor:pointer}.original-directions .directions{margin-top:10px;font-size:13px}

@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { ArrowUpRight, RefreshCw, Search, X } from 'lucide-react';
-import { LARGE_ESSAY_CATEGORIES, SMALL_ESSAY_CATEGORIES, questionYearLabel, examName, questionCategories, typeName, type Question } from '../../lib/folio';
+import { ENGLISH_TWO_PRACTICE_NOTE, scoreTarget, LARGE_ESSAY_CATEGORIES, SMALL_ESSAY_CATEGORIES, questionYearLabel, examName, questionCategories, typeName, type Question } from '../../lib/folio';
 
 const scopes = [
   { id: '', label: '全部题目' },
@@ -58,9 +58,10 @@ export function QuestionLibrary({ questions, busy, onStart, filters, setFilters 
         <div className="library-result-actions"><span className="caption" role="status">共 <b>{results.length}</b> 道题</span><button className="text-button" disabled={!active} onClick={reset}><RefreshCw size={14}/>重置筛选</button></div>
       </div>
     </section>
+    {scope==='two-large'&&<p className="practice-standard-note">{ENGLISH_TWO_PRACTICE_NOTE}</p>}
     <div className="panel question-list">{results.map(item => <div className="question-row" key={item.id}>
       <div className="year-stamp">{questionYearLabel(item)}<span>{examName(item)}<br/>{item.chartType || typeName(item.type)}</span></div>
-      <div className="question-row-body"><h3>{item.title}</h3><div className="question-category-tags">{questionCategories(item).map(value => <button key={value} onClick={() => { changeScope(`${item.exam || 'one'}-${item.type}`); setCategory(value); }}>{value}</button>)}</div><p>{item.directions.replace(/^Directions:\s*/,'')}</p>{item.source ? <a href={item.source} target="_blank" rel="noreferrer">查看来源<ArrowUpRight size={12}/></a> : <span className="caption">{item.sourceLabel} · 未标年份</span>}</div>
+      <div className="question-row-body"><h3>{item.title}</h3><p className="caption">{scoreTarget(item)}{item.exam==='two'?' · 英语一评分标准':''}</p><div className="question-category-tags">{questionCategories(item).map(value => <button key={value} onClick={() => { changeScope(`${item.exam || 'one'}-${item.type}`); setCategory(value); }}>{value}</button>)}</div><p>{item.directions.replace(/^Directions:\s*/,'')}</p>{item.source ? <a href={item.source} target="_blank" rel="noreferrer">查看来源<ArrowUpRight size={12}/></a> : <span className="caption">{item.sourceLabel} · 未标年份</span>}</div>
       <button className="button outline small" disabled={busy} onClick={() => onStart(item)}>开始写作<ArrowUpRight size={15}/></button>
     </div>)}{!results.length && <div className="empty-state"><Search/><p>没有找到符合条件的题目</p><span>可移除上方单个条件，或重置筛选重新查找。</span><button className="text-button" onClick={reset}>重置筛选</button></div>}</div>
   </>;
