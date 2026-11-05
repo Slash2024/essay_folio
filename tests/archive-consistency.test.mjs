@@ -111,3 +111,19 @@ test('malformed JSON and non-object bodies are client errors', async () => {
     assert.equal((await raw(body)).status, 400);
   }
 });
+
+test('analytics returns bound reviewed texts and rewrite links without writing data',async()=>{
+ const seed=(id,kind,data)=>db.set(id,{_id:id,kind,writingId:data.writingId||'',payload:JSON.stringify(data)});
+ seed('w1','writing',{id:'w1',questionId:'2024-large',status:'reviewed',createdAt:'2026-01-01',parentId:'w0',revision:2,text:'CURRENT UNREVIEWED TEXT'});
+ seed('v1','revision',{id:'v1',writingId:'w1',text:'BOUND REVIEWED TEXT'});
+ seed('v-other','revision',{id:'v-other',writingId:'another-writing',text:'UNRELATED TEXT'});
+ seed('r1','review',{id:'r1',writingId:'w1',questionId:'2024-large',revisionId:'v1',markdown:'8. 评分\n预估分数：14/20分。'});
+ seed('r2','review',{id:'r2',writingId:'w1',questionId:'2024-large',revisionId:'v-other',markdown:''});
+ seed('r3','review',{id:'r3',writingId:'w1',questionId:'2024-large',markdown:''});
+ seed('orphan','review',{id:'orphan',writingId:'deleted-writing',questionId:'2024-large',revisionId:'v1',markdown:''});
+ const before=JSON.stringify([...db]);const result=await call('analytics');
+ assert.equal(result.status,200);assert.equal(result.writings[0].parentId,'w0');
+ assert.deepEqual(result.texts,{r1:'BOUND REVIEWED TEXT'});assert.equal(result.reviews.length,3);
+ assert(!JSON.stringify(result).includes('CURRENT UNREVIEWED TEXT'));assert(!JSON.stringify(result).includes('UNRELATED TEXT'));
+ assert.equal(JSON.stringify([...db]),before);
+});

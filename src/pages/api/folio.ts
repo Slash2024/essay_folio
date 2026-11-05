@@ -230,7 +230,16 @@ export const POST:APIRoute=async({request})=>{
       const study:ReviewStudy={...current,revision:(current?.revision||0)+1,updatedAt:new Date().toISOString(),entries:{...current?.entries,[noteId]:{...entry,starred:false}}};
       const next={...r,study};await put(r.id,'review',next,row);return json({review:analyzedReview(next)});
     }
-    if(action==='analytics') {const [ws,rs]=await Promise.all([all('writing'),all('review')]);return json({writings:ws.map(r=>{const w=decode<Writing>(r);return {id:w.id,questionId:w.questionId,status:w.status,createdAt:w.createdAt,submittedAt:w.submittedAt};}),reviews:rs.map(r=>analyzedReview(decode<Review>(r)))});}
+    if(action==='analytics') {
+      const [ws,rs,vs]=await Promise.all([all('writing'),all('review'),all('revision')]);
+      const writings=ws.map(r=>{const w=decode<Writing>(r);return {id:w.id,questionId:w.questionId,status:w.status,createdAt:w.createdAt,submittedAt:w.submittedAt,parentId:w.parentId,revision:w.revision};});
+      const writingIds=new Set(writings.map(w=>w.id));
+      const reviews=rs.map(r=>analyzedReview(decode<Review>(r))).filter(r=>writingIds.has(r.writingId));
+      const versionsById=new Map(vs.map(row=>{const v=decode<{id:string;writingId:string;text:string}>(row);return [v.id,v] as const;}));
+      const texts:Record<string,string>={};
+      for(const r of reviews){const v=r.revisionId?versionsById.get(r.revisionId):undefined;if(v?.writingId===r.writingId)texts[r.id]=v.text;}
+      return json({writings,reviews,texts});
+    }
     if(action==='export') {
       await migrateHistory();
       const [ws,rs,vs,cs]=await Promise.all([all('writing'),all('review'),all('revision'),all('curationVersion')]);
