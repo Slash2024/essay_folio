@@ -902,5 +902,20 @@
     "smallCategories": [
       "建议信"
     ]
+  },
+  {
+    "id": "supplement-english-one-large-uncertainty-trust",
+    "exam": "one",
+    "year": null,
+    "type": "large",
+    "title": "不确定性与信任",
+    "directions": "Directions:\nRead the following excerpt from an article and write an essay. In your essay, you should explain whether or to what extent you agree with the author. Support your argument with reasons and relevant examples. Write your answer in 160-200 words on the ANSWER SHEET. (20 points)\n\nMany of us, whatever our field of work, fear that showing uncertainty can damage our image — and we may compensate by expressing overconfidence in an attempt to win trust. But in many situations people are willing to trust those who can admit they don't have a definitive answer. Recent studies found that communicating uncertainty and even admitting our mistakes is not harmful and can even be beneficial to trustworthiness. So, failure in \"expertise\" can be compensated by higher integrity and benevolence. When communicating uncertainty in a transparent way, we are perceived as less biased and willing to tell the truth.",
+    "images": [],
+    "source": "",
+    "sourceLabel": "用户提供题目",
+    "provenance": "由用户提供完整题面，未提供考试年份或外部来源；仅规范标点与空格，保留原文措辞。",
+    "topicCategories": [
+      "材料类"
+    ]
   }
 ]

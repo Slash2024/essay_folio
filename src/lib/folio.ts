@@ -8,8 +8,11 @@ export const SMALL_ESSAY_CATEGORIES = ['邀请信','感谢信','建议信','推�
 export type SmallEssayCategory = typeof SMALL_ESSAY_CATEGORIES[number];
 export const PICTURE_ESSAY_TOPICS = ['个人发展','社会道德','文化','环境保护','科技影响','经济消费'] as const;
 export type PictureEssayTopic = typeof PICTURE_ESSAY_TOPICS[number];
+export const LARGE_ESSAY_CATEGORIES = [...PICTURE_ESSAY_TOPICS, '材料类'] as const;
+export type LargeEssayCategory = typeof LARGE_ESSAY_CATEGORIES[number];
+export function questionYearLabel(q: Pick<Question,'year'>) { return q.year === null ? '补充题' : `${q.year} 年`; }
 export function questionCategories(question: Question): string[] { return question.smallCategories || question.topicCategories || (question.chartType ? [question.chartType] : []); }
-export interface Question { id: string; exam?: Exam; chartType?: string; smallCategories?: SmallEssayCategory[]; topicCategories?: PictureEssayTopic[]; year: number; type: EssayType; title: string; directions: string; images: string[]; source: string; sourceLabel: string; provenance: string }
+export interface Question { id: string; exam?: Exam; chartType?: string; smallCategories?: SmallEssayCategory[]; topicCategories?: LargeEssayCategory[]; year: number | null; type: EssayType; title: string; directions: string; images: string[]; source: string; sourceLabel: string; provenance: string }
 export interface Writing { id: string; questionId: string; text: string; status: 'draft'|'submitted'|'reviewed'; createdAt: string; updatedAt: string; revision?: number; lastEditedAt?: string; submittedAt?: string; parentId?: string; promptSnapshot?: string; rubricSnapshot?: string; questionSnapshot?: Question }
 export interface Review { id: string; writingId: string; questionId: string; filename: string; markdown: string; createdAt: string; label: string; writingRevision?: number; revisionId?:string; binding?:'latest'|'legacySnapshot'; analysis?:ReviewAnalysis; issueOverrides?:Record<string,IssueCategory[]>; analysisUpdatedAt?:string; study?:ReviewStudy;curation?:ReviewCuration;curationHistory?:CurationVersion[] }
 export interface Notice { id: string; writingId: string; state: 'sending'|'accepted'|'failed'; createdAt: string; error?: string }
@@ -38,7 +41,7 @@ export function wordTarget(q:Question) { return q.type==='small'?'约 100 词':q
 export function scoreTarget(q:Question) { return `${q.type==='small'?10:q.exam==='two'?15:20} 分 · ${wordTarget(q)}`; }
 export function wordCount(text: string) { return (text.match(/[A-Za-z]+(?:['’\-][A-Za-z]+)*/g)||[]).length; }
 export function typeName(type: EssayType) { return type==='small'?'小作文':'大作文'; }
-export function reviewPackage(q: Question, text: string, prompt: string, rubric: string = DEFAULT_RUBRICS[templateKey(q)]) { return `${prompt}\n\n---\n## ${rubricLabel(q)}\n\n${rubric}\n\n---\n## 真题\n${q.year} 年考研${examName(q)} · ${typeName(q.type)}\n\n${q.directions}\n${q.images.length ? '\n【题图】请结合随附题图批阅；如未收到图片，请先告知。\n':''}\n---\n## 我的作文\n\n${text}\n\n---\n请按以上提示词与评分标准批阅原始作文，并用 Markdown 输出。`; }
+export function reviewPackage(q: Question, text: string, prompt: string, rubric: string = DEFAULT_RUBRICS[templateKey(q)]) { return `${prompt}\n\n---\n## ${rubricLabel(q)}\n\n${rubric}\n\n---\n## 真题\n${questionYearLabel(q)} · 考研${examName(q)} · ${typeName(q.type)}\n\n${q.directions}\n${q.images.length ? '\n【题图】请结合随附题图批阅；如未收到图片，请先告知。\n':''}\n---\n## 我的作文\n\n${text}\n\n---\n请按以上提示词与评分标准批阅原始作文，并用 Markdown 输出。`; }
 
 export function reviewIsOutdated(writing:Writing|null,review:Review|undefined) {
   if(!writing||!review)return false;

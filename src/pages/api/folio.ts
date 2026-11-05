@@ -8,7 +8,7 @@ import { ISSUE_CATEGORIES, parseReview, type IssueCategory } from '../../lib/rev
 import type { APIRoute } from 'astro';
 import { accessConfig, authorized, equal, makeSession, sameOrigin, secret, SITE_ORIGIN } from '../../server/session';
 import { all, decode, find, list, put, deleteRow } from '../../server/archive';
-import { DEFAULT_TEMPLATES, DEFAULT_RUBRICS, templateKey, examName, type Question, type Writing, type Notice, type Review } from '../../lib/folio';
+import { questionYearLabel, DEFAULT_TEMPLATES, DEFAULT_RUBRICS, templateKey, examName, type Question, type Writing, type Notice, type Review } from '../../lib/folio';
 import { DEFAULT_EXPRESSIONS, validateExpressions, type ExpressionLibrary } from '../../lib/expressions';
 import questionsJson from '../../data/questions.json';
 export const prerender=false;
@@ -111,7 +111,7 @@ export const POST:APIRoute=async({request})=>{
       const n:Notice={id:event,writingId,state:'sending',createdAt:new Date().toISOString()};
       try {await put(event,'notice',n);}catch(e){const prior=await find(event);if(prior?.kind==='notice')return json({notice:decode<Notice>(prior),duplicate:true});throw e;}
       const stored=await find(event);
-      try {const key=await secret('ESSAY_BARK_KEY');const q=questionMap.get(w.questionId)!;const u=new URL(`https://api.day.app/${encodeURIComponent(key)}/${encodeURIComponent('英语作文待处理')}/${encodeURIComponent(`${q.year}年${examName(q)} · ${q.type==='small'?'小作文':'大作文'} · ${q.title}\n作文已保存，请查看记录。`)}`);u.searchParams.set('group','英语作文');u.searchParams.set('ttl','600');u.searchParams.set('url',`${SITE_ORIGIN}/?record=${writingId}`);
+      try {const key=await secret('ESSAY_BARK_KEY');const q=questionMap.get(w.questionId)!;const u=new URL(`https://api.day.app/${encodeURIComponent(key)}/${encodeURIComponent('英语作文待处理')}/${encodeURIComponent(`${questionYearLabel(q)}${examName(q)} · ${q.type==='small'?'小作文':'大作文'} · ${q.title}\n作文已保存，请查看记录。`)}`);u.searchParams.set('group','英语作文');u.searchParams.set('ttl','600');u.searchParams.set('url',`${SITE_ORIGIN}/?record=${writingId}`);
         const r=await fetch(u,{method:'GET',signal:AbortSignal.timeout(12000)});const answer=await r.json();if(!r.ok||answer.code!==200)throw new Error('推送服务未接受请求');n.state='accepted';
       }catch{n.state='failed';n.error='推送请求未成功；作文已经保存，可手动再次提醒。';}
       await put(event,'notice',n,stored);return json({notice:n});

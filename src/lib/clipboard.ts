@@ -1,5 +1,5 @@
 import type { Question } from './folio';
-import { DEFAULT_RUBRICS, reviewPackage, typeName, examName, templateKey, rubricLabel } from './folio';
+import { questionYearLabel, DEFAULT_RUBRICS, reviewPackage, typeName, examName, templateKey, rubricLabel } from './folio';
 const escape=(s:string)=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 async function loadImage(src:string) {const image=new Image();image.src=src;await image.decode();return image;}
 export async function makePacket(q:Question,text:string,prompt:string,rubric:string=DEFAULT_RUBRICS[templateKey(q)]):Promise<Blob> {
@@ -7,7 +7,7 @@ export async function makePacket(q:Question,text:string,prompt:string,rubric:str
   const measure=document.createElement('canvas').getContext('2d')!;
   const segments:{text?:string;image?:HTMLImageElement;font?:string;line?:number;color?:string;gap?:number}[]=[];
   function block(value:string,font:string,line:number,color='#152642',gap=28){measure.font=font;for(const paragraph of value.split('\n')){if(!paragraph){segments.push({gap:line/2});continue;}let current='';const tokens=paragraph.match(/[A-Za-z0-9]+(?:['’\-][A-Za-z0-9]+)*|[^A-Za-z0-9]/gu)||[];for(const token of tokens){if(measure.measureText(current+token).width>bodyWidth&&current){segments.push({text:current,font,line,color});current=token.trimStart();}else current+=token;}if(current)segments.push({text:current,font,line,color});}segments.push({gap});}
-  block(`${q.year} 年考研${examName(q)} · ${typeName(q.type)}`,'bold 36px sans-serif',52,'#087c77');
+  block(`${questionYearLabel(q)} · 考研${examName(q)} · ${typeName(q.type)}`,'bold 36px sans-serif',52,'#087c77');
   block('批阅提示词','bold 29px sans-serif',44);block(prompt,'24px sans-serif',38);
   block(rubricLabel(q),'bold 29px sans-serif',44);block(rubric,'24px sans-serif',38);
   block('完整题目','bold 29px sans-serif',44);block(q.directions,'26px Georgia, serif',40);
@@ -29,7 +29,7 @@ export async function copyPacket(q:Question,text:string,prompt:string,packet?:Bl
   if(!packet)throw new Error('图文材料还在准备，请稍后再复制');
   const imageUrl=URL.createObjectURL(packet);
   try {
-    const html=`<article><h1>${q.year} 年${examName(q)} · ${typeName(q.type)}</h1><div style="white-space:pre-wrap">${escape(plain)}</div>${q.images.map(src=>`<img src="${new URL(src,location.origin).href}" alt="原题图"/>`).join('')}</article>`;
+    const html=`<article><h1>${questionYearLabel(q)} ${examName(q)} · ${typeName(q.type)}</h1><div style="white-space:pre-wrap">${escape(plain)}</div>${q.images.map(src=>`<img src="${new URL(src,location.origin).href}" alt="原题图"/>`).join('')}</article>`;
     await navigator.clipboard.write([new ClipboardItem({'text/plain':new Blob([plain],{type:'text/plain'}),'text/html':new Blob([html],{type:'text/html'}),'image/png':packet})]);
     return '完整图文已复制。粘贴后请确认题图或完整送审长图已附带';
   } finally {URL.revokeObjectURL(imageUrl);}

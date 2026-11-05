@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { ArrowUpRight, RefreshCw, Search, X } from 'lucide-react';
-import { PICTURE_ESSAY_TOPICS, SMALL_ESSAY_CATEGORIES, examName, questionCategories, typeName, type Question } from '../../lib/folio';
+import { LARGE_ESSAY_CATEGORIES, SMALL_ESSAY_CATEGORIES, questionYearLabel, examName, questionCategories, typeName, type Question } from '../../lib/folio';
 
 const scopes = [
   { id: '', label: '全部题目' },
@@ -18,15 +18,15 @@ export function QuestionLibrary({ questions, busy, onStart, filters, setFilters 
   const setYear = (year: string) => setFilters(old => ({...old, year}));
   const setSearch = (search: string) => setFilters(old => ({...old, search}));
   const scopeQuestions = questions.filter(q => matchesScope(q, scope));
-  const years = [...new Set(scopeQuestions.map(q => q.year))].sort((a,b) => b-a);
+  const years = [...new Set(scopeQuestions.map(q => q.year).filter((y): y is number => y !== null))].sort((a,b) => b-a);
   const keyword = search.trim().toLowerCase();
-  const baseQuestions = scopeQuestions.filter(q => (!year || q.year === Number(year)) && (!keyword || `${q.year} ${examName(q)} ${typeName(q.type)} ${questionCategories(q).join(' ')} ${q.title} ${q.directions}`.toLowerCase().includes(keyword)));
+  const baseQuestions = scopeQuestions.filter(q => (!year || (year === 'supplement' ? q.year === null : q.year === Number(year))) && (!keyword || `${questionYearLabel(q)} ${examName(q)} ${typeName(q.type)} ${questionCategories(q).join(' ')} ${q.title} ${q.directions}`.toLowerCase().includes(keyword)));
   const results = baseQuestions.filter(q => !category || questionCategories(q).includes(category));
-  const categories = scope === 'one-small' ? SMALL_ESSAY_CATEGORIES : scope === 'one-large' ? PICTURE_ESSAY_TOPICS : scope === 'two-large' ? chartTypes : [];
+  const categories = scope === 'one-small' ? SMALL_ESSAY_CATEGORIES : scope === 'one-large' ? LARGE_ESSAY_CATEGORIES : scope === 'two-large' ? chartTypes : [];
   const categoryLabel = scope === 'one-small' ? '写作类别' : scope === 'two-large' ? '图表类型' : '主题分类';
   const active = !!(scope || year || keyword || category);
   function changeScope(next: string) {
-    setFilters(old => ({...old, scope: next, category: '', year: old.year && !questions.some(q => matchesScope(q,next) && q.year === Number(old.year)) ? '' : old.year}));
+    setFilters(old => ({...old, scope: next, category: '', year: old.year && !questions.some(q => matchesScope(q,next) && (old.year === 'supplement' ? q.year === null : q.year === Number(old.year))) ? '' : old.year}));
   }
   function reset() { setFilters({scope: '', category: '', year: '', search: ''}); }
 
@@ -37,7 +37,7 @@ export function QuestionLibrary({ questions, busy, onStart, filters, setFilters 
       </div>
       <div className="library-search-row">
         <label className="library-search-label"><span>关键词</span><span className="search-input"><Search size={17}/><input aria-label="搜索真题" value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索年份、类别、主题或题干"/>{search && <button className="icon-button" aria-label="清空真题搜索" onClick={() => setSearch('')}><X size={15}/></button>}</span></label>
-        <label className="library-year-label"><span>年份</span><select aria-label="筛选年份" value={year} onChange={e => setYear(e.target.value)}><option value="">全部年份</option>{years.map(y => <option key={y} value={y}>{y}</option>)}</select></label>
+        <label className="library-year-label"><span>年份</span><select aria-label="筛选年份" value={year} onChange={e => setYear(e.target.value)}><option value="">全部年份</option>{years.map(y => <option key={y} value={y}>{y}</option>)}{scopeQuestions.some(q => q.year === null) && <option value="supplement">补充题（未标年份）</option>}</select></label>
       </div>
       {scope ? <div className="library-category-group" role="group" aria-label={categoryLabel}>
         <span className="library-field-label">{categoryLabel}</span>
@@ -45,13 +45,13 @@ export function QuestionLibrary({ questions, busy, onStart, filters, setFilters 
           <button aria-pressed={!category} className={!category ? 'selected' : ''} onClick={() => setCategory('')}>全部<span>{baseQuestions.length}</span></button>
           {categories.map(value => <button key={value} aria-pressed={category === value} className={category === value ? 'selected' : ''} onClick={() => setCategory(value)}>{value}<span>{baseQuestions.filter(q => questionCategories(q).includes(value)).length}</span></button>)}
         </div>
-        <p className="caption">{scope === 'one-large' ? '按主题归类，包含近年的图表与综合题；同题可属多类。' : scope === 'one-small' ? '按写作任务归类，同题可属多类。' : '按原题图表形式归类。'} 数字为当前年份与关键词下的题数，0 表示暂无匹配。</p>
+        <p className="caption">{scope === 'one-large' ? '六类主题与材料类并列；材料类单独收录，其余题目可属多类。' : scope === 'one-small' ? '按写作任务归类，同题可属多类。' : '按原题图表形式归类。'} 数字为当前年份与关键词下的题数，0 表示暂无匹配。</p>
       </div> : <p className="library-filter-hint caption">先选择卷别与题型，可进一步按大作文主题、小作文类别或图表类型筛选。</p>}
       <div className="library-filter-summary">
         <div className="library-active-filters" aria-label="当前筛选条件">
           {scope && <button onClick={() => changeScope('')} aria-label="移除卷别与题型条件">{scopes.find(s => s.id === scope)?.label}<X size={12}/></button>}
           {category && <button onClick={() => setCategory('')} aria-label="移除分类条件">{category}<X size={12}/></button>}
-          {year && <button onClick={() => setYear('')} aria-label="移除年份条件">{year} 年<X size={12}/></button>}
+          {year && <button onClick={() => setYear('')} aria-label="移除年份条件">{year === 'supplement' ? '补充题' : `${year} 年`}<X size={12}/></button>}
           {keyword && <button onClick={() => setSearch('')} aria-label="移除关键词条件">关键词：{search.trim()}<X size={12}/></button>}
           {!active && <span className="caption">显示全部已收录真题</span>}
         </div>
@@ -59,8 +59,8 @@ export function QuestionLibrary({ questions, busy, onStart, filters, setFilters 
       </div>
     </section>
     <div className="panel question-list">{results.map(item => <div className="question-row" key={item.id}>
-      <div className="year-stamp">{item.year}<span>{examName(item)}<br/>{item.chartType || typeName(item.type)}</span></div>
-      <div className="question-row-body"><h3>{item.title}</h3><div className="question-category-tags">{questionCategories(item).map(value => <button key={value} onClick={() => { changeScope(`${item.exam || 'one'}-${item.type}`); setCategory(value); }}>{value}</button>)}</div><p>{item.directions.replace(/^Directions:\s*/,'')}</p><a href={item.source} target="_blank" rel="noreferrer">查看来源<ArrowUpRight size={12}/></a></div>
+      <div className="year-stamp">{questionYearLabel(item)}<span>{examName(item)}<br/>{item.chartType || typeName(item.type)}</span></div>
+      <div className="question-row-body"><h3>{item.title}</h3><div className="question-category-tags">{questionCategories(item).map(value => <button key={value} onClick={() => { changeScope(`${item.exam || 'one'}-${item.type}`); setCategory(value); }}>{value}</button>)}</div><p>{item.directions.replace(/^Directions:\s*/,'')}</p>{item.source ? <a href={item.source} target="_blank" rel="noreferrer">查看来源<ArrowUpRight size={12}/></a> : <span className="caption">{item.sourceLabel} · 未标年份</span>}</div>
       <button className="button outline small" disabled={busy} onClick={() => onStart(item)}>开始写作<ArrowUpRight size={15}/></button>
     </div>)}{!results.length && <div className="empty-state"><Search/><p>没有找到符合条件的题目</p><span>可移除上方单个条件，或重置筛选重新查找。</span><button className="text-button" onClick={reset}>重置筛选</button></div>}</div>
   </>;
