@@ -26,21 +26,33 @@ export async function all(kind) { return [...db.values()].filter(row => row.kind
 export async function deleteRow(id) { db.delete(id); }
 `;
 await build({
-  stdin: {contents: "export {POST} from './src/pages/api/folio'; export {db, failures} from './src/server/archive';", resolveDir: process.cwd()},
+  stdin: {contents: "export {POST} from './src/pages/api/folio'; export {db, failures} from './src/server/archive'; export {modelCalls} from './src/server/annotation-provider';", resolveDir: process.cwd()},
   bundle: true, platform: 'node', format: 'esm', outfile: join(dir, 'api.mjs'),
   plugins: [{name: 'isolated-storage', setup(b) {
     b.onResolve({filter: /server\/archive$|^\.\/archive$/}, () => ({path: 'archive', namespace: 'test'}));
-    b.onResolve({filter: /server\/session$/}, () => ({path: 'session', namespace: 'test'}));
-    b.onLoad({filter: /.*/, namespace: 'test'}, ({path}) => ({loader: 'js', contents: path === 'archive' ? archive : `
+    b.onResolve({filter: /server\/session$|^\.\/session$/}, () => ({path: 'session', namespace: 'test'}));
+    b.onResolve({filter: /annotation-config$/}, () => ({path: 'config', namespace: 'test'}));
+    b.onResolve({filter: /annotation-provider$/}, () => ({path: 'provider', namespace: 'test'}));
+    b.onLoad({filter: /.*/, namespace: 'test'}, ({path}) => ({loader: 'js', contents: path === 'archive' ? archive : path==='config' ? `
+      export class AlignmentError extends Error {constructor(message,status=400){super(message);this.status=status;}}
+      export const getAnnotationConfig=async()=>({enabled:true,apiKey:'fake'});
+    ` : path==='provider' ? `
+      export const modelCalls=[];
+      export async function requestModelJSON(config,prompt,body){
+        modelCalls.push(body);
+        return {items:body.items.map(({id})=>({id,categories:['词义与主题'],reason:'语境中的含义不匹配'}))};
+      }
+    ` : `
       export const authorized=async()=>true, sameOrigin=()=>true, equal=(a,b)=>a===b,
-        makeSession=async()=>'', accessConfig=async()=>({}),
+        makeSession=async()=>'', accessConfig=async()=>({signing:'synthetic'}),
+        sign=async message=>Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(message))).toString('base64url'),
         secret=async()=>{throw Error('No external services in tests')}, SITE_ORIGIN='https://test.invalid';
     `}));
   }}],
 });
-const {POST, db, failures} = await import(join(dir, 'api.mjs'));
+const {POST, db, failures, modelCalls} = await import(join(dir, 'api.mjs'));
 after(() => rm(dir, {recursive: true, force: true}));
-beforeEach(() => { db.clear(); failures.clear(); });
+beforeEach(() => { db.clear(); failures.clear(); modelCalls.length=0; });
 async function raw(body) {
   const response = await POST({request: new Request('https://test.invalid/api/folio', {
     method: 'POST', headers: {'content-type': 'application/json'}, body,
@@ -139,4 +151,29 @@ test('opening a writing includes every related review beyond the first 100', asy
  assert.equal(result.status,200);assert.equal(result.reviews.length,121);
  assert.equal(result.reviews[0].id,'review-120');assert.equal(result.reviews.at(-1).id,'review-0');
  assert(result.reviews.every(r=>r.writingId===writing.id));
+});
+
+
+test('classification is explicit, caches identical inputs, validates stale previews and preserves manual precedence',async()=>{
+ const submitted=await call('submit',writing);
+ const imported=await call('review',{...review,baseUpdatedAt:submitted.writing.updatedAt,
+  markdown:'5. 最值得记住的错误\n- 此处措辞不妥。\n'+review.markdown});
+ assert.equal(imported.status,200);
+ const issue=imported.review.analysis.issues[0];
+ assert.deepEqual(issue.categories,[]);
+ const items=[{reviewId:review.id,issueId:issue.id}];
+ await call('analytics');
+ assert.equal(modelCalls.length,0);
+ const generated=await call('classifyIssues',{items});
+ assert.equal(generated.status,200);
+ const candidate=generated.candidates[0];
+ assert.equal((await call('classifyIssues',{items})).status,200);
+ assert.equal(modelCalls.length,1);
+ assert(!JSON.stringify(modelCalls[0]).includes(writing.text));
+ assert.equal((await call('acceptIssueClassification',{items:[{...candidate,expiresAt:0}]})).status,409);
+ assert.equal((await call('acceptIssueClassification',{items:[candidate]})).status,200);
+ assert.equal((await call('analytics')).reviews[0].issueDecisions[0].source,'llm');
+ assert.equal((await call('saveIssueCategories',{reviewId:review.id,issueId:issue.id,categories:['主谓一致']})).status,200);
+ assert.equal((await call('analytics')).reviews[0].issueDecisions.length,0);
+ assert.equal((await call('classifyIssues',{items})).status,409);
 });

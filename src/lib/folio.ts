@@ -1,3 +1,4 @@
+import type {IssueDecision} from './analytics';
 import type {ReviewCuration,CurationVersion} from './review-curation';
 import type {AlignmentStore} from './annotation-alignment';
 import type {ReviewStudy} from './review-interactions';
@@ -15,7 +16,7 @@ export function questionYearLabel(q: Pick<Question,'year'>) { return q.year === 
 export function questionCategories(question: Question): string[] { return question.smallCategories || question.topicCategories || (question.chartType ? [question.chartType] : []); }
 export interface Question { id: string; exam?: Exam; chartType?: string; smallCategories?: SmallEssayCategory[]; topicCategories?: LargeEssayCategory[]; year: number | null; type: EssayType; title: string; directions: string; originalDirections?: string; gradingStandard?: 'english-one'; images: string[]; source: string; sourceLabel: string; provenance: string }
 export interface Writing { id: string; questionId: string; text: string; status: 'draft'|'submitted'|'reviewed'; createdAt: string; updatedAt: string; revision?: number; lastEditedAt?: string; submittedAt?: string; parentId?: string; promptSnapshot?: string; rubricSnapshot?: string; questionSnapshot?: Question }
-export interface Review { id: string; writingId: string; questionId: string; filename: string; markdown: string; createdAt: string; label: string; writingRevision?: number; revisionId?:string; binding?:'latest'|'legacySnapshot'; analysis?:ReviewAnalysis; issueOverrides?:Record<string,IssueCategory[]>; analysisUpdatedAt?:string; study?:ReviewStudy;curation?:ReviewCuration;curationHistory?:CurationVersion[];alignments?:AlignmentStore }
+export interface Review { id: string; writingId: string; questionId: string; filename: string; markdown: string; createdAt: string; label: string; writingRevision?: number; revisionId?:string; binding?:'latest'|'legacySnapshot'; analysis?:ReviewAnalysis; issueOverrides?:Record<string,IssueCategory[]>; issueDecisions?:IssueDecision[]; analysisUpdatedAt?:string; study?:ReviewStudy;curation?:ReviewCuration;curationHistory?:CurationVersion[];alignments?:AlignmentStore }
 export interface Notice { id: string; writingId: string; state: 'sending'|'accepted'|'failed'; createdAt: string; error?: string }
 export type TemplateKey = 'small' | 'large' | 'englishTwoLarge';
 export interface Templates { small: string; large: string; englishTwoLarge: string }

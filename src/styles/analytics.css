@@ -1,10 +1,5 @@
-.insight-priority-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-.insight-priority{border:1px solid #dce7e4;background:#fafcfb;border-radius:12px;padding:20px;min-width:0}
-.insight-number{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#e0efea;color:#086c64;font-size:13px;font-weight:600;margin-bottom:12px}
-.insight-priority h3{font-size:16px;line-height:1.6;margin-bottom:8px}
 .insight-recipe{margin:16px 0;font-size:13px;line-height:1.9}.insight-recipe>div+div{margin-top:12px}
 .insight-recipe dt{font-size:11px;font-weight:600;color:#087c77;margin-bottom:3px}.insight-recipe dd{margin:0;overflow-wrap:anywhere}.insight-recipe dd small{display:block;color:#64748b}
-.insight-priority summary,.insight-pattern summary{cursor:pointer;font-size:12px;color:#334155;line-height:1.8}
 .insight-pattern{padding:18px 0;border-bottom:1px solid #e3eaf0}.insight-pattern>summary{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
 .insight-pattern>summary>span{font-size:14px;font-weight:500}.insight-pattern>summary>span:before{content:'＋';color:#087c77;margin-right:8px}.insight-pattern[open]>summary>span:before{content:'−'}
 .insight-pattern>summary small{flex-shrink:0;color:#64748b}.insight-pattern[open]>summary{margin-bottom:14px}.insight-pattern>p,.insight-comparison>p{font-size:13px;line-height:1.9}
@@ -16,5 +11,11 @@
 .insight-comparison{padding:18px;background:#f8fafb;border:1px solid #e2e9ef;border-radius:10px;margin:12px 0}.insight-comparison h4{font-size:14px;line-height:1.7}
 .insight-pair-actions{display:flex;flex-wrap:wrap;gap:16px;margin:10px 0}.insight-empty{padding:16px;background:#f8fafb;border-radius:8px;color:#64748b;font-size:13px;line-height:1.9}
 .analytics-insights{min-width:0}.analytics-insights .caption{line-height:1.9}.analytics-insights h2{font-size:19px}
-@media(max-width:1100px){.insight-priority-grid{grid-template-columns:1fr}.insight-priority{padding:18px}.insight-priority .insight-recipe{display:grid;grid-template-columns:1fr 1fr;gap:20px}.insight-priority .insight-recipe>div+div{margin-top:0}}
-@media(max-width:650px){.insight-priority .insight-recipe{display:block}.insight-priority .insight-recipe>div+div{margin-top:12px}.insight-pattern>summary{gap:10px}.insight-pattern>summary>span{font-size:13px}.insight-pattern>summary small{font-size:10px}.insight-comparison{padding:14px}.analytics-insights h2{font-size:17px}}
+@media(max-width:650px){.insight-pattern>summary{gap:10px}.insight-pattern>summary>span{font-size:13px}.insight-pattern>summary small{font-size:10px}.insight-comparison{padding:14px}.analytics-insights h2{font-size:17px}}
+
+.insight-pattern summary,.stats-method summary{cursor:pointer;font-size:12px;color:#334155;line-height:1.8}
+.analytics-observations{padding-left:1.3rem;margin:12px 0}
+.analytics-observations li{margin:7px 0}
+.analytics-observations li span{margin-left:8px}
+.analytics-labels{display:flex;flex-wrap:wrap;gap:8px 16px;margin:8px 0;padding:8px;border:1px solid #dce7e4}
+.analytics-labels label{display:flex;align-items:center;gap:5px}

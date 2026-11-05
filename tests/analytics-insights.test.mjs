@@ -5,7 +5,7 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const dir=await mkdtemp(join(tmpdir(),'folio-insights-'));
-await build({entryPoints:['src/lib/analytics.ts','src/lib/analytics-insights.ts','src/lib/review-analysis.ts','src/lib/review-interactions.ts'],bundle:true,platform:'node',format:'esm',outdir:dir});
+await build({entryPoints:['src/lib/analytics.ts','src/lib/analytics-insights.ts','src/lib/review-analysis.ts','src/lib/review-interactions.ts','src/lib/issue-classification.ts'],bundle:true,platform:'node',format:'esm',outdir:dir});
 const {analyzeGroup,effectiveIssues}=await import(join(dir,'analytics.js'));
 const {buildInsights}=await import(join(dir,'analytics-insights.js'));
 const {parseReview}=await import(join(dir,'review-analysis.js'));
@@ -47,12 +47,12 @@ test('manually added correction is counted; personal notes and optional suggesti
  assert(effectiveIssues(r).some(i=>i.categories.includes('介词与固定搭配')));
  note.kind='personal';assert(!effectiveIssues(r).some(i=>i.categories.includes('介词与固定搭配')));
 });
-test('latest review and exam separation are retained; priorities contain verifiable evidence and recipes',()=>{
+test('latest review and exam separation are retained; observations require repeated evidence',()=>{
  const rs=[review(),review('r2','w1','q1',md('介词与固定搭配错误。','介词与固定搭配错误。'),'2026-01-03'),review('r3','w2','two',md('主谓一致错误。','主谓一致错误。','11/15分。'))];
  const insight=buildInsights(rs,questions,'large');
  assert.equal(insight.sampleCount,1);assert.equal(insight.patterns[0].id,'collocation');
- assert(insight.priorities.every(p=>p.evidence.length&&p.practice&&p.check));
- assert.equal(insight.priorities[0].evidence[0].reviewId,'r2');
+ assert.equal(insight.observations.length,0);
+ assert.equal(insight.patterns[0].evidence[0].reviewId,'r2');
  const two=analyzeGroup(rs,questions,'englishTwoLarge');assert.equal(two.max,20);assert.equal(two.average,null);assert.equal(two.rows[0].analysis.score.max,15);assert.equal(two.rows[0].analysis.score.point,11);
  const current=review('r4','w3','two',md('主谓一致错误。','主谓一致错误。','17/20分。'));assert.equal(analyzeGroup([...rs,current],questions,'englishTwoLarge').average,17);
 });
@@ -77,4 +77,28 @@ test('positive strengths exclude negative clauses and recommended expressions',(
  r.analysis.sections[1]='表达不自然。';r.analysis.expressions=[{expression:'表达准确，语言流畅',usage:null}];
  const i=buildInsights([r],questions,'large');
  assert.deepEqual(i.strengths.map(s=>s.id),['structure']);
+});
+
+test('score bands follow rubric boundaries and keep interval-only scores out',()=>{
+ const scores=['0/20分','12.5/20分','13/20分','20/20分','13–15分','11/15分'];
+ const records=scores.map((s,i)=>review('r'+i,'w'+i,'q1',md(undefined,undefined,s)));
+ const a=analyzeGroup(records,questions,'large');
+ assert.equal(a.median,12.75);assert.equal(a.minimum,0);assert.equal(a.maximum,20);
+ assert.deepEqual(a.bands.map(b=>b.count),[1,0,0,1,1,1]);
+});
+test('repeated evidence separates repeated same-question drafts and different questions',()=>{
+ const records=Array.from({length:6},(_,i)=>review('r'+i,'w'+i,i===5?'q2':'q1',
+  i<3?md('介词与固定搭配错误。'):md(),'2026-01-0'+(i+1)));
+ const {observations}=buildInsights(records,questions,'large');
+ const repeated=observations.find(o=>o.id==='agreement');
+ assert.equal(repeated.questionCount,2);assert.equal(repeated.sameQuestionCount,1);
+ assert.equal(repeated.priorCount,0);assert.equal(repeated.recentCount,3);
+});
+test('classification accepts multiple allowlisted labels or abstention and rejects malformed output',async()=>{
+ const {parseClassification}=await import(join(dir,'issue-classification.js'));
+ const entry={id:'1',categories:['主谓一致','时态与语态'],reason:'谓语数和时态均不匹配'};
+ assert.deepEqual(parseClassification({items:[entry]},['1']).get('1').categories,entry.categories);
+ assert.deepEqual(parseClassification({items:[{...entry,categories:[]}]},['1']).get('1').categories,[]);
+ for(const items of [[{...entry,categories:['不计入问题']}],[{...entry,categories:['主谓一致','主谓一致']}],[{...entry,id:'2'}],[]])
+  assert.throws(()=>parseClassification({items},['1']));
 });
