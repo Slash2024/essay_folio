@@ -1,5 +1,5 @@
 import type { Question } from './folio';
-import { questionYearLabel, DEFAULT_RUBRICS, reviewPackage, typeName, examName, templateKey, rubricLabel } from './folio';
+import { reviewPrompt, questionYearLabel, DEFAULT_RUBRICS, reviewPackage, typeName, examName, templateKey, rubricLabel } from './folio';
 const escape=(s:string)=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 async function loadImage(src:string) {const image=new Image();image.src=src;await image.decode();return image;}
 export async function makePacket(q:Question,text:string,prompt:string,rubric:string=DEFAULT_RUBRICS[templateKey(q)]):Promise<Blob> {
@@ -8,7 +8,7 @@ export async function makePacket(q:Question,text:string,prompt:string,rubric:str
   const segments:{text?:string;image?:HTMLImageElement;font?:string;line?:number;color?:string;gap?:number}[]=[];
   function block(value:string,font:string,line:number,color='#152642',gap=28){measure.font=font;for(const paragraph of value.split('\n')){if(!paragraph){segments.push({gap:line/2});continue;}let current='';const tokens=paragraph.match(/[A-Za-z0-9]+(?:['’\-][A-Za-z0-9]+)*|[^A-Za-z0-9]/gu)||[];for(const token of tokens){if(measure.measureText(current+token).width>bodyWidth&&current){segments.push({text:current,font,line,color});current=token.trimStart();}else current+=token;}if(current)segments.push({text:current,font,line,color});}segments.push({gap});}
   block(`${questionYearLabel(q)} · 考研${examName(q)} · ${typeName(q.type)}`,'bold 36px sans-serif',52,'#087c77');
-  block('批阅提示词','bold 29px sans-serif',44);block(prompt,'24px sans-serif',38);
+  block('批阅提示词','bold 29px sans-serif',44);block(reviewPrompt(q,prompt),'24px sans-serif',38);
   block(rubricLabel(q),'bold 29px sans-serif',44);block(rubric,'24px sans-serif',38);
   block('完整题目','bold 29px sans-serif',44);block(q.directions,'26px Georgia, serif',40);
   for(const image of images)segments.push({image,gap:30});

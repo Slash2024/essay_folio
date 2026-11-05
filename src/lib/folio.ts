@@ -41,7 +41,11 @@ export function wordTarget(q:Question) { return q.type==='small'?'约 100 词':q
 export function scoreTarget(q:Question) { return `${q.type==='small'?10:q.exam==='two'?15:20} 分 · ${wordTarget(q)}`; }
 export function wordCount(text: string) { return (text.match(/[A-Za-z]+(?:['’\-][A-Za-z]+)*/g)||[]).length; }
 export function typeName(type: EssayType) { return type==='small'?'小作文':'大作文'; }
-export function reviewPackage(q: Question, text: string, prompt: string, rubric: string = DEFAULT_RUBRICS[templateKey(q)]) { return `${prompt}\n\n---\n## ${rubricLabel(q)}\n\n${rubric}\n\n---\n## 真题\n${questionYearLabel(q)} · 考研${examName(q)} · ${typeName(q.type)}\n\n${q.directions}\n${q.images.length ? '\n【题图】请结合随附题图批阅；如未收到图片，请先告知。\n':''}\n---\n## 我的作文\n\n${text}\n\n---\n请按以上提示词与评分标准批阅原始作文，并用 Markdown 输出。`; }
+export function reviewPrompt(q: Question, prompt: string) {
+  if (!q.topicCategories?.includes('材料类')) return prompt;
+  return `${prompt}\n\n【本题任务补充：优先按所附 Directions 执行】\n本题为${examName(q)}材料类大作文，满分${q.exam==='two'?15:20}分，字数要求为${wordTarget(q)}。须解释是否或在多大程度上同意材料作者的观点，并以理由和相关例子论证；无需描述图画或图表。模板中的图画／图表描述要求不适用于本题。`;
+}
+export function reviewPackage(q: Question, text: string, prompt: string, rubric: string = DEFAULT_RUBRICS[templateKey(q)]) { return `${reviewPrompt(q,prompt)}\n\n---\n## ${rubricLabel(q)}\n\n${rubric}\n\n---\n## 真题\n${questionYearLabel(q)} · 考研${examName(q)} · ${typeName(q.type)}\n\n${q.directions}\n${q.images.length ? '\n【题图】请结合随附题图批阅；如未收到图片，请先告知。\n':''}\n---\n## 我的作文\n\n${text}\n\n---\n请按以上提示词与评分标准批阅原始作文，并用 Markdown 输出。`; }
 
 export function reviewIsOutdated(writing:Writing|null,review:Review|undefined) {
   if(!writing||!review)return false;

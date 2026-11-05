@@ -8,7 +8,7 @@ const scopes = [
   { id: 'one-small', label: '英语一 · 小作文' },
   { id: 'two-large', label: '英语二 · 大作文' },
 ] as const;
-const chartTypes = ['柱状图','条形图','饼图','曲线图','表格'];
+const englishTwoCategories = ['柱状图','条形图','饼图','曲线图','表格','材料类'];
 const matchesScope = (q: Question, scope: string) => !scope || `${q.exam || 'one'}-${q.type}` === scope;
 
 export interface LibraryFilters { scope: string; category: string; year: string; search: string }
@@ -22,8 +22,8 @@ export function QuestionLibrary({ questions, busy, onStart, filters, setFilters 
   const keyword = search.trim().toLowerCase();
   const baseQuestions = scopeQuestions.filter(q => (!year || (year === 'supplement' ? q.year === null : q.year === Number(year))) && (!keyword || `${questionYearLabel(q)} ${examName(q)} ${typeName(q.type)} ${questionCategories(q).join(' ')} ${q.title} ${q.directions}`.toLowerCase().includes(keyword)));
   const results = baseQuestions.filter(q => !category || questionCategories(q).includes(category));
-  const categories = scope === 'one-small' ? SMALL_ESSAY_CATEGORIES : scope === 'one-large' ? LARGE_ESSAY_CATEGORIES : scope === 'two-large' ? chartTypes : [];
-  const categoryLabel = scope === 'one-small' ? '写作类别' : scope === 'two-large' ? '图表类型' : '主题分类';
+  const categories = scope === 'one-small' ? SMALL_ESSAY_CATEGORIES : scope === 'one-large' ? LARGE_ESSAY_CATEGORIES : scope === 'two-large' ? englishTwoCategories : [];
+  const categoryLabel = scope === 'one-small' ? '写作类别' : scope === 'two-large' ? '作文分类' : '主题分类';
   const active = !!(scope || year || keyword || category);
   function changeScope(next: string) {
     setFilters(old => ({...old, scope: next, category: '', year: old.year && !questions.some(q => matchesScope(q,next) && (old.year === 'supplement' ? q.year === null : q.year === Number(old.year))) ? '' : old.year}));
@@ -45,8 +45,8 @@ export function QuestionLibrary({ questions, busy, onStart, filters, setFilters 
           <button aria-pressed={!category} className={!category ? 'selected' : ''} onClick={() => setCategory('')}>全部<span>{baseQuestions.length}</span></button>
           {categories.map(value => <button key={value} aria-pressed={category === value} className={category === value ? 'selected' : ''} onClick={() => setCategory(value)}>{value}<span>{baseQuestions.filter(q => questionCategories(q).includes(value)).length}</span></button>)}
         </div>
-        <p className="caption">{scope === 'one-large' ? '六类主题与材料类并列；材料类单独收录，其余题目可属多类。' : scope === 'one-small' ? '按写作任务归类，同题可属多类。' : '按原题图表形式归类。'} 数字为当前年份与关键词下的题数，0 表示暂无匹配。</p>
-      </div> : <p className="library-filter-hint caption">先选择卷别与题型，可进一步按大作文主题、小作文类别或图表类型筛选。</p>}
+        <p className="caption">{scope === 'one-large' ? '六类主题与材料类并列；材料类单独收录，其余题目可属多类。' : scope === 'one-small' ? '按写作任务归类，同题可属多类。' : '五类图表与材料类并列，按题目形式筛选。'} 数字为当前年份与关键词下的题数，0 表示暂无匹配。</p>
+      </div> : <p className="library-filter-hint caption">先选择卷别与题型，可进一步按大作文主题、小作文类别或英语二作文分类筛选。</p>}
       <div className="library-filter-summary">
         <div className="library-active-filters" aria-label="当前筛选条件">
           {scope && <button onClick={() => changeScope('')} aria-label="移除卷别与题型条件">{scopes.find(s => s.id === scope)?.label}<X size={12}/></button>}

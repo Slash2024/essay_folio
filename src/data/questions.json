@@ -917,5 +917,20 @@
     "topicCategories": [
       "材料类"
     ]
+  },
+  {
+    "id": "supplement-english-two-large-children-screens",
+    "exam": "two",
+    "year": null,
+    "type": "large",
+    "title": "儿童社交与屏幕使用",
+    "directions": "Directions:\nRead the following excerpt from an article and write an essay. In your essay, you should explain whether or to what extent you agree with the author. Support your argument with reasons and relevant examples.\nWrite your answer in about 150 words on the ANSWER SHEET. (15 points)\n\nStudies in the U.S. and the U.K. consistently show that children have lost the right to wander. This is why many of our youth turn to technology. They aren't addicted to the computer; they're addicted to interaction, and being around their friends. Children, and especially teenagers, don't want to only socialize with parents and siblings; they want to play with their peers. That's how they make sense of the world. And we've robbed them of that opportunity. We're raising our children in captivity and they turn to technology to socialize, learn and relax. Why are we blaming the screens?",
+    "images": [],
+    "source": "",
+    "sourceLabel": "用户提供题目",
+    "provenance": "由用户提供完整题面，未提供考试年份或外部来源；仅规范标点与空格，保留原文措辞。",
+    "topicCategories": [
+      "材料类"
+    ]
   }
 ]
