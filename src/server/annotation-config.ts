@@ -12,10 +12,10 @@ export function endpoint(base:string){
  url.pathname=url.pathname.replace(/\/+$/,'');if(!url.pathname.endsWith('/chat/completions'))url.pathname+='/chat/completions';return url.toString();
 }
 async function info(){const r=await listInfo();return r.secrets?.find(s=>s.name===NAME);}
-export async function getAnnotationConfig():Promise<AnnotationConfig|null>{const found=await info();if(!found?._id)return null;const r=await getValue(found._id);if(!r.value)throw new AlignmentError('标注 API 配置读取失败',503);const c=JSON.parse(r.value) as AnnotationConfig;endpoint(c.baseURL);return c;}
+export async function getAnnotationConfig():Promise<AnnotationConfig|null>{const found=await info();if(!found?._id)return null;const r=await getValue(NAME);if(!r.value)throw new AlignmentError('标注 API 配置读取失败',503);const c=JSON.parse(r.value) as AnnotationConfig;endpoint(c.baseURL);return c;}
 export function publicConfig(c:AnnotationConfig|null){return {configured:!!c?.apiKey,baseURL:c?.baseURL||'',model:c?.model||'',jsonMode:c?.jsonMode??true,enabled:c?.enabled??false,revision:c?.revision||''};}
 export async function saveAnnotationConfig(input:Record<string,unknown>){
- const found=await info();let prior:AnnotationConfig|null=null;if(found?._id){const r=await getValue(found._id);prior=JSON.parse(r.value||'null');}
+ const found=await info();let prior:AnnotationConfig|null=null;if(found?._id){const r=await getValue(NAME);prior=JSON.parse(r.value||'null');}
  if(String(input.revision||'')!==(prior?.revision||''))throw new AlignmentError('API 配置已更新，请重新加载后保存',409);
  const baseURL=String(input.baseURL||'').trim(),model=String(input.model||'').trim(),apiKey=typeof input.apiKey==='string'&&input.apiKey.trim()?input.apiKey.trim():prior?.apiKey||'';
  endpoint(baseURL);if(baseURL.length>500||!model||model.length>150||!apiKey||apiKey.length>1800||/[\r\n]/.test(apiKey))throw new AlignmentError('请填写服务地址、模型名和有效密钥');
