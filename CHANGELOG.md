@@ -7,7 +7,7 @@
 - 提交中断后的重试补齐正文版本；不同正文的重复提交返回冲突。
 - 批阅导入重试复用编号，恢复部分写入的稿件状态，始终返回解析批阅、作文及版本；编号复用到其他内容或稿件返回冲突。
 - 无效 JSON 与非对象请求返回 400。新增故障注入回归，补充 [架构与一致性约束](docs/architecture.md)。
-- 不变更集合结构；发布时间、GitHub commit 与 Wix revision/build 另记于发布记录，测试通过不等于已上线。
+- 已于 2026-11-05T00:47:45Z 发布；GitHub commit、Wix revision/build、验证结果及回退说明见 [发布记录](docs/releases/2026-11-05-independent-audit.json)。无集合结构迁移。
 
 ## 可恢复历史快照
 

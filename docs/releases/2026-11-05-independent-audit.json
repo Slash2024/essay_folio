@@ -1,0 +1,87 @@
+{
+  "releaseName": "Essay Folio independent audit and consistency fixes",
+  "releasedAtUtc": "2026-11-05T00:47:45Z",
+  "githubCommit": "d4f625e63710f30487fe0e9d5b6e9dfa4c119f8b",
+  "githubTree": "ab209ae180792f81dbe294e90a46d583c930829f",
+  "pullRequest": "https://github.com/Slash2024/essay_folio/pull/1",
+  "wixSourceRevision": "e3addd1bd7d6088f07f295511265df127a7dc552",
+  "wixBuildId": "08096737-a1dd-4d6d-84c8-30a38c6aaa74",
+  "previousWixSourceRevision": "3e04e51819780d38bcb276a208344b4389a97c84",
+  "siteId": "a461d5a1-ed4f-434b-b4fe-a1f51727f4e9",
+  "liveUrl": "https://headless-dvpmxjtmvvv-y97m7z9bm2-140a.wix-site-host.com",
+  "checks": {
+    "typecheck": "passed",
+    "regressionEntries": 10,
+    "isolatedBrowserChecks": 7,
+    "pullRequestWorkflowRun": 41846925036,
+    "mainWorkflowRun": 41943536691,
+    "productionBuild": "passed",
+    "productionHttpChecks": [
+      {
+        "check": "homepage",
+        "status": 200,
+        "cacheControl": "no-store",
+        "response": null
+      },
+      {
+        "check": "session",
+        "status": 200,
+        "cacheControl": "no-store",
+        "response": {
+          "authenticated": false
+        }
+      },
+      {
+        "check": "unauthorized",
+        "status": 401,
+        "cacheControl": "no-store",
+        "response": {
+          "error": "请先输入个人访问码"
+        }
+      },
+      {
+        "check": "invalid-json",
+        "status": 400,
+        "cacheControl": "no-store",
+        "response": {
+          "error": "输入内容不是有效 JSON"
+        }
+      },
+      {
+        "check": "invalid-body",
+        "status": 400,
+        "cacheControl": "no-store",
+        "response": {
+          "error": "输入内容必须为对象"
+        }
+      },
+      {
+        "check": "origin-check",
+        "status": 403,
+        "cacheControl": "no-store",
+        "response": {
+          "error": "请求来源不匹配，请刷新后重试"
+        }
+      },
+      {
+        "check": "invalid-code",
+        "status": 401,
+        "cacheControl": "no-store",
+        "response": {
+          "error": "访问码不正确"
+        }
+      }
+    ],
+    "productionBrowser": "Live page title and access form rendered; no application console errors. A Chrome extension metadata error is unrelated to the app."
+  },
+  "schemaMigration": false,
+  "buildConfiguration": "Official Wix headless-kit install/setup.mjs plugin route: public OAuth ID and set-at-release placeholders, hosting injects runtime configuration. No Secrets pulled or copied.",
+  "rollback": "Prepare a new Git revert of the fixes against current main, validate and rebuild. Use the current Wix source head as expectedHeadRevisionId. Source rollback does not restore or remove CMS records.",
+  "limitations": [
+    "Authenticated production writing and import were not exercised: the browser has no personal access session. Actual handlers were exercised with isolated synthetic storage before deployment.",
+    "Application-level version checks do not provide atomic database compare-and-swap across instances."
+  ],
+  "releaseTag": null,
+  "releaseTagStatus": "Pending GitHub browser authentication; the connected GitHub tools do not expose tag or release creation.",
+  "plannedReleaseTag": "release-20261105-004745"
+}
