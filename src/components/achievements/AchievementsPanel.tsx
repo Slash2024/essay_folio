@@ -1,10 +1,15 @@
+import {milestoneDisplay,type EarnedMilestone} from '../../lib/achievement-types';
+import {MilestoneArt} from './MilestoneArt';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, dateLabel } from '../../lib/client';
 import { questionCategories, questionYearLabel, type Question } from '../../lib/folio';
-import { PRACTICE_GROUPS, practiceGroup, practiceState, practiceCategories, summarizePractice, categoryPractice, earnedMilestones, type PracticeGroup, type PracticeProgress, type QuestionProgress } from '../../lib/practice-progress';
-import { AchievementArt, AchievementMedal, type AchievementArtKind } from './AchievementArt';
+import { PRACTICE_GROUPS, practiceGroup, practiceState, practiceCategories, summarizePractice, categoryPractice, type PracticeGroup, type PracticeProgress, type QuestionProgress } from '../../lib/practice-progress';
+import { AchievementArt, AchievementMedal } from './AchievementArt';
 import './achievements.css';
 
+function MilestoneCard({milestone:m}:{milestone:EarnedMilestone}) {
+  return <article className="achievement-badge" data-milestone={m.id}><MilestoneArt id={m.id}/><small>{m.group}</small><h4>{m.title}</h4><span>已达成</span><p>{m.detail}</p></article>;
+}
 const stateLabels = {unstarted:'未开始',draft:'草稿中',practiced:'已练习',reviewed:'已批阅'};
 function ProgressBar({done,total,label}:{done:number;total:number;label:string}) {
   return <div className="achievement-progress" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={total || 1} aria-valuenow={done} aria-valuetext={`${done} / ${total} 道题`}><span style={{width:`${total ? done/total*100 : 0}%`}}/></div>;
@@ -29,7 +34,8 @@ export default function AchievementsPanel({questions,initialScope,onClose,onStar
   const pools=useMemo(()=>PRACTICE_GROUPS.map(group=>({...group,questions:questions.filter(q=>practiceGroup(q)===group.id)})),[questions]);
   const pool=pools.find(g=>g.id===scope)!;
   const poolSummary=summarizePractice(pool.questions,progress);
-  const milestones=earnedMilestones(questions,progress);
+  const milestones=snapshot?.milestones||[];
+  const {featured,earlier}=milestoneDisplay(milestones);
   const ordered=[...pool.questions].sort((a,b)=>(a.year??Infinity)-(b.year??Infinity)||a.id.localeCompare(b.id));
   const visible=mode==='category'&&category?ordered.filter(q=>questionCategories(q).includes(category)):ordered;
   const selectedQuestion=visible.find(q=>q.id===selected);
@@ -56,8 +62,8 @@ export default function AchievementsPanel({questions,initialScope,onClose,onStar
           <p className="achievement-help">提交过一稿即点亮，同题重写不重复计题。已点亮题签右上角的小点表示有新草稿。</p>
           {selectedQuestion&&<div ref={detail} className="achievement-question-detail"><div><span>{questionYearLabel(selectedQuestion)} · {stateLabels[selectedState]}{selectedProgress?.submittedCount&&selectedProgress.draftCount?' · 新稿进行中':''}</span><h4>{selectedQuestion.title}</h4><p>已提交 {selectedProgress?.submittedCount||0} 稿 · 已批阅 {selectedProgress?.reviewedCount||0} 稿{selectedProgress?.draftCount?` · ${selectedProgress.draftCount} 份草稿`:''}</p></div><div className="achievement-question-actions">{selectedProgress?.latestDraftId&&<button className="button primary small" onClick={()=>onOpenRecord(selectedProgress.latestDraftId!)}>继续草稿</button>}{selectedProgress?.submittedCount?<><button className="button outline small" onClick={()=>openLatest(selectedProgress)}>{selectedProgress.latestReviewedId?'查看最近批阅':'查看最近提交'}</button><button className="text-button" onClick={()=>onShowRecords(selectedQuestion)}>全部练习</button></>:null}<button className={`button ${!selectedProgress?.submittedCount&&!selectedProgress?.draftCount?'primary':'ghost'} small`} onClick={()=>onStart(selectedQuestion)}>{selectedProgress?.submittedCount||selectedProgress?.draftCount?'再写一稿':'开始写作'}</button></div></div>}
         </section>
-        {milestones.length>0&&<section className="achievement-milestones" aria-label="已达成的里程碑"><div className="achievement-section-heading"><h3>我的里程碑</h3><span>已达成 {milestones.length} 项</span></div><div className="achievement-badges">{milestones.map(m=><article className="achievement-badge" key={m.id}><AchievementArt kind={m.id as AchievementArtKind}/><h4>{m.title}</h4><span>已达成</span><p>{m.detail}</p></article>)}</div></section>}
-        <footer className="achievement-footer"><div><p>根据当前题库与云端练习记录自动计算。</p><details><summary>统计口径</summary><p>有非空正文且已提交的稿件，才计入练习。草稿不增加覆盖率；同稿修改与重复导入批阅不增加稿数。删除记录后进度会相应更新，新增题目会增加总题数。里程碑只显示当前记录已达成的项目，练习覆盖不代表已经掌握。</p></details></div><div><span>读取于 {dateLabel(snapshot.generatedAt)}</span><button className="text-button" disabled={loading} onClick={()=>setReload(n=>n+1)}>{loading?'正在更新…':'刷新进度'}</button></div></footer>
+        {milestones.length>0&&<section className="achievement-milestones" aria-label="已达成的里程碑"><div className="achievement-section-heading"><h3>我的里程碑</h3><span>已达成 {milestones.length} 项</span></div><div className="achievement-badges">{featured.map(m=><MilestoneCard key={m.id} milestone={m}/>)}</div>{earlier.length>0&&<details className="achievement-earlier"><summary>查看此前获得的徽章（{earlier.length}）</summary><div className="achievement-badges">{earlier.map(m=><MilestoneCard key={m.id} milestone={m}/>)}</div></details>}</section>}
+        <footer className="achievement-footer"><div><p>根据当前题库与云端练习记录自动计算。</p><details><summary>统计口径</summary><p>有非空正文且已提交的稿件，才计入练习。草稿不增加覆盖率；同稿修改与重复导入批阅不增加稿数。删除记录后进度会相应更新，新增题目会增加总题数。里程碑仅显示当前记录已达成的项目，同系列默认展示最高阶段，可展开查看此前获得的徽章。个人笔记仅统计主动添加且正文非空的条目，同题同内容去重；自动批注、收藏、重复导入和笔记修改版本不累计。批阅数量不触发成就。练习覆盖不代表已经掌握。</p></details></div><div><span>读取于 {dateLabel(snapshot.generatedAt)}</span><button className="text-button" disabled={loading} onClick={()=>setReload(n=>n+1)}>{loading?'正在更新…':'刷新进度'}</button></div></footer>
       </>}
     </div>
   </dialog>;

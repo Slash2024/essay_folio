@@ -1,3 +1,4 @@
+import type { EarnedMilestone } from './achievement-types';
 import { LARGE_ESSAY_CATEGORIES, SMALL_ESSAY_CATEGORIES, questionCategories, type Question, type Writing } from './folio';
 
 export const PRACTICE_GROUPS = [
@@ -16,7 +17,7 @@ export interface QuestionProgress {
   latestSubmittedId?: string;
   latestReviewedId?: string;
 }
-export interface PracticeProgress { questions: QuestionProgress[]; generatedAt: string }
+export interface PracticeProgress { questions: QuestionProgress[]; generatedAt: string; milestones?: EarnedMilestone[] }
 export const practiceGroup = (q: Question) => `${q.exam || 'one'}-${q.type}`;
 export const practiceState = (p?: QuestionProgress): PracticeState => p?.reviewedCount ? 'reviewed' : p?.submittedCount ? 'practiced' : p?.draftCount ? 'draft' : 'unstarted';
 export const progressPercent = (done: number, total: number) => total ? Math.round(done / total * 100) : 0;
@@ -60,17 +61,4 @@ export function summarizePractice(questions: Question[], progress: Map<string, Q
 }
 export function categoryPractice(questions: Question[], category: string, progress: Map<string, QuestionProgress>) {
   return summarizePractice(questions.filter(q => questionCategories(q).includes(category)), progress);
-}
-export function earnedMilestones(questions: Question[], progress: Map<string, QuestionProgress>) {
-  const summary = summarizePractice(questions, progress);
-  const completed = PRACTICE_GROUPS.filter(group => {
-    const pool = questions.filter(q => practiceGroup(q) === group.id);
-    return pool.length > 0 && pool.every(q => (progress.get(q.id)?.submittedCount || 0) > 0);
-  });
-  return [
-    { id: 'first', title: '初次落笔', detail: '完成第一道题的提交', earned: summary.practiced > 0 },
-    { id: 'ten', title: '十题成章', detail: '已练习至少 10 道不同题目', earned: summary.practiced >= 10 },
-    { id: 'rewrite', title: '再写一稿', detail: '同一道题至少提交两篇独立稿件', earned: summary.rewritten > 0 },
-    { id: 'complete', title: '一卷遍览', detail: completed.map(g => g.label).join('、'), earned: completed.length > 0 },
-  ].filter(item => item.earned);
 }

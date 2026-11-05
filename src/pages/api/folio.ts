@@ -1,3 +1,4 @@
+import {earnedMilestoneRules,personalNoteCounts} from '../../server/achievement-milestones';
 import {collectPracticeProgress} from '../../lib/practice-progress';
 import {collectExpressionUsage,expressionUsageDetails} from '../../lib/expression-usage';
 import {collectBookmarks} from '../../lib/bookmarks';
@@ -40,7 +41,9 @@ export const POST:APIRoute=async({request})=>{
     }
     if(action==='practiceProgress') {
       const [writings,reviews]=await Promise.all([all('writing'),all('review')]);
-      return json(collectPracticeProgress(practiceQuestions,writings.map(r=>decode<Writing>(r)),reviews.map(r=>({writingId:decode<Review>(r).writingId}))));
+      const writingData=writings.map(r=>decode<Writing>(r)),reviewData=reviews.map(r=>decode<Review>(r));
+      const progress=collectPracticeProgress(practiceQuestions,writingData,reviewData);
+      return json({...progress,milestones:earnedMilestoneRules(practiceQuestions,progress,personalNoteCounts(practiceQuestions,writingData,reviewData))});
     }
     if(action==='list') {const p=await list('writing',{offset:Math.max(0,Number(body.offset)||0),limit:30,questionId:body.questionId?str(body.questionId,100):'',status:body.status?str(body.status,20):''});return json({items:p.rows.map(r=>decode<Writing>(r)),total:p.total,hasNext:p.hasNext});}
     if(action==='get') {const row=await find(id(body.id));if(!row||row.kind!=='writing')return json({error:'记录不存在'},404);const [reviews,notices]=await Promise.all([list('review',{writingId:row._id,limit:100}),list('notice',{writingId:row._id,limit:20})]);const writing=decode<Writing>(row);const history=await ensureHistory(writing);const fresh=await list('review',{writingId:row._id,limit:100});return json({writing,reviews:fresh.rows.map(r=>analyzedReview(decode<Review>(r))).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||b.id.localeCompare(a.id)),versions:history,notices:notices.rows.map(r=>decode<Notice>(r))});}
