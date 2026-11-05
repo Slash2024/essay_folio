@@ -10,7 +10,7 @@
 
 GitHub 用于提交历史、PR 与自动检查。仓库保护规则尚未配置，不能视为已强制执行 PR 流程。
 
-当前线上源码来自 Wix revision `3e04e51819780d38bcb276a208344b4389a97c84`。8 个可恢复历史快照及逐版改动见 [CHANGELOG.md](CHANGELOG.md)，原始编号、对应迁移提交和文件校验值见 [docs/source-history.json](docs/source-history.json)。GitHub 的 `history/wix-<编号前8位>` 分支保存各版原始源码文件树。
+当前线上应用由 GitHub commit `d4f625e63710f30487fe0e9d5b6e9dfa4c119f8b` 发布，对应 Wix revision `e3addd1bd7d6088f07f295511265df127a7dc552`。发布映射与验证边界见 [发布记录](docs/releases/2026-11-05-independent-audit.json)。8 个可恢复历史快照及逐版改动见 [CHANGELOG.md](CHANGELOG.md)，原始编号、对应迁移提交和文件校验值见 [docs/source-history.json](docs/source-history.json)。GitHub 的 `history/wix-<编号前8位>` 分支保存各版原始源码文件树。
 
 这些提交由核实后的源码快照重建。Wix 导出不含原始 Git 历史，不能视为最初仓库的完整 Git 镜像。尚未找到源码的早期需求讨论不伪造成版本。
 
