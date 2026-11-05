@@ -3,6 +3,7 @@ const dir=await mkdtemp(join(tmpdir(),'folio-api-'));const archive=`export const
 try{await build({stdin:{contents:"export {POST} from './src/pages/api/folio'; export {db} from './src/server/archive';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'api.mjs'),plugins:[{name:'test-archive',setup(b){b.onResolve({filter:/server\/archive$|^\.\/archive$/},()=>({path:'archive',namespace:'test'}));b.onResolve({filter:/server\/session$/},()=>({path:'session',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},({path})=>({loader:'js',contents:path==='archive'?archive:"export const authorized=async()=>true,sameOrigin=()=>true,equal=(a,b)=>a===b,makeSession=async()=>'',accessConfig=async()=>({}),secret=async()=>{throw Error('Bark must not be called')},SITE_ORIGIN='https://test.invalid';"}));}}]});
  await build({entryPoints:['src/lib/review-interactions.ts'],bundle:true,platform:'node',format:'esm',outfile:join(dir,'interaction.mjs')});
  const {POST,db}=await import(join(dir,'api.mjs'));async function call(action,body={}){const r=await POST({request:new Request('https://test.invalid/api/folio',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,...body})})});return {status:r.status,...await r.json()};}
+ const initialProgress=await call('practiceProgress');assert.equal(initialProgress.status,200);assert(initialProgress.questions.length>30);assert(initialProgress.questions.every(q=>q.submittedCount===0));
  assert.equal((await call('getCurationGuide')).guide,null);
  assert.equal((await call('saveCurationGuide',{version:1,status:'invalid'})).status,400);
  assert.equal((await call('saveCurationGuide',{version:2,status:'completed'})).status,400);
@@ -13,6 +14,7 @@ try{await build({stdin:{contents:"export {POST} from './src/pages/api/folio'; ex
  r=await call('edit',{id,text:'This is my corrected essay. Another sentence.',baseUpdatedAt:w.updatedAt});assert.equal(r.versions.length,2);assert.equal(r.versions[0].text,text);w=r.writing;
  r=await call('review',{id:'qa-review',writingId:id,baseUpdatedAt:'stale',markdown:'8. 评分\n预估分数：14/20分。',filename:'review.md'});assert.equal(r.status,409);
  r=await call('review',{id:'qa-review',writingId:id,baseUpdatedAt:w.updatedAt,markdown:'5. 最值得记住的错误\n- 主谓一致错误。\n8. 评分\n预估分数：14/20分。',filename:'review.md'});assert.equal(r.status,200);assert.equal(r.review.revisionId,id+'-v2');assert.equal(r.review.analysis.score.point,14);w=r.writing;
+ const practicedProgress=await call('practiceProgress');const progressEntry=practicedProgress.questions.find(q=>q.questionId==='2024-large');assert.equal(progressEntry.submittedCount,1);assert.equal(progressEntry.reviewedCount,1);assert(!JSON.stringify(practicedProgress).includes('This is my corrected essay.'));assert(!JSON.stringify(practicedProgress).includes('private prompt'));
  assert.equal((await call('edit',{id,text:'Disallowed change.',baseUpdatedAt:w.updatedAt})).status,409);
  // A stale status cannot bypass the authoritative review check.
  const row=db.get(id),p=JSON.parse(row.payload);row.payload=JSON.stringify({...p,status:'submitted'});assert.equal((await call('edit',{id,text:'Still disallowed.',baseUpdatedAt:w.updatedAt})).status,409);
@@ -59,6 +61,7 @@ try{await build({stdin:{contents:"export {POST} from './src/pages/api/folio'; ex
  const removed=await call('removeBookmark',{reviewId:'qa-review',noteId:autoNote.id,baseRevision:saved.studyRevision});assert.equal(removed.status,200);assert.equal(removed.review.study.entries[autoNote.id].starred,false);assert.equal(removed.review.study.entries[autoNote.id].status,'mastered');assert.equal(removed.review.markdown,payload.markdown);assert.equal((await call('bookmarks')).items.length,1);
  assert.equal((await call('removeBookmark',{reviewId:'qa-review',noteId:personal.id,baseRevision:removed.review.study.revision})).status,200);assert.equal((await call('bookmarks')).items.length,0);
  assert.equal((await call('delete',{id,confirmed:true,baseUpdatedAt:w.updatedAt})).status,200);assert.equal([...db.values()].filter(x=>x.kind==='revision'||x.kind==='review'||x.kind==='curationVersion').length,0);assert.equal((await call('draft',{id,questionId:'2024-large',text:'stale'})).status,410);
+ const deletedProgress=await call('practiceProgress');assert.equal(deletedProgress.questions.find(q=>q.questionId==='2024-large').submittedCount,0);
  // Previously saved English-two settings cannot restore the obsolete grading scale.
  const legacyTemplates={large:'Shared custom prompt',small:'Small custom prompt',englishTwoLarge:'Legacy 15-point prompt'};
  const legacyRubrics={large:'Shared 20-point rubric',small:'Small 10-point rubric',englishTwoLarge:'Legacy 15-point rubric'};

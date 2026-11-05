@@ -142,3 +142,7 @@
 .expression-usage-context{white-space:pre-wrap;overflow-wrap:anywhere;font-size:16px;line-height:1.9;margin:10px 0}
 .expression-usage-context mark{background:#e4eedc;color:inherit;border-radius:3px;padding:1px 0}
 @media(max-width:640px){.expression-usage-overview{padding:18px}.expression-usage-details{padding:12px}.expression-usage-occurrence-heading{flex-direction:column;gap:6px}.expression-usage-count{gap:8px 12px}.expression-library .filter-bar{flex-wrap:wrap}.expression-library .filter-bar select{max-width:100%}}
+
+/* The library keeps its layout; achievements load only through this entry. */
+.heading-actions .achievement-entry{padding:9px 12px;font-size:12px;gap:7px;white-space:nowrap}.achievement-entry>svg{width:21px;height:23px;color:#087c77}
+@media(max-width:650px){.page-heading:has(.achievement-entry){flex-wrap:wrap}.page-heading:has(.achievement-entry) .heading-actions{margin-left:auto;display:flex;gap:8px}.heading-actions .achievement-entry{font-size:11px;padding:7px 9px}.achievement-entry>svg{width:18px;height:20px}}
