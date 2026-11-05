@@ -1,0 +1,18 @@
+import {useEffect,useState} from 'react';
+import {CheckCircle2,Sparkles} from 'lucide-react';
+import {annotationApi} from '../../lib/client';
+interface Config {configured:boolean;baseURL:string;model:string;jsonMode:boolean;enabled:boolean;revision:string}
+export default function AnnotationAISettings(){
+ const [saved,setSaved]=useState<Config|null>(null),[baseURL,setBaseURL]=useState(''),[model,setModel]=useState(''),[key,setKey]=useState(''),[jsonMode,setJsonMode]=useState(true),[enabled,setEnabled]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ function apply(c:Config){setSaved(c);setBaseURL(c.baseURL);setModel(c.model);setJsonMode(c.jsonMode);setEnabled(c.configured?c.enabled:true);setKey('');}
+ async function load(){setBusy(true);setError('');try{const d=await annotationApi('config');apply(d.config);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ useEffect(()=>{load();},[]);
+ const dirty=!!saved&&(baseURL!==saved.baseURL||model!==saved.model||jsonMode!==saved.jsonMode||enabled!==saved.enabled||!!key);
+ return <section className="panel settings-panel annotation-settings" id="annotation-ai-settings"><div className="panel-heading"><h2><Sparkles/>LLM 标注优化</h2><span className="caption">{saved?.configured?saved.enabled?'已配置并启用':'已配置，当前停用':'待配置'}</span></div><p className="muted">只有在批注旁主动生成建议时才调用模型。生成后预览并决定是否采纳，只整理已有原句与修改句的对照分组。</p>
+ <form onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');setMessage('');try{const d=await annotationApi('saveConfig',{baseURL,model,apiKey:key,jsonMode,enabled,revision:saved?.revision||''});apply(d.config);setMessage('配置已保存在服务端，密钥不会回传或进入数据导出。');}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>
+ <div className="annotation-config-grid"><label>服务地址 / Base URL<input type="url" aria-label="LLM 服务地址" placeholder="https://api.example.com/v1" maxLength={500} value={baseURL} onChange={e=>setBaseURL(e.target.value)} disabled={busy} required/></label><label>模型名称<input aria-label="LLM 模型名称" placeholder="填写服务商提供的模型 ID" maxLength={150} value={model} onChange={e=>setModel(e.target.value)} disabled={busy} required/></label><label className="annotation-key">API 密钥<input type="password" aria-label="LLM API 密钥" autoComplete="off" placeholder={saved?.configured?'已保存；留空则保留原密钥':'填写 API Key'} maxLength={1800} value={key} onChange={e=>setKey(e.target.value)} disabled={busy} required={!saved?.configured}/></label></div>
+ <div className="annotation-config-options"><label><input type="checkbox" checked={enabled} disabled={busy} onChange={e=>setEnabled(e.target.checked)}/>启用 LLM 标注优化</label><label><input type="checkbox" checked={jsonMode} disabled={busy} onChange={e=>setJsonMode(e.target.checked)}/>使用 JSON 输出模式</label></div><p className="caption">采用 OpenAI 兼容的 Chat Completions 接口；服务地址可填写 Base URL 或完整接口地址。若服务商不支持 JSON 输出模式，可取消此选项，文字一致性仍会校验。</p>
+ <div className="annotation-config-actions"><button className="button primary small" disabled={busy||!saved}><CheckCircle2 size={15}/>保存配置</button><button type="button" className="button outline small" disabled={busy||!saved?.configured||!saved.enabled||dirty} onClick={async()=>{setBusy(true);setError('');setMessage('');try{const d=await annotationApi('testConnection');setMessage(d.message);}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>测试已保存配置（调用一次）</button><button type="button" className="text-button" disabled={busy} onClick={load}>重新加载</button></div>
+ {dirty&&saved?.configured&&<p className="caption">当前有未保存修改，请先保存再测试。</p>}{error&&<p className="error" role="alert">{error}</p>}<p className="annotation-feedback" role="status">{busy?'正在处理…':message}</p>
+ </form></section>;
+}

@@ -1,5 +1,5 @@
 export interface WritingVersion { id:string; writingId:string; questionId:string; version:number; text:string; createdAt:string|null; source:'submitted'|'edit'|'legacySnapshot'|'legacyCurrent'|'recovered'; historyIncomplete?:boolean }
-export interface DiffPart {value:string;type:'same'|'add'|'remove'}
+export interface DiffPart {value:string;type:'same'|'add'|'remove';locked?:boolean}
 export function wordDiff(before:string,after:string):DiffPart[]{
   const a=before.match(/[A-Za-z0-9]+(?:['’\-][A-Za-z0-9]+)*|\s+|[^A-Za-z0-9\s]/g)||[],b=after.match(/[A-Za-z0-9]+(?:['’\-][A-Za-z0-9]+)*|\s+|[^A-Za-z0-9\s]/g)||[];
   let prefix=0;while(prefix<a.length&&prefix<b.length&&a[prefix]===b[prefix])prefix++;

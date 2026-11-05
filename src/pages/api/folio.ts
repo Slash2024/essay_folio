@@ -51,7 +51,7 @@ export const POST:APIRoute=async({request})=>{
         await put(recordId,'deleted',{id:recordId,deletedAt:new Date().toISOString()},row);
       }
       try {
-      for(const kind of ['review','snapshot','notice','revision','curationVersion']) {
+      for(const kind of ['review','snapshot','notice','revision','curationVersion','alignmentCandidate']) {
         // Always drain the first page: advancing an offset while deleting skips rows.
         while(true) {
           const batch=await list(kind,{writingId:recordId,limit:100});
@@ -236,7 +236,7 @@ export const POST:APIRoute=async({request})=>{
       const [ws,rs,vs,cs]=await Promise.all([all('writing'),all('review'),all('revision'),all('curationVersion')]);
       // Strict allowlist: no prompts, settings, notices or secrets leave the archive.
       const writings=ws.map(row=>{const w=decode<Writing>(row);return {id:w.id,questionId:w.questionId,text:w.text,status:w.status,createdAt:w.createdAt,updatedAt:w.updatedAt,submittedAt:w.submittedAt,parentId:w.parentId,revision:w.revision||1,lastEditedAt:w.lastEditedAt,versions:vs.filter(v=>v.writingId===w.id).map(v=>decode<any>(v)).sort((a,b)=>a.version-b.version)};});
-      const reviews=rs.map(row=>{const r=analyzedReview(decode<Review>(row));return {id:r.id,writingId:r.writingId,questionId:r.questionId,filename:r.filename,markdown:r.markdown,createdAt:r.createdAt,label:r.label,writingRevision:r.writingRevision,revisionId:r.revisionId,binding:r.binding,analysis:r.analysis,issueOverrides:r.issueOverrides,analysisUpdatedAt:r.analysisUpdatedAt,study:r.study,curation:r.curation,curationHistory:cs.filter(c=>c.writingId===r.writingId).map(c=>decode<CurationVersion>(c)).filter(c=>c.reviewId===r.id&&r.curation?.history.some(h=>h.id===c.id)).sort((a,b)=>a.version-b.version)};});
+      const reviews=rs.map(row=>{const r=analyzedReview(decode<Review>(row));return {id:r.id,writingId:r.writingId,questionId:r.questionId,filename:r.filename,markdown:r.markdown,createdAt:r.createdAt,label:r.label,writingRevision:r.writingRevision,revisionId:r.revisionId,binding:r.binding,analysis:r.analysis,issueOverrides:r.issueOverrides,analysisUpdatedAt:r.analysisUpdatedAt,study:r.study,curation:r.curation,alignments:r.alignments,curationHistory:cs.filter(c=>c.writingId===r.writingId).map(c=>decode<CurationVersion>(c)).filter(c=>c.reviewId===r.id&&r.curation?.history.some(h=>h.id===c.id)).sort((a,b)=>a.version-b.version)};});
       return json({questions:questionsJson,writings,reviews});
     }
     return json({error:'不支持的操作'},400);
