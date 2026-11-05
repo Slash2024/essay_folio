@@ -124,3 +124,21 @@
 .sentence-body del+ins,.sentence-proof-diff del+ins{margin-left:.35em}
 
 .practice-standard-note{font-size:12px;line-height:1.85;color:#286555;background:#eef7f2;border-left:3px solid #74ad96;padding:10px 13px;margin:12px 0;overflow-wrap:anywhere}.original-directions{margin:15px 0;font-size:11px;color:#718797}.original-directions summary{cursor:pointer}.original-directions .directions{margin-top:10px;font-size:13px}
+
+/* Expression usage: counts derive from the current submitted writing bodies. */
+.expression-usage-overview{margin:18px 0;padding:24px}
+.expression-usage-overview .panel-heading{margin-bottom:12px}
+.expression-usage-totals{display:flex;gap:16px 32px;flex-wrap:wrap;margin:18px 0 10px}
+.expression-usage-totals b{font-size:24px;color:var(--color-primary)}
+.expression-usage-count{display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;margin-top:14px;font-size:13px}
+.expression-usage-count b{color:var(--color-primary)}
+.expression-usage-details{margin-top:16px;padding:18px;background:var(--color-secondary);border:1px solid var(--color-border);border-radius:12px}
+.expression-usage-details h4{margin:0 0 8px}
+.expression-usage-details p[role=status]{display:flex;align-items:center;gap:8px}
+.expression-usage-occurrence{padding:16px 0;border-top:1px solid var(--color-border);margin-top:12px}
+.expression-usage-occurrence-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;font-size:13px}
+.expression-usage-occurrence-heading strong{min-width:0;overflow-wrap:anywhere}
+.expression-usage-occurrence-heading button{flex-shrink:0}
+.expression-usage-context{white-space:pre-wrap;overflow-wrap:anywhere;font-size:16px;line-height:1.9;margin:10px 0}
+.expression-usage-context mark{background:#e4eedc;color:inherit;border-radius:3px;padding:1px 0}
+@media(max-width:640px){.expression-usage-overview{padding:18px}.expression-usage-details{padding:12px}.expression-usage-occurrence-heading{flex-direction:column;gap:6px}.expression-usage-count{gap:8px 12px}.expression-library .filter-bar{flex-wrap:wrap}.expression-library .filter-bar select{max-width:100%}}

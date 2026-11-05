@@ -1,3 +1,4 @@
+import {collectExpressionUsage,expressionUsageDetails} from '../../lib/expression-usage';
 import {collectBookmarks} from '../../lib/bookmarks';
 import {CURATION_GUIDE_VERSION,type CurationGuidePreference} from '../../lib/curation-guide';
 import {curatedNotes,validateCuratedNote,curationChanges,validateCurationSize,type CurationData,type CurationVersion,type ReviewCuration} from '../../lib/review-curation';
@@ -146,6 +147,21 @@ export const POST:APIRoute=async({request})=>{
     if(action==='expressions') {
       const row=await find('expression-library');
       return json({library:row?decode<ExpressionLibrary>(row):DEFAULT_EXPRESSIONS});
+    }
+    if(action==='expressionUsage'||action==='expressionUsageDetails') {
+      const row=await find('expression-library');
+      const library=row?decode<ExpressionLibrary>(row):DEFAULT_EXPRESSIONS;
+      if(Number(body.baseRevision)!==library.revision)return json({error:'表达库已更新，请刷新云端版本后查看使用统计。'},409);
+      let entryId='',offset=0;
+      if(action==='expressionUsageDetails'){
+        entryId=id(body.entryId);offset=body.offset??0;
+        if(!Number.isSafeInteger(offset)||offset<0)return json({error:'输入的分页位置不正确'},400);
+        const entry=[...library.sentences,...library.words].find(e=>e.id===entryId);
+        if(!entry)return json({error:'表达库条目不存在，请刷新云端版本。'},404);
+        if(!entry.enabled)return json({error:'表达库条目已停用，未纳入统计。'},400);
+      }
+      const writings=(await all('writing')).map(r=>decode<Writing>(r));
+      return action==='expressionUsage'?json({usage:collectExpressionUsage(writings,library)}):json({details:expressionUsageDetails(writings,library,entryId,offset)});
     }
     if(action==='saveExpressions') {
       const row=await find('expression-library');
