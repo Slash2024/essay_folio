@@ -1,3 +1,4 @@
+import {collectBookmarks} from '../../lib/bookmarks';
 import {CURATION_GUIDE_VERSION,type CurationGuidePreference} from '../../lib/curation-guide';
 import {curatedNotes,validateCuratedNote,curationChanges,validateCurationSize,type CurationData,type CurationVersion,type ReviewCuration} from '../../lib/review-curation';
 import {validateReadingLayout} from '../../lib/sentence-reading';
@@ -216,6 +217,18 @@ export const POST:APIRoute=async({request})=>{
       const issueId=str(body.issueId,100);const parsed=parseReview(r.markdown);if(!parsed.issues.some(i=>i.id===issueId))throw new Error('批阅问题编号不正确');
       if(!Array.isArray(body.categories)||body.categories.length>ISSUE_CATEGORIES.length||body.categories.some((x:unknown)=>!ISSUE_CATEGORIES.includes(x as IssueCategory)))throw new Error('批阅分类不正确');
       const next={...r,issueOverrides:{...r.issueOverrides,[issueId]:[...new Set(body.categories)] as IssueCategory[]},analysisUpdatedAt:new Date().toISOString()};await put(r.id,'review',next,row);return json({review:analyzedReview(next)});
+    }
+    if(action==='bookmarks') {
+      const [ws,rs]=await Promise.all([all('writing'),all('review')]);
+      return json({items:collectBookmarks(ws.map(r=>decode<Writing>(r)),rs.map(r=>decode<Review>(r)),questionsJson as Question[])});
+    }
+    if(action==='removeBookmark') {
+      const row=await find(id(body.reviewId));if(!row||row.kind!=='review')return json({error:'批阅不存在'},404);
+      const r=decode<Review>(row),writing=await find(r.writingId);if(!writing||writing.kind!=='writing')return json({error:'记录不存在'},404);
+      const current=r.study;if(Number(body.baseRevision)!==(current?.revision||0))return json({error:'收藏已在其他页面更新，请刷新收藏后重试。'},409);
+      const noteId=id(body.noteId),entry=current?.entries[noteId];if(!entry?.starred)return json({review:analyzedReview(r),unchanged:true});
+      const study:ReviewStudy={...current,revision:(current?.revision||0)+1,updatedAt:new Date().toISOString(),entries:{...current?.entries,[noteId]:{...entry,starred:false}}};
+      const next={...r,study};await put(r.id,'review',next,row);return json({review:analyzedReview(next)});
     }
     if(action==='analytics') {const [ws,rs]=await Promise.all([all('writing'),all('review')]);return json({writings:ws.map(r=>{const w=decode<Writing>(r);return {id:w.id,questionId:w.questionId,status:w.status,createdAt:w.createdAt,submittedAt:w.submittedAt};}),reviews:rs.map(r=>analyzedReview(decode<Review>(r)))});}
     if(action==='export') {

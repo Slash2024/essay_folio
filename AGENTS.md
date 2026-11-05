@@ -42,12 +42,10 @@ its copy, under the same names, in the client's own skills folder.
   with `npx -y @wix/cli@latest token --site <siteId>`, minted inline in each command; the token
   never lands in a file anywhere (not the project, not `/tmp`) nor in client code.
 
-## GitHub version control
+## GitHub code archive
 
-Follow CONTRIBUTING.md for future changes: fetch the current GitHub main and check the
-current deployed Wix revision before editing; work on a feature/fix branch, use reviewable
-commits and PRs, run typecheck and tests, then publish the exact checked commit through
-the existing Wix flow. Record the GitHub commit and Wix revision/build after live checks.
-Never force-push main or rewrite recovered history/wix-* branches. Do not commit local environment
-files, secrets, personal writing/review exports or browser fixtures. A recovered history branch is a
-recovered source snapshot, not an original Wix Git commit object. GitHub CI does not deploy.
+This is a single-maintainer personal project. Prioritize the requested functionality.
+Use GitHub as a source archive: commit directly to main after focused verification;
+no PR, review, release-tag or other collaboration ceremony is required. Run only checks
+needed for the actual change. Preserve unrelated work, secrets and private data.
+Publish through the existing Wix flow and archive the final source in GitHub.

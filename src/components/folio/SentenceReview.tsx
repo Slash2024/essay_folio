@@ -4,7 +4,7 @@ import {curatedNotes,asCurated,KIND_LABELS,type CuratedNote} from '../../lib/rev
 import CurationEditor from './CurationEditor';
 import CurationHistory from './CurationHistory';
 import SentenceChanges from './AnnotatedText';
-import {useMemo,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,ArrowRight,Bookmark,Copy,LocateFixed,Settings2} from 'lucide-react';
 import type {Review} from '../../lib/folio';
 import type {ReviewAnalysis} from '../../lib/review-analysis';
@@ -32,7 +32,7 @@ function NoteCard({item,entry,busy,original,onSave,onLocate,editMode,onEdit,onCu
  <div className="study-status-control"><label>复习状态<select aria-label={`${note.title}的复习状态`} value={entry.status} disabled={busy} onChange={e=>onSave(note.id,{status:e.target.value as StudyStatus})}>{Object.entries(STATUS).map(([v,label])=><option key={v} value={v}>{label}</option>)}</select></label><p>仅记录学习状态，不改动正文与评分。</p></div>
  </article>;
 }
-export default function SentenceReview({review,analysis,original,onChange}:{review:Review;analysis:ReviewAnalysis;original:string;onChange:(r:Review)=>void}){
+export default function SentenceReview({review,analysis,original,onChange,focusNoteId}:{focusNoteId?:string;review:Review;analysis:ReviewAnalysis;original:string;onChange:(r:Review)=>void}){
  const parsed=useMemo(()=>readingRows(original,review.study?.layout),[original,review.study?.layout]);
  const baseNotes=useMemo(()=>reviewNotes(analysis),[analysis]);const notes=useMemo(()=>curatedNotes(analysis,review.curation),[analysis,review.curation]);const located=useMemo(()=>notes.map(note=>{const at=note.origin?{range:note.scope==='range'?note.anchor||null:null,source:'manual' as const}:noteAnchor(original,note,review.study?.entries[note.id]);if(at.source==='paragraph'){const n=(note.position||'').match(/第\s*([一二三四五六七八九\d]+)\s*段/)?.[1];if(n){const index=/^\d+$/.test(n)?Number(n)-1:'一二三四五六七八九'.indexOf(n);at.range=sourceParagraphs(original)[index]||null;}}return {note,...at};}),[notes,original,review.study,review.curation]);
  const displays=useMemo(()=>sentenceDisplays(original,parsed.rows,located.filter(n=>!n.note.hidden)),[original,parsed.rows,located]);
@@ -46,6 +46,16 @@ export default function SentenceReview({review,analysis,original,onChange}:{revi
  const row=rowView?.row,prose=parsed.rows.filter(r=>r.kind==='sentence'),activeIndex=prose.findIndex(r=>r.id===row?.id);
  const hidden=located.filter(n=>n.note.hidden),unlocated=located.filter(n=>!n.note.hidden&&n.note.kind!=='task'&&n.note.scope!=='global'&&!n.range),global=located.filter(n=>!n.note.hidden&&(n.note.kind==='task'||n.note.scope==='global'));
  const shown=(view==='sentence'?rowView?.notes||[]:view==='unlocated'?unlocated:view==='hidden'?hidden:global).filter(accepts);
+ const appliedFocus=useRef('');
+ useEffect(()=>{
+  const key=review.id+':'+focusNoteId;if(!focusNoteId||appliedFocus.current===key)return;appliedFocus.current=key;
+  const item=located.find(n=>n.note.id===focusNoteId);if(!item){setMessage('这条收藏已从当前整理稿移除，可查看整理记录。');return;}
+  setKind('all');setStatus('all');
+  const matching=displays.find(d=>d.notes.some(n=>n.note.id===focusNoteId));
+  if(item.note.hidden)setView('hidden');else if(item.note.kind==='task'||item.note.scope==='global')setView('global');else if(matching){setSelected(matching.row.id);setView('sentence');}else setView('unlocated');
+  const timer=setTimeout(()=>{const card=[...detail.current?.querySelectorAll<HTMLElement>('[data-note-id]')||[]].find(e=>e.dataset.noteId===focusNoteId);if(card){card.classList.add('bookmark-target');card.tabIndex=-1;card.scrollIntoView({block:'center'});card.focus({preventScroll:true});}},100);
+  return()=>clearTimeout(timer);
+ },[focusNoteId,review.id,located,displays]);
  const reviewed=notes.filter(n=>(entries[n.id]?.status||'unread')!=='unread').length;
  function selectRow(id:string,scroll=false){setSelected(id);setView('sentence');setError('');if(detail.current)detail.current.scrollTop=0;if(scroll&&window.matchMedia('(max-width: 900px)').matches)requestAnimationFrame(()=>detail.current?.scrollIntoView({block:'start',behavior:'smooth'}));}
  function locateRow(id=row?.id){if(!id)return;const el=reader.current?.querySelector<HTMLElement>(`[data-sentence-id="${id}"]`);el?.scrollIntoView({block:'center',behavior:'smooth'});el?.focus({preventScroll:true});}
