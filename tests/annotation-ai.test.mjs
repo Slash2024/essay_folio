@@ -9,7 +9,7 @@ const archive=`export const db=new Map();export async function find(id){return d
 const secrets=`export const values=new Map();const id=name=>'secret-id-'+name;export const secrets={listSecretInfo:async()=>({secrets:[...values].map(([name])=>({_id:id(name),name}))}),getSecretValue:async name=>{if(!values.has(name))throw Error('Secret name not found');return {value:values.get(name)}},createSecret:async s=>{values.set(s.name,s.value);return {_id:id(s.name)}},updateSecret:async(secretId,s)=>{const name=[...values.keys()].find(n=>id(n)===secretId);if(!name)throw Error('Secret ID not found');values.set(name,s.value)}}`;
 let providerCalls=0,latestBody=null;const realFetch=globalThis.fetch;
 try{
- await build({stdin:{contents:"export {POST} from './src/pages/api/annotation-ai';export {POST as folioPOST} from './src/pages/api/folio';export {effectiveIssues} from './src/lib/analytics';export {db,put} from './src/server/archive';export * from './src/lib/annotation-alignment';export * from './src/lib/review-interactions';export {readingRows,sentenceDisplays} from './src/lib/sentence-reading';export {endpoint} from './src/server/annotation-config';export {values} from '@wix/secrets';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'api.mjs'),plugins:[{name:'isolated',setup(b){
+ await build({stdin:{contents:"export {POST} from './src/pages/api/annotation-ai';export {POST as folioPOST} from './src/pages/api/folio';export {effectiveIssues} from './src/lib/analytics';export {parseAppealDecision} from './src/lib/annotation-appeal';export {db,put} from './src/server/archive';export * from './src/lib/annotation-alignment';export * from './src/lib/review-interactions';export {readingRows,sentenceDisplays} from './src/lib/sentence-reading';export {endpoint} from './src/server/annotation-config';export {values} from '@wix/secrets';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'api.mjs'),plugins:[{name:'isolated',setup(b){
   b.onResolve({filter:/server\/archive$|^\.\/archive$/},()=>({path:'archive',namespace:'test'}));b.onResolve({filter:/server\/session$/},()=>({path:'session',namespace:'test'}));b.onResolve({filter:/^@wix\/secrets$/},()=>({path:'secrets',namespace:'test'}));b.onResolve({filter:/^@wix\/essentials$/},()=>({path:'auth',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},({path})=>({loader:'js',contents:path==='archive'?archive:path==='secrets'?secrets:path==='auth'?'export const auth={elevate:f=>f}':'export const authorized=async r=>r.headers.get("x-auth")!=="no",sameOrigin=r=>r.headers.get("origin")!=="https://foreign.invalid";export const accessConfig=async()=>({signing:"test"}),equal=(a,b)=>a===b,sign=async()=>"test",makeSession=async()=>"test",secret=async()=>"test",SITE_ORIGIN="https://test.invalid";'}));
  }}]});
  const m=await import(join(dir,'api.mjs'));const call=async(action,data={},headers={})=>{const r=await m.POST({request:new Request('https://test.invalid/api/annotation-ai',{method:'POST',headers:{'content-type':'application/json',...headers},body:JSON.stringify({action,...data})})});return {status:r.status,...await r.json()};};
@@ -53,7 +53,7 @@ try{
  assert.equal(materials.status,200);assert.equal(materials.materials.original,original);assert.equal(materials.materials.context.next,'Another sentence.');
  assert.equal(materials.materials.type,'large');assert(materials.materials.wordRule.includes('少于90词'));
  assert.equal(providerCalls,2);
- let adjudication={verdict:'revise',summary:'改为可选优化',response:'原搭配正确，更换只是措辞优化。',evidence:['pay more attention'],patch:{kind:'optimization',explanation:'两种搭配均可使用。',replacement:revised},neededContext:null};
+ let adjudication={verdict:'revise',summary:'改为可选优化',response:'原搭配正确，更换只是措辞优化。',evidence:['“People   pay more attention”'],patch:{kind:'optimization',explanation:'两种搭配均可使用。',replacement:revised},neededContext:null};
  globalThis.fetch=async(url,init)=>{
   providerCalls++;latestBody=JSON.parse(init.body);
   return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(adjudication)}}]}));
@@ -62,6 +62,9 @@ try{
  const originalReview=m.db.get(review.id).payload;
  let appeal=await call('previewAppeal',appealRequest);
  assert.equal(appeal.status,200);assert.equal(appeal.candidate.decision.verdict,'revise');assert.equal(providerCalls,3);
+ assert.deepEqual(appeal.candidate.decision.evidence,['People pay more attention']);
+ const sourceQuote='People’s attention\nchanged.';
+ assert.deepEqual(m.parseAppealDecision({...adjudication,evidence:["People's attention changed."]},[sourceQuote]).evidence,[sourceQuote]);
  assert(latestBody.messages[0].content.includes('图画、图表和材料题各按本题要求判断'));
  assert(!latestBody.messages[0].content.includes('最值得积累的表达'));
  const sent=JSON.parse(latestBody.messages[1].content);
@@ -92,7 +95,11 @@ try{
 
  // Invalid evidence and non-actionable rulings cannot reach curation.
  adjudication={...adjudication,evidence:['invented quote']};
- assert.equal((await call('previewAppeal',{...appealRequest,requestId:crypto.randomUUID()})).status,502);
+ const unmatched=await call('previewAppeal',{...appealRequest,requestId:crypto.randomUUID()});
+ assert.equal(unmatched.status,200);assert.deepEqual(unmatched.candidate.decision.evidence,[]);
+ assert.equal(unmatched.candidate.decision.unverifiedEvidence,1);
+ assert.equal(unmatched.candidate.decision.summary,adjudication.summary);
+ assert.equal((await folio('saveReviewCuration',{...accept,baseRevision:2,candidateId:unmatched.candidate.id})).status,409);
  adjudication={verdict:'insufficient',summary:'证据不足',response:'需要题目要求。',evidence:[],patch:null,neededContext:'题目的文体要求'};
  const insufficient=await call('previewAppeal',{...appealRequest,requestId:crypto.randomUUID(),includeContext:true,includeTask:true,includeWordRule:true,rubricBand:0});
  assert.equal(insufficient.status,200);assert.deepEqual(insufficient.candidate.changes,[]);

@@ -190,6 +190,7 @@ export async function resolveAppeal(review:Review,noteId:string,candidateId:stri
   if(record.expiresAt<Date.now())throw new AlignmentError('裁定预览已过期，请重新提交申诉',410);
   const target=appealTarget(review,noteId,text);
   if(record.fingerprint!==await targetFingerprint(review,target))throw new AlignmentError('原批注已更新，请重新提交申诉',409);
+  if(candidate.decision.unverifiedEvidence)throw new AlignmentError('这次裁定包含无法核对的引文，请重新复核后采纳',409);
   if(!candidate.changes.length)throw new AlignmentError('该裁定没有可采纳的实际变化',409);
   const note=applyAppealDecision(target.note,target.range,text,target.base,candidate.decision);
   return {candidate,note,before:target.note};

@@ -161,6 +161,7 @@ export default function AnnotationAppeal({review,note,disabled,onChange,onSetup}
         <h3>{candidate.decision.summary}</h3>
         <p>{candidate.decision.response}</p>
         {!!candidate.decision.evidence.length&&<ul>{candidate.decision.evidence.map((quote,index)=><li key={index}><q>{quote}</q></li>)}</ul>}
+        {!!candidate.decision.unverifiedEvidence&&<p className="annotation-config-notice">有 {candidate.decision.unverifiedEvidence} 段引文无法在已发送材料中核对，已略去。你可以查看裁定说明，补充材料或重新复核后再采纳。</p>}
         {candidate.decision.neededContext&&<p className="annotation-config-notice">需要补充 {candidate.decision.neededContext}</p>}
         {candidate.changes.map(change=><div className="appeal-change" key={change.field}>
           <h4>{change.field}</h4>
@@ -182,7 +183,7 @@ export default function AnnotationAppeal({review,note,disabled,onChange,onSetup}
             {hasRequest?'查询上次裁定':'提交申诉（调用一次）'}
           </button>}
         {!candidate&&hasRequest&&error&&<button type="button" className="button outline small" disabled={!!working||!canSend} onClick={()=>generate(true)}>重新提交（再次调用）</button>}
-        {candidate&&!!candidate.changes.length&&<button type="button" className="button primary small" disabled={!!working||Date.now()>=candidate.expiresAt} onClick={()=>save('acceptAppeal')}>
+        {candidate&&!!candidate.changes.length&&!candidate.decision.unverifiedEvidence&&<button type="button" className="button primary small" disabled={!!working||Date.now()>=candidate.expiresAt} onClick={()=>save('acceptAppeal')}>
           {working==='save'?'正在采纳…':candidate.decision.verdict==='withdraw'?'确认撤回这条意见':'采纳修改'}
         </button>}
       </div>
