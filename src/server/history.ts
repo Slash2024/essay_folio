@@ -21,6 +21,7 @@ export async function ensureHistory(w:Writing){
     if(!r.revisionId){await put(r.id,'review',{...r,writingRevision:1,revisionId:old.id,binding:'legacySnapshot'},rr);}
     return versions(w.id);
   }}
-  const rows=await versions(w.id);if(!rows.length)await saveVersion(w,(w.revision||1)>1?'recovered':'submitted',w.lastEditedAt||w.submittedAt||null,(w.revision||1)>1);return versions(w.id);
+  const rows=await versions(w.id);if(rows.length)return rows;
+  await saveVersion(w,(w.revision||1)>1?'recovered':'submitted',w.lastEditedAt||w.submittedAt||null,(w.revision||1)>1);return versions(w.id);
 }
 export async function migrateHistory(){const ws=await all('writing');let count=0;for(const row of ws){const w=decode<Writing>(row);if(w.status!=='draft'){await ensureHistory(w);count++;}}return count;}
