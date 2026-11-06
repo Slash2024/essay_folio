@@ -26,21 +26,25 @@
     "@wix/sdk": "^1.21.5",
     "@wix/secrets": "^1.0.75",
     "astro": "^7.3.2",
+    "dictionary-en": "4.0.0",
+    "dictionary-en-gb": "3.0.0",
     "dompurify": "^3.4.17",
     "jszip": "^3.10.2",
     "lucide-react": "^1.61.0",
     "marked": "^18.1.1",
+    "nspell": "2.1.5",
     "tailwindcss": "^4.1.7",
     "typescript": "^5.8.3"
   },
   "devDependencies": {
     "@astrojs/react": "^6.0.6",
+    "@types/nspell": "2.1.6",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@wix/astro-wix-hosting-adapter": "^3.0.0",
     "@wix/cli": "^1.1.92",
+    "esbuild": "0.28.2",
     "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "esbuild": "0.28.2"
+    "react-dom": "18.3.1"
   }
 }
