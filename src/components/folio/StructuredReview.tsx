@@ -1,6 +1,6 @@
 import {confirmUnsavedNavigation} from '../../lib/navigation';
-import {useMemo,useState} from 'react';
-import {ArrowRight,Copy,Plus} from 'lucide-react';
+import {useLayoutEffect,useMemo,useState} from 'react';
+import {ArrowRight,Copy,PanelLeftClose,PanelLeftOpen,Plus} from 'lucide-react';
 import type {Review,Writing,Question} from '../../lib/folio';
 import {scoreMaximum,wordCount} from '../../lib/folio';
 import type {WritingVersion} from '../../lib/revisions';
@@ -19,18 +19,36 @@ function ExpressionCard({expression,usage,index,review,onFeedback}:{expression:s
  {editing&&<form className="study-expression-form" onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{const d=await api('addReviewExpression',{reviewId:review.id,expressionIndex:index,kind,value,meaning,baseRevision:libraryRevision});setLibraryRevision(d.library.revision);setEditing(false);onFeedback(d.duplicate?'表达库中已存在这条表达':'已加入表达库，可在高亮阅读中使用');}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}><label>保存到<select aria-label={`第${index+1}条表达保存类型`} value={kind} onChange={e=>setKind(e.target.value as 'sentence'|'word')}><option value="sentence">句子库</option><option value="word">单词库</option></select></label><label>确认英文内容<textarea aria-label={`第${index+1}条表达英文内容`} value={value} onChange={e=>setValue(e.target.value)} maxLength={kind==='sentence'?1800:220} required/></label><label>用法 / 释义<textarea aria-label={`第${index+1}条表达用法`} value={meaning} onChange={e=>setMeaning(e.target.value)} maxLength={500}/></label><p className="caption">可先调整为通用表达；模板空位写成 {'{{A}}'}。保存会更新表达库。</p>{error&&<p className="error" role="alert">{error}<button type="button" className="text-button" onClick={begin}>重新读取表达库</button></p>}<button className="button primary small" disabled={busy||libraryRevision===null||!value.trim()}>确认加入</button></form>}
  </article>;
 }
-export default function StructuredReview({question,review,writing,versions,onChange,focusNoteId,onConfigureAI}:{question?:Question;onConfigureAI?:()=>void;focusNoteId?:string;review:Review;writing:Writing|null;versions:WritingVersion[];onChange:(r:Review)=>void}){
+export default function StructuredReview({question,review,writing,versions,onChange,focusNoteId,onConfigureAI,navigationCollapsed,onNavigationCollapsedChange}:{navigationCollapsed:boolean;onNavigationCollapsedChange:(collapsed:boolean)=>void;question?:Question;onConfigureAI?:()=>void;focusNoteId?:string;review:Review;writing:Writing|null;versions:WritingVersion[];onChange:(r:Review)=>void}){
  const a=useMemo(()=>withScoreMaximum(review.analysis||applyOverrides(parseReview(review.markdown),review.issueOverrides),question||writing?.questionSnapshot),[review,question,writing?.questionSnapshot]);
  const bound=versions.find(v=>v.id===review.revisionId),original=bound?.text||'';
  const [tab,setTab]=useState<'annotations'|'compare'|'expressions'>('annotations'),[feedback,setFeedback]=useState(''),[compareMode,setCompareMode]=useState<'diff'|'side'|'original'|'revised'|'current'>('diff');
  async function copy(value:string,label:string){try{await navigator.clipboard.writeText(value);setFeedback(label+'已复制');}catch{setFeedback('复制失败，请检查剪贴板权限');}}
- function changeTab(value:typeof tab){if(value!==tab&&!confirmUnsavedNavigation())return;setTab(value);setFeedback('');}
+ useLayoutEffect(()=>()=>onNavigationCollapsedChange(false),[onNavigationCollapsedChange]);
+ function changeTab(value:typeof tab){
+  if(value!==tab&&!confirmUnsavedNavigation())return;
+  if(value!=='annotations')onNavigationCollapsedChange(false);
+  setTab(value);
+  setFeedback('');
+ }
  return <div className="interactive-review">
  <div className="study-masthead"><div><h3>原文批注与复习</h3><p>原始批阅：{a.corrections.length} 条纠错 · {a.optimizations.length} 项可选优化 · {bound?`批阅对应 V${bound.version}`:'对应正文 not given'}</p></div><div className="study-score"><small>原始作文估分</small><strong>{a.score.point??'not given'}<span> / {a.score.max??'not given'}</span></strong><small>区间 {a.score.low===null?'not given':`${a.score.low}–${a.score.high}`}</small></div></div>
  {question&&a.score.max!==null&&a.score.max!==scoreMaximum(question.type)&&<p className="practice-standard-note">此批阅原始评分为 {a.score.max} 分制，与当前 {scoreMaximum(question.type)} 分制不符；保留原值，不自动换算，也不计入当前均分。</p>}
  {review.binding==='legacySnapshot'&&<div className="study-legacy"><span>历史批阅使用送审快照 V{bound?.version??'not given'}；当前正文 V{writing?.revision||1} 已另存并锁定。</span><button className="text-button" onClick={()=>{changeTab('compare');setCompareMode('current');}}>查看与当前正文的差异<ArrowRight size={13}/></button></div>}
  <details className="study-overview"><summary>总体评价、任务完成情况与评分依据 <span>{a.score.band?plain(a.score.band):'not given'}</span></summary><div><h4>总体评价</h4><Content value={a.sections[1]}/><h4>任务完成情况</h4><Content value={a.sections[0]}/><h4>评分依据</h4><Content value={a.sections[7]}/></div></details>
+ <div className="study-view-controls">
  <div className="study-tabs" role="tablist" aria-label="批阅阅读方式">{([['annotations','原文批注'],['compare','全文对照'],['expressions',`表达积累 · ${a.expressions.length}`]] as const).map(([v,label])=><button key={v} role="tab" aria-selected={tab===v} aria-controls={`study-${review.id}-${v}`} id={`study-tab-${review.id}-${v}`} onClick={()=>changeTab(v)}>{label}</button>)}</div>
+ {tab==='annotations'&&<button
+  type="button"
+  className="button outline small annotation-navigation-toggle"
+  aria-controls="folio-sidebar"
+  aria-expanded={!navigationCollapsed}
+  onClick={()=>onNavigationCollapsedChange(!navigationCollapsed)}
+ >
+  {navigationCollapsed?<PanelLeftOpen size={16}/>:<PanelLeftClose size={16}/>}
+  {navigationCollapsed?'展开导航':'收起导航'}
+ </button>}
+ </div>
  <div className="study-feedback" aria-live="polite">{feedback}</div>
  {tab==='annotations'&&<div role="tabpanel" id={`study-${review.id}-annotations`} aria-labelledby={`study-tab-${review.id}-annotations`}><SentenceReview onConfigureAI={onConfigureAI} focusNoteId={focusNoteId} review={review} analysis={a} original={original} onChange={onChange}/></div>}
  {tab==='compare'&&<section className="study-comparison" role="tabpanel" id={`study-${review.id}-compare`} aria-labelledby={`study-tab-${review.id}-compare`}><div className="comparison-header"><div><h4>原文与完整修改稿</h4><p>原文使用批阅对应的 {bound?`V${bound.version}`:'not given'}；修改稿来自批阅第六部分，不重新生成。</p></div><label>显示方式<select aria-label="全文对照显示方式" value={compareMode} onChange={e=>setCompareMode(e.target.value as typeof compareMode)}><option value="diff">突出修改差异</option><option value="side">左右对照</option><option value="original">仅批阅对应原文</option><option value="revised">仅完整修改稿</option>{writing&&writing.text!==original&&<option value="current">快照与当前正文差异</option>}</select></label></div>
