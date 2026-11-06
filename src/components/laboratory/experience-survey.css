@@ -1,6 +1,5 @@
 .laboratory-survey {
-  max-width: 820px;
-  padding: clamp(16px, 3vw, 30px);
+  padding: clamp(16px, 2vw, 24px);
 }
 .laboratory-survey .panel-heading { flex-wrap: wrap; gap: 8px 16px; }
 .laboratory-survey > p { margin: 12px 0; }
@@ -37,3 +36,14 @@
 .laboratory-survey-options label:has(input:disabled) { cursor: default; }
 .laboratory-survey-options label:has(input:disabled):not(.is-selected) { color: var(--color-muted-foreground); }
 .laboratory-survey-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 22px; }
+
+/* Align the card with the page while keeping survey text easy to scan. */
+.laboratory-survey > p,
+.laboratory-survey-group {
+  max-width: 72ch;
+}
+
+@media (max-width: 650px) {
+  .laboratory-survey-matrix { grid-template-columns: minmax(0, 1fr); }
+  .laboratory-survey-actions { flex-wrap: wrap; }
+}

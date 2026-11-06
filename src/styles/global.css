@@ -147,3 +147,77 @@
 /* The library keeps its layout; achievements load only through this entry. */
 .heading-actions .achievement-entry{padding:9px 12px;font-size:12px;gap:7px;white-space:nowrap}.achievement-entry>svg{width:21px;height:23px;color:#087c77}
 @media(max-width:650px){.page-heading:has(.achievement-entry){flex-wrap:wrap}.page-heading:has(.achievement-entry) .heading-actions{margin-left:auto;display:flex;gap:8px}.heading-actions .achievement-entry{font-size:11px;padding:7px 9px}.achievement-entry>svg{width:18px;height:20px}}
+
+/* Keep adjacent settings cards on the same spacing rhythm as the workbench. */
+.annotation-settings + .settings-panel {
+  margin-block-start: 20px;
+}
+
+.sidebar {
+  overflow-y: auto;
+}
+
+.main-content > .page-heading {
+  flex-wrap: wrap;
+}
+
+.page-heading > div:first-child {
+  min-width: 0;
+}
+
+.page-heading .heading-actions {
+  flex-wrap: wrap;
+}
+
+.filter-bar > select,
+.review-toolbar > select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.review-toolbar > div {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.annotation-settings .annotation-feedback:empty {
+  margin: 0;
+  min-height: 0;
+}
+
+/* Long prompts should not stretch the entire writing row. */
+@media (min-width: 651px) {
+  .question-panel .question-content {
+    min-height: 0;
+    max-height: clamp(300px, 49vh, 500px);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .stats-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 651px) and (max-width: 900px) {
+  .question-panel .question-content {
+    max-height: clamp(300px, 38vh, 400px);
+  }
+}
+
+@media (min-width: 651px) and (max-width: 1150px) {
+  .backup-panel,
+  .stats-section {
+    padding: 20px;
+  }
+
+  .template-grid textarea {
+    min-height: 280px;
+  }
+}
+
+@media (max-width: 650px) {
+  .annotation-settings + .settings-panel {
+    margin-block-start: 15px;
+  }
+}
