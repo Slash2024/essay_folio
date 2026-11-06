@@ -173,6 +173,9 @@ test('classification is explicit, caches identical inputs, validates stale previ
  assert.equal((await call('acceptIssueClassification',{items:[{...candidate,expiresAt:0}]})).status,409);
  assert.equal((await call('acceptIssueClassification',{items:[candidate]})).status,200);
  assert.equal((await call('analytics')).reviews[0].issueDecisions[0].source,'llm');
+ const backup=await call('export');
+ assert.equal(backup.status,200);
+ assert.equal(backup.reviews[0].issueDecisions[0].source,'llm');
  assert.equal((await call('saveIssueCategories',{reviewId:review.id,issueId:issue.id,categories:['主谓一致']})).status,200);
  assert.equal((await call('analytics')).reviews[0].issueDecisions.length,0);
  assert.equal((await call('classifyIssues',{items})).status,409);
