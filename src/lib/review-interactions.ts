@@ -5,7 +5,7 @@ export type StudyStatus='unread'|'revisit'|'mastered';
 export interface TextAnchor {start:number;end:number}
 export interface StudyEntry {status:StudyStatus;starred:boolean;anchor?:TextAnchor|null}
 export interface ReviewStudy {revision:number;updatedAt:string;entries:Record<string,StudyEntry>;layout?:ReadingLayout}
-export interface ReviewNote {id:string;kind:'correction'|'optimization'|'task'|'keep'|'personal';title:string;original:string|null;replacement:string|null;explanation:string|null;position:string|null;categories:string[];display?:'auto'|'inline'|'sentence'|'notes';shortNote?:string;emphasis?:'none'|'bold'|'underline'|'highlight';hidden?:boolean;origin?:'edited'|'personal';scope?:'range'|'global'|'unlocated';anchor?:TextAnchor|null}
+export interface ReviewNote {id:string;appealVersion?:string;kind:'correction'|'optimization'|'task'|'keep'|'personal';title:string;original:string|null;replacement:string|null;explanation:string|null;position:string|null;categories:string[];display?:'auto'|'inline'|'sentence'|'notes';shortNote?:string;emphasis?:'none'|'bold'|'underline'|'highlight';hidden?:boolean;origin?:'edited'|'personal';scope?:'range'|'global'|'unlocated';anchor?:TextAnchor|null}
 export function interactionId(prefix:string,value:string){let h=2166136261;for(let i=0;i<value.length;i++)h=Math.imul(h^value.charCodeAt(i),16777619);return `${prefix}-${(h>>>0).toString(36)}-${value.length}`;}
 export function reviewNotes(a:ReviewAnalysis):ReviewNote[]{
  const notes:ReviewNote[]=a.corrections.map((c,i)=>({id:interactionId('c',`${c.original}\n${c.revision}\n${c.explanation}`),kind:'correction',title:`纠错 ${i+1}`,original:c.original,replacement:c.revision,explanation:c.explanation,position:null,categories:suggestCategories(c.explanation||'')}));

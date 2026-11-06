@@ -9,8 +9,8 @@ const archive=`export const db=new Map();export async function find(id){return d
 const secrets=`export const values=new Map();const id=name=>'secret-id-'+name;export const secrets={listSecretInfo:async()=>({secrets:[...values].map(([name])=>({_id:id(name),name}))}),getSecretValue:async name=>{if(!values.has(name))throw Error('Secret name not found');return {value:values.get(name)}},createSecret:async s=>{values.set(s.name,s.value);return {_id:id(s.name)}},updateSecret:async(secretId,s)=>{const name=[...values.keys()].find(n=>id(n)===secretId);if(!name)throw Error('Secret ID not found');values.set(name,s.value)}}`;
 let providerCalls=0,latestBody=null;const realFetch=globalThis.fetch;
 try{
- await build({stdin:{contents:"export {POST} from './src/pages/api/annotation-ai';export {db,put} from './src/server/archive';export * from './src/lib/annotation-alignment';export * from './src/lib/review-interactions';export {readingRows,sentenceDisplays} from './src/lib/sentence-reading';export {endpoint} from './src/server/annotation-config';export {values} from '@wix/secrets';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'api.mjs'),plugins:[{name:'isolated',setup(b){
-  b.onResolve({filter:/server\/archive$|^\.\/archive$/},()=>({path:'archive',namespace:'test'}));b.onResolve({filter:/server\/session$/},()=>({path:'session',namespace:'test'}));b.onResolve({filter:/^@wix\/secrets$/},()=>({path:'secrets',namespace:'test'}));b.onResolve({filter:/^@wix\/essentials$/},()=>({path:'auth',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},({path})=>({loader:'js',contents:path==='archive'?archive:path==='secrets'?secrets:path==='auth'?'export const auth={elevate:f=>f}':'export const authorized=async r=>r.headers.get("x-auth")!=="no",sameOrigin=r=>r.headers.get("origin")!=="https://foreign.invalid";'}));
+ await build({stdin:{contents:"export {POST} from './src/pages/api/annotation-ai';export {POST as folioPOST} from './src/pages/api/folio';export {effectiveIssues} from './src/lib/analytics';export {db,put} from './src/server/archive';export * from './src/lib/annotation-alignment';export * from './src/lib/review-interactions';export {readingRows,sentenceDisplays} from './src/lib/sentence-reading';export {endpoint} from './src/server/annotation-config';export {values} from '@wix/secrets';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'api.mjs'),plugins:[{name:'isolated',setup(b){
+  b.onResolve({filter:/server\/archive$|^\.\/archive$/},()=>({path:'archive',namespace:'test'}));b.onResolve({filter:/server\/session$/},()=>({path:'session',namespace:'test'}));b.onResolve({filter:/^@wix\/secrets$/},()=>({path:'secrets',namespace:'test'}));b.onResolve({filter:/^@wix\/essentials$/},()=>({path:'auth',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},({path})=>({loader:'js',contents:path==='archive'?archive:path==='secrets'?secrets:path==='auth'?'export const auth={elevate:f=>f}':'export const authorized=async r=>r.headers.get("x-auth")!=="no",sameOrigin=r=>r.headers.get("origin")!=="https://foreign.invalid";export const accessConfig=async()=>({signing:"test"}),equal=(a,b)=>a===b,sign=async()=>"test",makeSession=async()=>"test",secret=async()=>"test",SITE_ORIGIN="https://test.invalid";'}));
  }}]});
  const m=await import(join(dir,'api.mjs'));const call=async(action,data={},headers={})=>{const r=await m.POST({request:new Request('https://test.invalid/api/annotation-ai',{method:'POST',headers:{'content-type':'application/json',...headers},body:JSON.stringify({action,...data})})});return {status:r.status,...await r.json()};};
  assert.equal((await call('config',{}, {'x-auth':'no'})).status,401);assert.equal((await call('config',{}, {origin:'https://foreign.invalid'})).status,403);
@@ -42,5 +42,78 @@ try{
  // A candidate cannot overwrite an edited correction.
  const row=m.db.get(review.id),changed=JSON.parse(row.payload);changed.markdown=markdown.replace(revised,'People care about health.');row.payload=JSON.stringify(changed);assert.equal((await call('accept',{...request,candidateId:candidate.id,baseRevision:2})).status,400);
  assert(!JSON.stringify(JSON.parse(row.payload)).includes('test-private-key'));
+ // A complete appeal uses the same review and original revision as the annotation tools.
+ const folio=async(action,data={})=>{
+  const r=await m.folioPOST({request:new Request('https://test.invalid/api/folio',{method:'POST',body:JSON.stringify({action,...data})})});
+  return {status:r.status,...await r.json()};
+ };
+ await m.put(review.id,'review',review,m.db.get(review.id));
+ await m.put('writing-ai-v1','revision',{writingId:'writing-ai',text:original+' Another sentence.'},m.db.get('writing-ai-v1'));
+ const materials=await call('appealMaterials',{reviewId:review.id,noteId});
+ assert.equal(materials.status,200);assert.equal(materials.materials.original,original);assert.equal(materials.materials.context.next,'Another sentence.');
+ assert.equal(materials.materials.type,'large');assert(materials.materials.wordRule.includes('少于90词'));
+ assert.equal(providerCalls,2);
+ let adjudication={verdict:'revise',summary:'改为可选优化',response:'原搭配正确，更换只是措辞优化。',evidence:['pay more attention'],patch:{kind:'optimization',explanation:'两种搭配均可使用。',replacement:revised},neededContext:null};
+ globalThis.fetch=async(url,init)=>{
+  providerCalls++;latestBody=JSON.parse(init.body);
+  return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(adjudication)}}]}));
+ };
+ const appealRequest={reviewId:review.id,noteId,requestId:crypto.randomUUID(),reason:'原搭配正确',fingerprint:materials.fingerprint};
+ const originalReview=m.db.get(review.id).payload;
+ let appeal=await call('previewAppeal',appealRequest);
+ assert.equal(appeal.status,200);assert.equal(appeal.candidate.decision.verdict,'revise');assert.equal(providerCalls,3);
+ assert(latestBody.messages[0].content.includes('图画、图表和材料题各按本题要求判断'));
+ assert(!latestBody.messages[0].content.includes('最值得积累的表达'));
+ const sent=JSON.parse(latestBody.messages[1].content);
+ assert.equal(sent.original,original);assert.equal(sent.reason,'原搭配正确');assert(!sent.context&&!sent.rubric&&!sent.task&&!sent.wordRule);
+ assert.equal(m.db.get(review.id).payload,originalReview);
+ assert.equal((await call('previewAppeal',appealRequest)).cached,true);assert.equal(providerCalls,3);
+ assert.equal((await call('previewAppeal',{...appealRequest,reason:'另一个理由'})).status,409);assert.equal(providerCalls,3);
+ const accept={reviewId:review.id,noteId,baseRevision:0,operation:'acceptAppeal',candidateId:appeal.candidate.id};
+ assert.equal((await folio('saveReviewCuration',{...accept,noteId:'wrong-note'})).status,409);
+ assert.equal((await folio('saveReviewCuration',{...accept,baseRevision:3})).status,409);
+ const adopted=await folio('saveReviewCuration',accept);
+ assert.equal(adopted.status,200);assert.equal(adopted.review.markdown,markdown);
+ assert.equal(adopted.review.study.entries[noteId].starred,true);
+ assert.equal(adopted.review.curation.notes[noteId].kind,'optimization');
+ assert.equal(m.effectiveIssues(adopted.review).length,0);
+ const remembered=markdown+'\n## 5. 最值得记住的错误\n- 需要关注固定搭配。';
+ const ambiguous={...adopted.review,analysis:undefined,markdown:remembered};
+ assert.equal(m.effectiveIssues(ambiguous).length,1,'an appeal must not remove a category-only summary');
+ const versionId=adopted.review.curation.notes[noteId].appealVersion;
+ const history=await folio('getReviewCurationVersion',{reviewId:review.id,versionId});
+ assert.equal(history.version.appeal.candidate.reason,'原搭配正确');
+ assert.equal((await folio('saveReviewCuration',accept)).unchanged,true);
+ const restored=await folio('saveReviewCuration',{reviewId:review.id,noteId,baseRevision:1,operation:'undoAppeal',versionId});
+ assert.equal(restored.status,200);assert.equal(restored.review.curation.notes[noteId],undefined);
+ assert.equal(m.effectiveIssues(restored.review).length,1);
+ assert.equal(providerCalls,3);
+ assert.equal((await folio('saveReviewCuration',accept)).unchanged,true);
+
+ // Invalid evidence and non-actionable rulings cannot reach curation.
+ adjudication={...adjudication,evidence:['invented quote']};
+ assert.equal((await call('previewAppeal',{...appealRequest,requestId:crypto.randomUUID()})).status,502);
+ adjudication={verdict:'insufficient',summary:'证据不足',response:'需要题目要求。',evidence:[],patch:null,neededContext:'题目的文体要求'};
+ const insufficient=await call('previewAppeal',{...appealRequest,requestId:crypto.randomUUID(),includeContext:true,includeTask:true,includeWordRule:true,rubricBand:0});
+ assert.equal(insufficient.status,200);assert.deepEqual(insufficient.candidate.changes,[]);
+ const expanded=JSON.parse(latestBody.messages[1].content);
+ assert.equal(expanded.context.next,'Another sentence.');assert(expanded.task);assert(expanded.rubric.includes('17-20分'));assert(expanded.wordRule.includes('少于90词'));
+ assert.equal((await folio('saveReviewCuration',{...accept,baseRevision:2,candidateId:insufficient.candidate.id})).status,409);
+ adjudication={verdict:'withdraw',summary:'撤回意见',response:'原句成立。',evidence:[original],patch:null,neededContext:null};
+ appeal=await call('previewAppeal',{...appealRequest,requestId:crypto.randomUUID()});
+ assert.equal(appeal.status,200);assert.equal(appeal.candidate.changes[0].field,'暂不采纳');
+ const latest=JSON.parse(m.db.get(review.id).payload);
+ await m.put(review.id,'review',{...latest,study:{...latest.study,entries:{[noteId]:{...latest.study.entries[noteId],anchor:{start:0,end:6}}}}},m.db.get(review.id));
+ assert.equal((await folio('saveReviewCuration',{...accept,baseRevision:2,candidateId:appeal.candidate.id})).status,409);
+ assert.equal(JSON.parse(m.db.get(review.id).payload).curation.revision,2);
+
+ // The two large pools share a standard. Small essays get only their own rule.
+ for(const [questionId,type,clause] of [['2024-small','small','少于70词'],['2024-english-two-large','large','少于90词']]){
+  const other={...review,id:'review-'+questionId,questionId};
+  await m.put(other.id,'review',other);
+  const data=await call('appealMaterials',{reviewId:other.id,noteId});
+  assert.equal(data.status,200);assert.equal(data.materials.type,type);assert(data.materials.wordRule.includes(clause));
+ }
+ console.log('PASS annotation appeal: fixed criteria, exact materials, preview-only model call, verified evidence, idempotent adoption, stale checks, history and undo.');
  console.log('PASS annotation API: auth/origin, secret redaction, config revision, no implicit calls, generation replay, strict text validation, preview isolation, adoption, locked rendering, undo, stale rejection and failure handling.');
 }finally{globalThis.fetch=realFetch;await rm(dir,{recursive:true,force:true});}

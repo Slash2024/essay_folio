@@ -1,14 +1,15 @@
 import {exactSurfaceRange} from './sentence-reading';
 import {reviewNotes,type ReviewNote,type TextAnchor} from './review-interactions';
 import type {ReviewAnalysis} from './review-analysis';
+import type {AppealCandidate} from './annotation-appeal';
 export type NoteDisplay='auto'|'inline'|'sentence'|'notes';
 export type NoteEmphasis='none'|'bold'|'underline'|'highlight';
 export interface CuratedNote extends ReviewNote {scope:'range'|'global'|'unlocated';anchor:TextAnchor|null;display:NoteDisplay;shortNote:string;emphasis:NoteEmphasis;hidden:boolean;origin:'edited'|'personal'}
 export interface CurationData {notes:Record<string,CuratedNote>}
-export interface CurationVersionInfo {id:string;version:number;createdAt:string;label:string}
+export interface CurationVersionInfo {id:string;version:number;createdAt:string;label:string;appealId?:string}
 export interface ReviewCuration extends CurationData {revision:number;updatedAt:string;history:CurationVersionInfo[]}
 export interface CurationChange {field:string;before:string;after:string}
-export interface CurationVersion extends CurationVersionInfo {writingId:string;reviewId:string;data:CurationData;changes:CurationChange[]}
+export interface CurationVersion extends CurationVersionInfo {writingId:string;reviewId:string;data:CurationData;changes:CurationChange[];appeal?:{noteId:string;candidate:AppealCandidate;previous:CuratedNote|null}}
 export const KIND_LABELS:Record<ReviewNote['kind'],string>={correction:'实际错误',optimization:'可选优化',keep:'原句可保留',personal:'个人笔记',task:'全文核对'};
 export const DISPLAY_LABELS:Record<NoteDisplay,string>={auto:'短语成分对照（推荐）',inline:'逐词细节对照',sentence:'完整句子对照',notes:'只在右侧展示'};
 export const EMPHASIS_LABELS:Record<NoteEmphasis,string>={none:'不强调',bold:'加粗',underline:'下划线',highlight:'高亮'};
@@ -30,7 +31,7 @@ export function curatedNotes(analysis:ReviewAnalysis,curation?:ReviewCuration):R
 export function asCurated(note:ReviewNote,anchor:TextAnchor|null,original?:string):CuratedNote {
  const v=note as CuratedNote;let display=v.display||'auto';if(!v.origin&&note.kind==='correction'&&note.original&&anchor&&original!==undefined){const precise=exactSurfaceRange(original,note.original,anchor);if(precise)anchor=precise;else display='notes';}return {...note,scope:v.scope||(note.kind==='task'?'global':anchor?'range':'unlocated'),anchor:v.anchor===undefined?anchor:v.anchor,display,shortNote:v.shortNote||'',emphasis:v.emphasis||'none',hidden:v.hidden||false,origin:v.origin||'edited'};
 }
-export function curationChanges(before:CuratedNote|undefined,after:CuratedNote|undefined):CurationChange[]{
+export function curationChanges(before:ReviewNote|undefined,after:ReviewNote|undefined):CurationChange[]{
  const fields:[keyof CuratedNote,string][]=[['original','关联原文'],['title','标题'],['kind','性质'],['replacement','修改稿 / 补充表达'],['explanation','详细说明'],['shortNote','句旁短批注'],['scope','所属范围'],['anchor','原文位置'],['display','删改显示'],['emphasis','重点样式'],['hidden','暂不采纳']];
  const format=(key:keyof CuratedNote,v:unknown):string=>v==null?'not given':key==='kind'?KIND_LABELS[v as ReviewNote['kind']]:key==='display'?DISPLAY_LABELS[v as NoteDisplay]:key==='emphasis'?EMPHASIS_LABELS[v as NoteEmphasis]:key==='anchor'?`${(v as TextAnchor).start}–${(v as TextAnchor).end}`:key==='scope'?({range:'原文范围',global:'全文',unlocated:'未定位'}[v as CuratedNote['scope']]):key==='hidden'?v?'暂不采纳':'正常展示':String(v);
  return fields.filter(([key])=>JSON.stringify(before?.[key])!==JSON.stringify(after?.[key])).map(([key,label])=>({field:label,before:format(key,before?.[key]),after:format(key,after?.[key])}));

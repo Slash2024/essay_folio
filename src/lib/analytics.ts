@@ -20,6 +20,11 @@ export function effectiveIssues(review:Review):AnalyticsIssue[]{
   const linked=exact.length?exact:base.filter(n=>n.kind==='correction'&&n.categories.some(c=>[...issue.suggested,...issue.categories].includes(c as any)));
   for(const n of linked)consumed.add(n.id);
   if(issue.categories.includes('不计入问题'))continue;
+  // A shared category does not identify which remembered issue an appeal settled.
+  if(!exact.length&&linked.some(n=>byId.get(n.id)?.appealVersion)){
+   result.push({...issue,remembered:a.issueSource==='remembered',classificationSource:issue.manual?'manual':undefined});
+   continue;
+  }
   if(linked.some(n=>review.curation?.notes[n.id])){
    for(const n of linked){const effective=byId.get(n.id);if(effective?.kind==='correction'&&!effective.hidden){const item=fromNote(effective,`${issue.id}-${n.id}`);if(issue.manual)item.categories=issue.categories;result.push({...item,remembered:a.issueSource==='remembered',manual:item.manual||issue.manual,classificationSource:issue.manual?'manual':undefined});}}
   }else{

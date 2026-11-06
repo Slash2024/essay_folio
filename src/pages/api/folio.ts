@@ -3,6 +3,7 @@ import {AlignmentError} from '../../server/annotation-config';
 import {earnedMilestoneRules,personalNoteCounts} from '../../server/achievement-milestones';
 import {collectPracticeProgress} from '../../lib/practice-progress';
 import {collectExpressionUsage,expressionUsageDetails} from '../../lib/expression-usage';
+import {resolveAppeal} from '../../server/annotation-appeal';
 import {collectBookmarks} from '../../lib/bookmarks';
 import {CURATION_GUIDE_VERSION,type CurationGuidePreference} from '../../lib/curation-guide';
 import {curatedNotes,validateCuratedNote,curationChanges,validateCurationSize,type CurationData,type CurationVersion,type ReviewCuration} from '../../lib/review-curation';
@@ -70,7 +71,7 @@ export const POST:APIRoute=async({request})=>{
         await put(recordId,'deleted',{id:recordId,deletedAt:new Date().toISOString()},row);
       }
       try {
-      for(const kind of ['review','snapshot','notice','revision','curationVersion','alignmentCandidate','issueDecision']) {
+      for(const kind of ['review','snapshot','notice','revision','curationVersion','curationClaim','alignmentCandidate','appealCandidate','issueDecision']) {
         // Always drain the first page: advancing an offset while deleting skips rows.
         while(true) {
           const batch=await list(kind,{writingId:recordId,limit:100});
@@ -198,20 +199,76 @@ export const POST:APIRoute=async({request})=>{
       const row=await find(id(body.reviewId));if(!row||row.kind!=='review')return json({error:'批阅不存在'},404);const r=decode<Review>(row);
       const writingRow=await find(r.writingId);if(!writingRow||writingRow.kind!=='writing')return json({error:'记录不存在'},404);
       if(action==='getReviewCurationVersion') {const versionId=id(body.versionId);if(!r.curation?.history.some(h=>h.id===versionId))return json({error:'批阅整理版本不存在'},404);const saved=await find(versionId);if(!saved||saved.kind!=='curationVersion')return json({error:'批阅整理版本不存在'},404);const version=decode<CurationVersion>(saved);if(version.reviewId!==r.id||version.writingId!==r.writingId)return json({error:'批阅整理版本不匹配'},400);return json({version});}
-      const current=r.curation;if(Number(body.baseRevision)!==(current?.revision||0))return json({error:'批阅整理已在其他页面更新，请重新打开本稿后再保存；当前文字请先复制保留。'},409);
+      const current=r.curation;
+      const appealId=body.operation==='acceptAppeal'?id(body.candidateId):undefined;
+      if(appealId&&current?.history.some(h=>h.appealId===appealId))return json({review:analyzedReview(r),unchanged:true});
+      if(Number(body.baseRevision)!==(current?.revision||0))return json({error:'批阅整理已在其他页面更新，请重新打开本稿后再保存；当前文字请先复制保留。'},409);
       const bound=r.revisionId?await find(r.revisionId):null;const original=bound?.kind==='revision'?decode<{writingId:string;text:string}>(bound):null;if(!original||original.writingId!==r.writingId)return json({error:'批阅对应正文为 not given，无法保存人工整理'},400);
       const base=reviewNotes(parseReview(r.markdown));let data:CurationData={notes:{...current?.notes}},changes:CurationVersion['changes']=[],label='';
+      const version=(current?.revision||0)+1,versionId='curation-'+crypto.randomUUID();
+      let appeal:CurationVersion['appeal'];
       if(body.operation==='upsert') {let note;try{note=validateCuratedNote(body.note,original.text,base,data.notes[body.note?.id]);}catch(e){return json({error:(e as Error).message},400);}const before=data.notes[note.id]||base.find(n=>n.id===note.id);changes=curationChanges(before as any,note);data.notes[note.id]=note;label=`整理「${note.title}」`;}
+      else if(body.operation==='acceptAppeal'&&appealId) {
+        const noteId=id(body.noteId);
+        const {candidate,note,before}=await resolveAppeal(r,noteId,appealId,original.text);
+        appeal={noteId,candidate,previous:data.notes[noteId]??null};
+        data.notes[noteId]={...note,appealVersion:versionId};
+        changes=candidate.changes;
+        label='采纳申诉「'+before.title+'」';
+      }
+      else if(body.operation==='undoAppeal') {
+        const noteId=id(body.noteId),before=data.notes[noteId],appealVersion=id(body.versionId);
+        if(before?.appealVersion!==appealVersion||!current?.history.some(h=>h.id===appealVersion)){
+          return json({error:'本条批注已更新，无法撤销这次申诉'},409);
+        }
+        const saved=await find(appealVersion);
+        const adopted=saved?.kind==='curationVersion'?decode<CurationVersion>(saved):null;
+        if(!adopted||adopted.reviewId!==r.id||adopted.writingId!==r.writingId||adopted.appeal?.noteId!==noteId){
+          return json({error:'找不到这条申诉的上一版'},404);
+        }
+        if(adopted.appeal.previous)data.notes[noteId]=adopted.appeal.previous;
+        else delete data.notes[noteId];
+        changes=curationChanges(before,data.notes[noteId]||base.find(n=>n.id===noteId));
+        label='撤销申诉「'+before.title+'」';
+      }
       else if(body.operation==='restoreNote') {const noteId=id(body.noteId);if(!base.some(n=>n.id===noteId))return json({error:'批阅原始建议不存在；个人笔记可选择暂不采纳'},400);const before=data.notes[noteId];delete data.notes[noteId];changes=curationChanges(before,base.find(n=>n.id===noteId) as any);label='恢复单条自动解析';}
       else if(body.operation==='reset') {changes=[{field:'人工整理',before:`${Object.keys(data.notes).length} 条`,after:'恢复自动解析，历史记录保留'}];data={notes:{}};label='恢复自动解析';}
       else if(body.operation==='restoreVersion') {const versionId=id(body.versionId);let target:CurationData;if(versionId==='initial')target={notes:{}};else{if(!current?.history.some(h=>h.id===versionId))return json({error:'批阅整理版本不存在'},404);const saved=await find(versionId);if(!saved||saved.kind!=='curationVersion')return json({error:'批阅整理版本不存在'},404);const version=decode<CurationVersion>(saved);if(version.reviewId!==r.id||version.writingId!==r.writingId)return json({error:'批阅整理版本不匹配'},400);target=version.data;}
-        data={notes:{}};try{for(const [key,note] of Object.entries(target.notes)){if(key!==note.id)throw new Error('批阅整理版本格式不正确');data.notes[key]=validateCuratedNote(note,original.text,base,note);}}catch(e){return json({error:(e as Error).message},400);}changes=[{field:'整理稿',before:`版本 ${current?.revision||0}`,after:versionId==='initial'?'自动解析初始版':`历史版本 ${versionId}`}];label='恢复历史整理稿';}
+        data={notes:{}};try{for(const [key,note] of Object.entries(target.notes)){if(key!==note.id)throw new Error('批阅整理版本格式不正确');data.notes[key]={...validateCuratedNote(note,original.text,base,note),...(note.appealVersion?{appealVersion:note.appealVersion}:{})};}}catch(e){return json({error:(e as Error).message},400);}changes=[{field:'整理稿',before:`版本 ${current?.revision||0}`,after:versionId==='initial'?'自动解析初始版':`历史版本 ${versionId}`}];label='恢复历史整理稿';}
       else return json({error:'批阅整理操作不正确'},400);
       try{validateCurationSize(data);}catch(e){return json({error:(e as Error).message},400);}
       if(JSON.stringify(data.notes)===JSON.stringify(current?.notes||{}))return json({review:analyzedReview(r),unchanged:true});
-      const createdAt=new Date().toISOString(),version=(current?.revision||0)+1,versionId=`curation-${crypto.randomUUID()}`;
-      const info={id:versionId,version,createdAt,label};const snapshot:CurationVersion={...info,writingId:r.writingId,reviewId:r.id,data,changes};
-      const curation:ReviewCuration={...data,revision:version,updatedAt:createdAt,history:[...(current?.history||[]),info]};const next={...r,curation};if(new TextEncoder().encode(JSON.stringify(next)).length>370000)return json({error:'批阅整理与原始文件合计过大，请缩短说明后保存'},400);await put(versionId,'curationVersion',snapshot);await put(r.id,'review',next,row);return json({review:analyzedReview(next)});
+      const createdAt=new Date().toISOString();
+      const info={id:versionId,version,createdAt,label,...(appealId?{appealId}:{})};
+      const snapshot:CurationVersion={...info,writingId:r.writingId,reviewId:r.id,data,changes,...(appeal?{appeal}:{})};
+      const curation:ReviewCuration={...data,revision:version,updatedAt:createdAt,history:[...(current?.history||[]),info]};
+      const next={...r,curation};
+      if(new TextEncoder().encode(JSON.stringify(next)).length>370000)return json({error:'批阅内容过大，无法再保存整理'},400);
+      // An insert-only claim serializes changes to the same curation revision.
+      const slot=Math.floor(Date.now()/60000);
+      const claimPrefix='curation-claim-'+r.id+'-'+version+'-';
+      const claim=claimPrefix+slot;
+      try{await put(claim,'curationClaim',{writingId:r.writingId});}catch(error){
+        if(await find(claim))return json({error:'批阅整理正在保存，请刷新后重试'},409);
+        throw error;
+      }
+      try{
+        if(await find(claimPrefix+(slot-1))||Math.floor(Date.now()/60000)!==slot){
+          return json({error:'批阅整理正在保存，请稍后重试'},409);
+        }
+        const latest=await find(r.id);
+        if(latest?.kind!=='review'||latest.payload!==row.payload)return json({error:'批阅已更新，请重新打开后再保存'},409);
+        await put(versionId,'curationVersion',snapshot);
+        const fresh=await find(r.id);
+        if(fresh?.kind!=='review'||fresh.payload!==row.payload){
+          await deleteRow(versionId);
+          return json({error:'批阅已更新，请重新打开后再保存'},409);
+        }
+        await put(r.id,'review',next,fresh);
+        return json({review:analyzedReview(next)});
+      }finally{
+        await Promise.allSettled([deleteRow(claim)]);
+      }
     }
     if(action==='saveReviewLayout') {
       const row=await find(id(body.reviewId));if(!row||row.kind!=='review')return json({error:'批阅不存在'},404);

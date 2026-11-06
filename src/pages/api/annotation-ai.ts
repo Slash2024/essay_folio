@@ -10,6 +10,7 @@ import {find,put,decode} from '../../server/archive';
 import {analyzedReview} from '../../server/history';
 import {getAnnotationConfig,saveAnnotationConfig,publicConfig,AlignmentError} from '../../server/annotation-config';
 import {requestAlignment} from '../../server/annotation-provider';
+import {previewAppeal} from '../../server/annotation-appeal';
 export const prerender=false;
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
 const identifier=(v:unknown)=>{if(typeof v!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(v)||['__proto__','constructor','prototype'].includes(v))throw new AlignmentError('记录编号不正确');return v;};
@@ -37,6 +38,7 @@ export const POST:APIRoute=async({request})=>{
    await requestAlignment(config,pair,'主语 parks 是复数，修正主谓一致。');return json({ok:true,message:'连接与分组校验通过，未发送个人作文。'});
   }
   const reviewId=identifier(b.reviewId),noteId=identifier(b.noteId);
+  if(b.action==='appealMaterials'||b.action==='previewAppeal')return json(await previewAppeal(b.action,reviewId,noteId,b));
   if(b.action==='generate'){
    const requestId=identifier(b.requestId),candidateId='ai-'+requestId;const previous=await find(candidateId);
    if(previous){const saved=decode<any>(previous);if(previous.kind!=='alignmentCandidate'||saved.reviewId!==reviewId||saved.noteId!==noteId)throw new AlignmentError('请求编号不匹配',409);

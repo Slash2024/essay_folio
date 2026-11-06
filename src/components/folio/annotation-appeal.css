@@ -1,0 +1,14 @@
+.annotation-appeal{margin-top:8px}
+.appeal-dialog{max-height:calc(100dvh - 32px);overflow:auto}
+.appeal-dialog .appeal-materials{margin-top:14px}
+.appeal-materials p,.appeal-excerpt,.appeal-change p,.appeal-result>p{white-space:pre-wrap;overflow-wrap:anywhere}
+.appeal-materials p,.appeal-change p{margin:7px 0 0}
+.appeal-reason{display:block;margin:14px 0;font-weight:600}
+.appeal-reason textarea{display:block;width:100%;min-height:100px;margin-top:6px;padding:10px;border:1px solid var(--border,#d5ded8);border-radius:8px;font:inherit;font-weight:400;resize:vertical}
+.appeal-inputs{margin:12px 0}
+.appeal-excerpt{padding:8px 12px;background:var(--surface-muted,#f6f8f7);font-size:.88rem}
+.appeal-result{border-top:1px solid var(--border,#d5ded8);padding-top:12px;margin-top:16px}
+.appeal-result h3{margin:8px 0}
+.appeal-result ul{padding-left:20px;overflow-wrap:anywhere}
+.appeal-change{margin:10px 0}
+.appeal-change h4{margin:0 0 4px}
