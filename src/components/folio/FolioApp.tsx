@@ -72,8 +72,31 @@ export default function FolioApp() {
   const key=q.type;const questionYears=years.filter(y=>questions.some(x=>x.year===y&&x.type===q.type&&(x.exam||'one')===(q.exam||'one')));const isFixed=!!writing&&writing.status!=='draft';const words=wordCount(text);
   function setPage(next:Page){if(next!==page&&!confirmUnsavedNavigation())return;setPageDirect(next);}
   function message(value:string){setToast(value);clearTimeout(toastTimer.current);toastTimer.current=setTimeout(()=>setToast(''),6500);}
-  async function loadExpressions(){setExpressionLoading(true);setExpressionError('');try{const r=await api<{library:ExpressionLibrary}>('expressions');setExpressionLibrary(r.library);}catch(e){setExpressionError((e as Error).message);}finally{setExpressionLoading(false);}}
-  async function saveExpressions(next:ExpressionLibrary){const r=await api<{library:ExpressionLibrary}>('saveExpressions',{baseRevision:next.revision,library:next});setExpressionLibrary(r.library);return r.library;}
+  const expressionRequest=useRef<AbortController|null>(null);
+  async function loadExpressions(){
+    expressionRequest.current?.abort();
+    const request=new AbortController();
+    expressionRequest.current=request;
+    setExpressionLoading(true);
+    setExpressionError('');
+    try{
+      const result=await api<{library:ExpressionLibrary}>('expressions',{},request.signal);
+      if(!request.signal.aborted)setExpressionLibrary(result.library);
+    }catch(error){
+      if(!request.signal.aborted)setExpressionError((error as Error).message);
+    }finally{
+      if(!request.signal.aborted)setExpressionLoading(false);
+    }
+  }
+  async function saveExpressions(next:ExpressionLibrary){
+    const result=await api<{library:ExpressionLibrary}>('saveExpressions',{baseRevision:next.revision,library:next});
+    expressionRequest.current?.abort();
+    setExpressionLoading(false);
+    setExpressionError('');
+    setExpressionLibrary(result.library);
+    return result.library;
+  }
+  useEffect(()=>()=>expressionRequest.current?.abort(),[]);
   useEffect(()=>{if(auth&&page==='expressions')loadExpressions();},[auth,page]);
   async function checkAuth(){try{const r=await fetch('/api/folio',{cache:'no-store'});const s=await r.json();if(!r.ok)throw new Error(s.error||'云端服务暂不可用');setAuth(s.authenticated);setInitError('');}catch(e){setInitError((e as Error).message);setAuth(false);}}
   useEffect(()=>{setDraftId(crypto.randomUUID());checkAuth();return()=>clearTimeout(toastTimer.current);},[]);

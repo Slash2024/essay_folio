@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {Sparkles,X} from 'lucide-react';
 import type {Review} from '../../lib/folio';
 import {annotationApi,dateLabel} from '../../lib/client';
@@ -9,7 +9,10 @@ export default function AnnotationOptimizer({review,noteId,pair,disabled,onChang
  const [open,setOpen]=useState(false),[config,setConfig]=useState<{configured:boolean;enabled:boolean;model:string}|null>(null),[candidate,setCandidate]=useState<AlignmentCandidate|null>(null),[context,setContext]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const dialog=useRef<HTMLDialogElement>(null),requestId=useRef(''),controller=useRef<AbortController|null>(null),generation=useRef(0);
  const active=currentAlignment(review.alignments,noteId,pair),entry=review.alignments?.entries[noteId];
- const before=active?alignmentParts(active.segments):wordDiff(pair.original,pair.revised);
+ const before=useMemo(()=>{
+  if(!open)return [];
+  return active?alignmentParts(active.segments):wordDiff(pair.original,pair.revised);
+ },[open,active,pair.original,pair.revised]);
  useEffect(()=>{if(!open)return;const el=dialog.current;el?.showModal();el?.querySelector<HTMLElement>('button')?.focus();let live=true;annotationApi('config').then(d=>{if(live)setConfig(d.config);}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;controller.current?.abort();el?.close();};},[open]);
  useEffect(()=>()=>{controller.current?.abort();generation.current++;},[]);
  function close(){controller.current?.abort();generation.current++;setBusy(false);setOpen(false);}
