@@ -8,7 +8,7 @@ export interface AlignmentStore {revision:number;entries:Record<string,NoteAlign
 export interface AlignmentCandidate extends AlignmentVersion {reviewId:string;writingId:string;noteId:string;expiresAt:string;status:'ready'}
 export function validateSegments(value:unknown,pair:AlignmentPair):AlignmentSegment[]{
  const raw=(value as {segments?:unknown})?.segments;
- if(!Array.isArray(raw)||!raw.length||raw.length>80)throw new Error('模型未返回有效的分组列表');
+ if(!Array.isArray(raw)||!raw.length||raw.length>(pair.display==='essay'?160:80))throw new Error('模型未返回有效的分组列表');
  const segments=raw.map(s=>{
   if(!s||typeof s!=='object'||!['keep','replace','delete','insert'].includes(s.type)||typeof s.before!=='string'||typeof s.after!=='string'||s.before.length>6000||s.after.length>6000||!s.before&&!s.after)throw new Error('模型返回的分组格式不正确');
   if(s.type==='keep'&&s.before!==s.after||s.type==='replace'&&(!s.before||!s.after||s.before===s.after)||s.type==='delete'&&(!s.before||s.after)||s.type==='insert'&&(s.before||!s.after))throw new Error('模型返回的分组类型与文字不一致');

@@ -2,6 +2,7 @@ import type {APIRoute} from 'astro';
 import type {Review} from '../../lib/folio';
 import {ALIGNMENT_PROMPT_VERSION,validateSegments,type AlignmentCandidate,type AlignmentStore,type AlignmentPair,type NoteAlignment} from '../../lib/annotation-alignment';
 import {alignmentInput} from '../../lib/alignment-input';
+import {fullEssayInput,FULL_ESSAY_ALIGNMENT_ID} from '../../lib/essay-comparison';
 import {curatedNotes} from '../../lib/review-curation';
 import {parseReview} from '../../lib/review-analysis';
 import {readingRows} from '../../lib/sentence-reading';
@@ -19,7 +20,10 @@ async function input(reviewId:string,noteId:string){
  const writing=await find(review.writingId);if(writing?.kind!=='writing')throw new AlignmentError('记录不存在',404);
  const version=review.revisionId?await find(review.revisionId):null;const source=version?.kind==='revision'?decode<{writingId:string;text:string}>(version):null;
  if(!source||source.writingId!==review.writingId)throw new AlignmentError('批阅对应正文为 not given，无法优化标注');
- const note=curatedNotes(parseReview(review.markdown),review.curation).find(n=>n.id===noteId);const pair=note?alignmentInput(note,source.text):null;
+ const analysis=parseReview(review.markdown);
+ const note=curatedNotes(analysis,review.curation).find(n=>n.id===noteId);
+ const pair=noteId===FULL_ESSAY_ALIGNMENT_ID?fullEssayInput(source.text,analysis):note?alignmentInput(note,source.text):null;
+ if(!pair&&noteId===FULL_ESSAY_ALIGNMENT_ID)throw new AlignmentError('请确认第六部分包含完整修改作文，且两版文字不同、各不超过 6000 字符');
  if(!pair)throw new AlignmentError('此条需有确定的原句和修改句；请先定位原文或确认改稿');
  return {row,review,pair,source:source.text};
 }
@@ -47,7 +51,7 @@ export const POST:APIRoute=async({request})=>{
    }
    const target=await input(reviewId,noteId),config=await getAnnotationConfig();if(!config?.apiKey||!config.enabled)throw new AlignmentError('标注 API 尚未配置或未启用，请先到 API 设置中配置',503);
    let context:{previous:string;next:string}|undefined;
-   if(b.includeContext===true){const rows=readingRows(target.source).rows;const first=rows.findIndex(r=>r.end>target.pair.start),last=rows.findLastIndex(r=>r.start<target.pair.end);context={previous:first>0?rows[first-1].text.slice(0,600):'',next:last>=0?rows[last+1]?.text.slice(0,600)||'':''};}
+   if(b.includeContext===true&&noteId!==FULL_ESSAY_ALIGNMENT_ID){const rows=readingRows(target.source).rows;const first=rows.findIndex(r=>r.end>target.pair.start),last=rows.findLastIndex(r=>r.start<target.pair.end);context={previous:first>0?rows[first-1].text.slice(0,600):'',next:last>=0?rows[last+1]?.text.slice(0,600)||'':''};}
    const createdAt=new Date().toISOString(),pending={id:candidateId,reviewId,noteId,writingId:target.review.writingId,status:'pending',createdAt,expiresAt:new Date(Date.now()+1800000).toISOString()};
    // Unique insert prevents replay of one generation request from charging twice.
    await put(candidateId,'alignmentCandidate',pending);

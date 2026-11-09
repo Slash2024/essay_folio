@@ -121,6 +121,46 @@ try{
   const data=await call('appealMaterials',{reviewId:other.id,noteId});
   assert.equal(data.status,200);assert.equal(data.materials.type,type);assert(data.materials.wordRule.includes(clause));
  }
+
+ // Full-text alignment uses only the bound original and section six.
+ const fullOriginal='People pay more attention to their health.';
+ const fullRevised='People attach greater importance to their health.';
+ const fullMarkdown=markdown+'\n\n## 6. 修改后的完整作文\n'+fullRevised;
+ const fullReview={...review,id:'review-full',markdown:fullMarkdown};
+ await m.put(fullReview.id,'review',fullReview);
+ await m.put('writing-ai-v1','revision',{writingId:'writing-ai',text:fullOriginal},m.db.get('writing-ai-v1'));
+ const fullRequest={reviewId:fullReview.id,noteId:'full-essay',requestId:'full-one'};
+ globalThis.fetch=async(url,init)=>{
+  providerCalls++;latestBody=JSON.parse(init.body);
+  return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({segments})}}]}));
+ };
+ const callsBefore=providerCalls;
+ let full=await call('generate',fullRequest);
+ assert.equal(full.status,200);assert.equal(full.candidate.original,fullOriginal);
+ assert.equal(full.candidate.revised,fullRevised);assert.equal(full.candidate.display,'essay');
+ assert.equal(JSON.parse(latestBody.messages[1].content).revised,fullRevised);
+ assert(latestBody.messages[0].content.includes('两篇完整作文'));
+ assert(!JSON.parse(m.db.get(fullReview.id).payload).alignments);
+ assert.equal((await call('generate',fullRequest)).cached,true);
+ assert.equal(providerCalls,callsBefore+1);
+ const fullAccept={...fullRequest,candidateId:full.candidate.id,baseRevision:0};
+ full=await call('accept',fullAccept);
+ assert.equal(full.status,200);assert.equal(full.review.markdown,fullMarkdown);
+ assert(m.currentAlignment(full.review.alignments,'full-essay',{original:fullOriginal,revised:fullRevised,display:'essay'}));
+ assert(!m.currentAlignment(full.review.alignments,noteId,{original:fullOriginal,revised:fullRevised,display:'auto'}));
+ full=await call('rules',{...fullRequest,baseRevision:1});
+ assert.equal(full.status,200);assert.equal(full.review.alignments.entries['full-essay'].current,null);
+ full=await call('undo',{...fullRequest,baseRevision:2});
+ assert.equal(full.status,200);assert(full.review.alignments.entries['full-essay'].current);
+ const fullRow=m.db.get(fullReview.id),fullChanged=JSON.parse(fullRow.payload);
+ fullChanged.markdown=fullMarkdown+' More detail.';
+ fullRow.payload=JSON.stringify(fullChanged);
+ assert.equal((await call('accept',{...fullAccept,baseRevision:3})).status,409);
+ fullChanged.markdown=markdown;
+ fullRow.payload=JSON.stringify(fullChanged);
+ assert.equal((await call('generate',{...fullRequest,requestId:'full-missing'})).status,400);
+ assert.equal(providerCalls,callsBefore+1);
+ console.log('PASS full-text API: server-owned section-six pair, preview isolation, cached generation, explicit adoption, independent history, rules/undo and stale-source rejection.');
  console.log('PASS annotation appeal: fixed criteria, exact materials, preview-only model call, verified evidence, idempotent adoption, stale checks, history and undo.');
  console.log('PASS annotation API: auth/origin, secret redaction, config revision, no implicit calls, generation replay, strict text validation, preview isolation, adoption, locked rendering, undo, stale rejection and failure handling.');
 }finally{globalThis.fetch=realFetch;await rm(dir,{recursive:true,force:true});}

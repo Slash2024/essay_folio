@@ -1,7 +1,10 @@
 import {ALIGNMENT_PROMPT,validateSegments,type AlignmentPair} from '../lib/annotation-alignment';
 import {AlignmentError,endpoint,type AnnotationConfig} from './annotation-config';
 export async function requestAlignment(config:AnnotationConfig,pair:AlignmentPair,explanation:string,context?:{previous:string;next:string}){
- const value=await requestModelJSON(config,ALIGNMENT_PROMPT,{original:pair.original,revised:pair.revised,explanation:explanation.slice(0,6000),...(context?{context}:{})});
+ const prompt=pair.display==='essay'
+  ?ALIGNMENT_PROMPT+'\n本次输入为两篇完整作文。按句子和段落顺序对齐，再在各句内划分短语成分。保留全部换行和段落边界，不把不同句子中偶然相同的单词强行对应。'
+  :ALIGNMENT_PROMPT;
+ const value=await requestModelJSON(config,prompt,{original:pair.original,revised:pair.revised,explanation:explanation.slice(0,6000),...(context?{context}:{})});
  try{return validateSegments(value,pair);}catch(e){throw new AlignmentError((e as Error).message,502);}
 }
 export async function requestModelJSON(config:AnnotationConfig,prompt:string,input:unknown,timeout=45000):Promise<unknown>{
