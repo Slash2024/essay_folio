@@ -1,7 +1,7 @@
 import {build} from 'esbuild';import assert from 'node:assert/strict';import {mkdtemp,rm} from 'node:fs/promises';import {join} from 'node:path';import {tmpdir} from 'node:os';
 const dir=await mkdtemp(join(tmpdir(),'folio-sentences-'));
 try{
- await build({entryPoints:['src/lib/sentence-reading.ts','src/lib/revisions.ts','src/lib/review-curation.ts','src/lib/phrase-diff.ts'],bundle:true,platform:'node',format:'esm',outdir:dir});const {readingRows,sentenceDisplays,validateReadingLayout,isSentenceRewrite}=await import(join(dir,'sentence-reading.js'));
+ await build({entryPoints:['src/lib/sentence-reading.ts','src/lib/revisions.ts','src/lib/review-curation.ts','src/lib/phrase-diff.ts'],bundle:true,platform:'node',format:'esm',outdir:dir});const {readingRows,sentenceDisplays,validateReadingLayout,isSentenceRewrite,locateReviewNotes}=await import(join(dir,'sentence-reading.js'));
  const text='Dr. Smith said, "Great! The park is near my home!" Meanwhile, the number rose from 75.2 to 145.9.\nResidents\' homes are nearby. Parks help them.\nIn a larger sense, parks serves as a catalyst for public well-being.';
  const parsed=readingRows(text);assert.equal(parsed.rows.length,5);assert.deepEqual(parsed.rows.map(r=>r.section),['opening','opening','body','body','ending']);assert.equal(parsed.needsGrouping,false);for(const row of parsed.rows)assert.equal(text.slice(row.start,row.end),row.text);
  const contest='The contest is scheduled to take place at my university from Nov. 11 to Nov. 13.';
@@ -67,5 +67,26 @@ try{
  const ambiguousRepeat=sentenceDisplays(repeated,readingRows(repeated).rows,[{note:{...repeatedNote,origin:undefined,scope:undefined,anchor:undefined},range:{start:0,end:repeated.length},source:'quote'}]);
  assert(ambiguousRepeat.every(r=>!r.inlineNoteIds.length),'automatic ambiguous matches remain unchanged');
  const wrong=sentenceDisplays(text,parsed.rows,[{note,range:{start:0,end:15},source:'manual'}]);assert(wrong.every(r=>!r.inlineNoteIds.length));
+
+ // Quick bindings must work for both parsed and previously curated suggestions.
+ const bindingSource='First sentence. Second sentence.';
+ const bindingRows=readingRows(bindingSource).rows;
+ const missing={...note,original:'A quote absent from the original.',replacement:'An alternative.'};
+ const initially=locateReviewNotes(bindingSource,[missing]);
+ assert.equal(initially[0].range,null);
+ const boundStudy={revision:1,entries:{[missing.id]:{status:'mastered',starred:true,anchor:{start:bindingRows[1].start,end:bindingRows[1].end}}}};
+ let bound=locateReviewNotes(bindingSource,[missing],boundStudy);
+ assert.equal(bound[0].source,'manual');
+ assert.deepEqual(bound[0].range,boundStudy.entries[missing.id].anchor);
+ const boundDisplays=sentenceDisplays(bindingSource,bindingRows,bound);
+ assert.equal(boundDisplays[0].notes.length,0);
+ assert.equal(boundDisplays[1].notes[0].note.id,missing.id);
+ assert(boundDisplays.every(d=>d.inlineNoteIds.length===0),'association alone does not invent an inline replacement');
+ const curatedMissing={...missing,origin:'edited',scope:'unlocated',anchor:null,display:'notes'};
+ bound=locateReviewNotes(bindingSource,[curatedMissing],boundStudy);
+ assert.deepEqual(bound[0].range,boundStudy.entries[missing.id].anchor);
+ boundStudy.entries[missing.id].anchor=null;
+ assert.equal(locateReviewNotes(bindingSource,[curatedMissing],boundStudy)[0].range,null);
+ assert.equal(curatedMissing.original,missing.original);
  console.log('PASS sentence reading: source offsets, quotes/abbreviations/decimals/possessives, natural paragraph and letter format groups, manual boundaries, exact inline diffs, cross-sentence/overlap/manual uncertainty, optional suggestions retained outside essay');
 }finally{await rm(dir,{recursive:true,force:true});}

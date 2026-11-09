@@ -60,6 +60,23 @@ try{await build({stdin:{contents:"export {POST} from './src/pages/api/folio'; ex
  const saved=savedBookmarks.find(b=>b.noteId===autoNote.id);assert.equal((await call('removeBookmark',{reviewId:'qa-review',noteId:autoNote.id,baseRevision:-1})).status,409);
  const removed=await call('removeBookmark',{reviewId:'qa-review',noteId:autoNote.id,baseRevision:saved.studyRevision});assert.equal(removed.status,200);assert.equal(removed.review.study.entries[autoNote.id].starred,false);assert.equal(removed.review.study.entries[autoNote.id].status,'mastered');assert.equal(removed.review.markdown,payload.markdown);assert.equal((await call('bookmarks')).items.length,1);
  assert.equal((await call('removeBookmark',{reviewId:'qa-review',noteId:personal.id,baseRevision:removed.review.study.revision})).status,200);assert.equal((await call('bookmarks')).items.length,0);
+
+ // Persist quick binding separately from opinion text, and let a later range edit replace it.
+ const bindingReview={...JSON.parse(db.get('qa-review').payload),id:'qa-binding',curation:undefined,study:{revision:0,entries:{[note.id]:{status:'mastered',starred:true}}}};
+ await db.set('qa-binding',{...db.get('qa-review'),_id:'qa-binding',payload:JSON.stringify(bindingReview)});
+ const secondAnchor={start:readingText.indexOf('Another'),end:readingText.length};
+ let binding=await call('saveReviewStudy',{reviewId:'qa-binding',noteId:note.id,baseRevision:0,entry:{status:'mastered',starred:true,anchor:secondAnchor}});
+ assert.equal(binding.status,200);assert.equal(binding.review.markdown,bindingReview.markdown);
+ assert.deepEqual(binding.review.study.entries[note.id].anchor,secondAnchor);
+ assert.equal((await call('get',{id})).reviews.find(r=>r.id==='qa-binding').study.entries[note.id].anchor.start,secondAnchor.start);
+ assert.equal((await call('saveReviewStudy',{reviewId:'qa-binding',noteId:note.id,baseRevision:0,entry:{status:'mastered',starred:true,anchor:null}})).status,409);
+ binding=await call('saveReviewCuration',{reviewId:'qa-binding',baseRevision:0,operation:'upsert',note:manual});
+ assert.equal(binding.status,200);
+ assert(!Object.hasOwn(binding.review.study.entries[note.id],'anchor'));
+ assert.equal(binding.review.study.entries[note.id].status,'mastered');
+ assert.equal(binding.review.study.entries[note.id].starred,true);
+ binding=await call('saveReviewStudy',{reviewId:'qa-binding',noteId:note.id,baseRevision:binding.review.study.revision,entry:{...binding.review.study.entries[note.id],anchor:null}});
+ assert.equal(binding.status,200);assert.equal(binding.review.study.entries[note.id].anchor,null);
  assert.equal((await call('delete',{id,confirmed:true,baseUpdatedAt:w.updatedAt})).status,200);assert.equal([...db.values()].filter(x=>x.kind==='revision'||x.kind==='review'||x.kind==='curationVersion').length,0);assert.equal((await call('draft',{id,questionId:'2024-large',text:'stale'})).status,410);
  const deletedProgress=await call('practiceProgress');assert.equal(deletedProgress.questions.find(q=>q.questionId==='2024-large').submittedCount,0);
  // Previously saved English-two settings cannot restore the obsolete grading scale.

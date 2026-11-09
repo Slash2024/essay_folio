@@ -207,7 +207,14 @@ export const POST:APIRoute=async({request})=>{
       const base=reviewNotes(parseReview(r.markdown));let data:CurationData={notes:{...current?.notes}},changes:CurationVersion['changes']=[],label='';
       const version=(current?.revision||0)+1,versionId='curation-'+crypto.randomUUID();
       let appeal:CurationVersion['appeal'];
-      if(body.operation==='upsert') {let note;try{note=validateCuratedNote(body.note,original.text,base,data.notes[body.note?.id]);}catch(e){return json({error:(e as Error).message},400);}const before=data.notes[note.id]||base.find(n=>n.id===note.id);changes=curationChanges(before as any,note);data.notes[note.id]=note;label=`整理「${note.title}」`;}
+      let study=r.study;
+      if(body.operation==='upsert') {let note;try{note=validateCuratedNote(body.note,original.text,base,data.notes[body.note?.id]);}catch(e){return json({error:(e as Error).message},400);}const before=data.notes[note.id]||base.find(n=>n.id===note.id);changes=curationChanges(before as any,note);
+        if(study&&Object.hasOwn(study.entries[note.id]||{},'anchor')&&
+          (before?.scope!==note.scope||JSON.stringify(before?.anchor)!==JSON.stringify(note.anchor))){
+          const {anchor,...entry}=study.entries[note.id];
+          study={...study,revision:study.revision+1,updatedAt:new Date().toISOString(),entries:{...study.entries,[note.id]:entry}};
+        }
+        data.notes[note.id]=note;label=`整理「${note.title}」`;}
       else if(body.operation==='acceptAppeal'&&appealId) {
         const noteId=id(body.noteId);
         const {candidate,note,before}=await resolveAppeal(r,noteId,appealId,original.text);
@@ -242,7 +249,7 @@ export const POST:APIRoute=async({request})=>{
       const info={id:versionId,version,createdAt,label,...(appealId?{appealId}:{})};
       const snapshot:CurationVersion={...info,writingId:r.writingId,reviewId:r.id,data,changes,...(appeal?{appeal}:{})};
       const curation:ReviewCuration={...data,revision:version,updatedAt:createdAt,history:[...(current?.history||[]),info]};
-      const next={...r,curation};
+      const next={...r,curation,study};
       if(new TextEncoder().encode(JSON.stringify(next)).length>370000)return json({error:'批阅内容过大，无法再保存整理'},400);
       // An insert-only claim serializes changes to the same curation revision.
       const slot=Math.floor(Date.now()/60000);

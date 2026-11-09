@@ -7,6 +7,7 @@ import {CURATION_GUIDE_VERSION,type GuideStatus} from '../../lib/curation-guide'
 import {curatedNotes,asCurated,KIND_LABELS,type CuratedNote} from '../../lib/review-curation';
 import CurationEditor from './CurationEditor';
 import CurationHistory from './CurationHistory';
+import SentenceBinding from './SentenceBinding';
 import SentenceChanges from './AnnotatedText';
 import ReadingSentenceText,{CrossSentenceRevisions} from './ReadingSentenceText';
 import {useEffect,useMemo,useRef,useState} from 'react';
@@ -21,7 +22,7 @@ import {api} from '../../lib/client';
 import MarkdownView from './MarkdownView';
 const STATUS:Record<StudyStatus,string>={unread:'未复习',revisit:'需要再看',mastered:'已掌握'};
 function Source({value}:{value:string|null}){return value?<MarkdownView markdown={value}/>:<span className="not-given">not given</span>;}
-function NoteCard({item,entry,busy,original,onSave,onLocate,editMode,onEdit,onCuration,baseNote,review,onChange,onSetup}:{review:Review;onChange:(r:Review)=>void;onSetup?:()=>void;item:LocatedReviewNote;entry:StudyEntry;busy:boolean;original:string;onSave:(id:string,change:Partial<StudyEntry>)=>void;onLocate:()=>void;editMode:boolean;onEdit:()=>void;onCuration:(operation:string,extra:Record<string,unknown>)=>Promise<boolean>;baseNote?:ReviewNote}){
+function NoteCard({item,entry,busy,original,onSave,onLocate,editMode,onEdit,onCuration,baseNote,review,onChange,onSetup,rows,onBind}:{rows:ReadingRow[];onBind:(row:ReadingRow|null)=>Promise<boolean>;review:Review;onChange:(r:Review)=>void;onSetup?:()=>void;item:LocatedReviewNote;entry:StudyEntry;busy:boolean;original:string;onSave:(id:string,change:Partial<StudyEntry>)=>void;onLocate:()=>void;editMode:boolean;onEdit:()=>void;onCuration:(operation:string,extra:Record<string,unknown>)=>Promise<boolean>;baseNote?:ReviewNote}){
  const {note,range,source}=item;const [copyMessage,setCopyMessage]=useState('');
  const pair=useMemo(()=>alignmentInput(note,original),[note,original]);const accepted=pair?currentAlignment(review.alignments,note.id,pair):null;
  const diff=accepted?alignmentParts(accepted.segments):note.original&&note.replacement?wordDiff(note.original,plain(note.replacement)):null;const manual=!!note.origin;
@@ -66,6 +67,10 @@ function NoteCard({item,entry,busy,original,onSave,onLocate,editMode,onEdit,onCu
   </div>}
   <p className="sentence-copy-message" role="status">{copyMessage}</p>
  </div>}
+ {!editMode&&!note.hidden&&note.kind!=='task'&&note.scope!=='global'&&(!range||source==='manual')&&
+  <SentenceBinding title={note.title} rows={rows} busy={busy}
+   currentId={rows.find(row=>range?.start===row.start&&range?.end===row.end)?.id}
+   onSave={onBind}/>}
  <footer className="sentence-note-toolbar">
   <div className="sentence-note-decisions">
    <AnnotationAppeal review={review} note={note} disabled={busy||editMode} onChange={onChange} onSetup={onSetup}/>
@@ -110,7 +115,26 @@ export default function SentenceReview({review,analysis,original,onChange,focusN
  async function curate(operation:string,extra:Record<string,unknown>={}){if(busy)return false;setBusy(true);setError('');setMessage('');try{const d=await api('saveReviewCuration',{reviewId:review.id,baseRevision:review.curation?.revision||0,operation,...extra});onChange(d.review);setMessage(d.unchanged?'整理内容没有变化':'人工整理已保存，原始作文、批阅与分数保留');return true;}catch(e){setError((e as Error).message);return false;}finally{setBusy(false);}}
  function startNote(){setError('');setEditing({id:`manual-${crypto.randomUUID()}`,kind:'personal',title:'个人笔记',original:row?.text||null,replacement:null,explanation:null,position:null,categories:[],scope:row?'range':'global',anchor:row?{start:row.start,end:row.end}:null,display:'notes',shortNote:'',emphasis:'none',hidden:false,origin:'personal'});}
  const previousVersion=review.curation?.history.at(-2)?.id||'initial';
- async function save(id:string,change:Partial<StudyEntry>){setBusy(true);setError('');setMessage('');try{const d=await api('saveReviewStudy',{reviewId:review.id,noteId:id,baseRevision:review.study?.revision||0,entry:{...(entries[id]||EMPTY_STUDY_ENTRY),...change}});onChange(d.review);setMessage('复习记录已保存到云端');}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+ async function save(id:string,change:Partial<StudyEntry>){
+  if(busy)return false;
+  setBusy(true);setError('');setMessage('');
+  try{
+   const d=await api('saveReviewStudy',{reviewId:review.id,noteId:id,baseRevision:review.study?.revision||0,entry:{...(entries[id]||EMPTY_STUDY_ENTRY),...change}});
+   onChange(d.review);
+   setMessage(Object.hasOwn(change,'anchor')?change.anchor?'句子绑定已保存':'已取消句子绑定':'复习记录已保存到云端');
+   return true;
+  }catch(e){setError((e as Error).message);return false;}
+  finally{setBusy(false);}
+ }
+ async function bindNote(item:LocatedReviewNote,target:ReadingRow|null){
+  const ok=await save(item.note.id,{anchor:target?{start:target.start,end:target.end}:null});
+  if(ok){
+   setKind('all');setStatus('all');
+   if(target){setSelected(target.id);setView('sentence');requestAnimationFrame(()=>locateRow(target.id));}
+   else setView('unlocated');
+  }
+  return ok;
+ }
  function editGroups(){setOpeningEnd(parsed.layout?String(parsed.layout.openingEnd):'');setEndingStart(parsed.layout?String(parsed.layout.endingStart):'');setGroupEdit(!groupEdit);setError('');}
  async function saveGroups(){setBusy(true);setError('');setMessage('');try{const layout:ReadingLayout={openingEnd:Number(openingEnd),endingStart:Number(endingStart)};const d=await api('saveReviewLayout',{reviewId:review.id,baseRevision:review.study?.revision||0,layout});onChange(d.review);setGroupEdit(false);setMessage('文章分组已保存，仅调整阅读展示');}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
  return <div className="sentence-review">
@@ -130,7 +154,11 @@ export default function SentenceReview({review,analysis,original,onChange,focusN
  {view==='sentence'&&rowView?.needsCheck&&<p className="sentence-cross-note">此处含跨句、重叠或需核对的修改。说明和完整改法保留在下方，不自动拼接到各句中。</p>}
  {editMode&&!editing&&<button className="button outline small curation-add" disabled={busy} onClick={startNote}>添加个人笔记 / 补充句</button>}
  {editing&&<CurationEditor key={editing.id} initial={editing} original={original} rows={parsed.rows} busy={busy} error={error} onGuide={()=>openGuide(1)} onCancel={()=>setEditing(null)} onSave={async note=>{const ok=await curate('upsert',{note});if(ok)setEditing(null);return ok;}}/>}
- {!editing&&shown.map(item=><NoteCard key={item.note.id} review={review} onChange={onChange} onSetup={onConfigureAI} item={item} entry={entries[item.note.id]||EMPTY_STUDY_ENTRY} busy={busy} original={original} onSave={save} onLocate={()=>locateItem(item)} editMode={editMode} onEdit={()=>{setError('');setEditing(asCurated(item.note,item.range,original));}} onCuration={curate} baseNote={baseNotes.find(n=>n.id===item.note.id)}/>)}
+ {!editing&&shown.map(item=><NoteCard key={item.note.id} rows={prose} onBind={target=>bindNote(item,target)} review={review} onChange={onChange} onSetup={onConfigureAI} item={item} entry={entries[item.note.id]||EMPTY_STUDY_ENTRY} busy={busy} original={original} onSave={save} onLocate={()=>locateItem(item)} editMode={editMode} onEdit={()=>{setError('');const draft=asCurated(item.note,item.range,original);
+ if(Object.hasOwn(entries[item.note.id]||{},'anchor')){
+  draft.anchor=item.range;draft.scope=item.range?'range':'unlocated';
+ }
+ setEditing(draft);}} onCuration={curate} baseNote={baseNotes.find(n=>n.id===item.note.id)}/>)}
  {!editing&&!shown.length&&<div className="study-empty">{view==='hidden'?'暂无暂不采纳的建议。':view==='unlocated'?'暂无未定位建议。':view==='global'?'全文批注：not given。':rowView?.notes.length?'这句话没有符合筛选条件的批注。':'这句话没有关联的批注；未提供批注不表示确认正确。'}</div>}
  {view!=='sentence'&&row&&<button className="text-button sentence-return" onClick={()=>setView('sentence')}>返回所选句子<ArrowRight size={13}/></button>}
  </aside></div>

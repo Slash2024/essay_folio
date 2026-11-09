@@ -125,9 +125,12 @@ export function sentenceDisplays(text:string,rows:ReadingRow[],located:LocatedRe
 
 export function locateReviewNotes(text:string,notes:ReviewNote[],study?:ReviewStudy):LocatedReviewNote[] {
  return notes.map(note=>{
-  const at=note.origin
-   ?{range:note.scope==='range'?note.anchor||null:null,source:'manual'}
-   :noteAnchor(text,note,study?.entries[note.id]);
+  const entry=study?.entries[note.id];
+  const at=entry&&Object.hasOwn(entry,'anchor')
+   ?noteAnchor(text,note,entry)
+   :note.origin
+    ?{range:note.scope==='range'?note.anchor||null:null,source:'manual'}
+    :noteAnchor(text,note,entry);
   if(at.source==='paragraph'){
    const n=(note.position||'').match(/第\s*([一二三四五六七八九\d]+)\s*段/)?.[1];
    if(n){
