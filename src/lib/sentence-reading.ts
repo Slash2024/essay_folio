@@ -1,5 +1,5 @@
 import {plain} from './review-analysis';
-import {locateQuote,type TextAnchor,type ReviewNote,type StudyEntry} from './review-interactions';
+import {locateQuote,noteAnchor,type ReviewStudy,type TextAnchor,type ReviewNote,type StudyEntry} from './review-interactions';
 import {wordDiff,type DiffPart} from './revisions';
 import {currentAlignment,alignmentParts,type AlignmentStore} from './annotation-alignment';
 export type ReadingSection='opening'|'body'|'ending'|'unassigned';
@@ -120,5 +120,21 @@ export function sentenceDisplays(text:string,rows:ReadingRow[],located:LocatedRe
   const safe=local.filter(p=>!patches.some(q=>q!==p&&q.range.start<p.range.end&&q.range.end>p.range.start)).sort((a,b)=>a.range.start-b.range.start);
   const parts:DiffPart[]=[];let position=row.start;for(const p of safe){if(p.range.start>position)parts.push({value:text.slice(position,p.range.start),type:'same'});const before=text.slice(p.range.start,p.range.end),after=plain(p.note.replacement!),accepted=currentAlignment(alignments,p.note.id,{original:before,revised:after,display:p.note.display||'auto'});parts.push(...(accepted?alignmentParts(accepted.segments):wordDiff(before,after)));position=p.range.end;}if(position<row.end)parts.push({value:text.slice(position,row.end),type:'same'});
   return {row,notes:linked,parts,inlineNoteIds:safe.map(p=>p.note.id),needsCheck:linked.some(n=>n.note.kind==='correction'&&n.note.display!=='notes'&&!safe.some(p=>p.note.id===n.note.id))};
+ });
+}
+
+export function locateReviewNotes(text:string,notes:ReviewNote[],study?:ReviewStudy):LocatedReviewNote[] {
+ return notes.map(note=>{
+  const at=note.origin
+   ?{range:note.scope==='range'?note.anchor||null:null,source:'manual'}
+   :noteAnchor(text,note,study?.entries[note.id]);
+  if(at.source==='paragraph'){
+   const n=(note.position||'').match(/第\s*([一二三四五六七八九\d]+)\s*段/)?.[1];
+   if(n){
+    const index=/^\d+$/.test(n)?Number(n)-1:'一二三四五六七八九'.indexOf(n);
+    at.range=sourceParagraphs(text)[index]||null;
+   }
+  }
+  return {note,...at};
  });
 }
