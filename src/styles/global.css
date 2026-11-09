@@ -535,14 +535,38 @@
   }
 }
 
-.sentence-binding {
-  margin: 0 var(--sentence-card-inset);
-  padding-block: 5px 8px;
-}
-.sentence-binding > .text-button {
+.sentence-binding-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-left: auto;
+  min-height: 32px;
+  max-width: 100%;
+  padding: 5px 10px;
+  border: 1px solid #9bc5ba;
+  border-radius: 6px;
+  background: #dcefe9;
+  color: #006b60;
   font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.sentence-binding-trigger:hover:not(:disabled) {
+  background: #cee6de;
+  border-color: #6fa998;
+}
+.sentence-binding-trigger:focus-visible {
+  outline: 2px solid #006b60;
+  outline-offset: 2px;
+}
+.sentence-binding-trigger > svg {
+  flex-shrink: 0;
 }
 .sentence-binding-form {
+  flex-basis: 100%;
+  min-width: 0;
+  margin-top: 6px;
   padding: 12px;
   border: 1px solid var(--sentence-border);
   border-radius: 7px;

@@ -1,4 +1,5 @@
 import {useState} from 'react';
+import {Link2,ChevronDown} from 'lucide-react';
 import type {ReadingRow} from '../../lib/sentence-reading';
 import {READING_LABELS} from '../../lib/sentence-reading';
 import {useUnsavedChanges} from '../../hooks/useUnsavedChanges';
@@ -13,16 +14,20 @@ interface Props {
 export default function SentenceBinding({title,rows,currentId,busy,onSave}:Props){
  const [open,setOpen]=useState(false),[choice,setChoice]=useState(currentId||''),[error,setError]=useState('');
  const target=rows.find(row=>row.id===choice);
+ const current=rows.find(row=>row.id===currentId);
  useUnsavedChanges(open&&choice!==(currentId||''),busy&&open);
  async function save(row:ReadingRow|null){
   setError('');
   if(await onSave(row))setOpen(false);
   else setError('绑定未保存，请查看错误提示后重试。');
  }
- return <div className="sentence-binding">
-  <button type="button" className="text-button" disabled={busy||!rows.length} aria-expanded={open}
+ return <>
+  <button type="button" className="sentence-binding-trigger" disabled={busy||!rows.length} aria-expanded={open}
+   aria-label={current?`已绑定第 ${current.number} 句，点击更换或取消绑定`:`为「${title}」绑定句子`}
    onClick={()=>{setChoice(currentId||'');setError('');setOpen(!open);}}>
-   {currentId?'更换绑定':'绑定句子'}
+   <Link2 size={15} aria-hidden="true"/>
+   {current?`已绑定 · 第 ${current.number} 句`:'绑定句子'}
+   {current&&<ChevronDown size={13} aria-hidden="true"/>}
   </button>
   {open&&<form className="sentence-binding-form" onSubmit={event=>{event.preventDefault();if(target)save(target);}}>
    <label>为「{title}」选择句子
@@ -40,5 +45,5 @@ export default function SentenceBinding({title,rows,currentId,busy,onSave}:Props
     <button className="button primary small" disabled={busy||!target}>{busy?'正在保存…':'确认绑定'}</button>
    </div>
   </form>}
- </div>;
+ </>;
 }

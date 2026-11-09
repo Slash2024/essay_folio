@@ -52,7 +52,11 @@ function NoteCard({item,entry,busy,original,onSave,onLocate,editMode,onEdit,onCu
   </>:<><Source value={note.explanation}/>{note.replacement&&<><div className="source-label">可保留 / 补充的表达</div><Source value={note.replacement}/></>}</>}
   <div className="sentence-note-meta">
    {!!note.categories.length&&<div className="suggestion-categories">{note.categories.map(c=><span key={c}>{c}</span>)}<small>原始规则分类</small></div>}
-   <span className="sentence-note-location">{location}</span>
+   {!editMode&&!note.hidden&&note.kind!=='task'&&note.scope!=='global'&&(!range||source==='manual')?
+    <SentenceBinding title={note.title} rows={rows} busy={busy}
+     currentId={rows.find(row=>range?.start===row.start&&range?.end===row.end)?.id}
+     onSave={onBind}/>
+    :<span className="sentence-note-location">{location}</span>}
   </div>
   {manual&&baseNote&&<details className="curation-source-proof"><summary>核对自动解析原始建议</summary>{baseNote.original&&<><div className="source-label">原句</div><Source value={baseNote.original}/></>}{baseNote.replacement&&<><div className="source-label">原始改法 / 补充</div><Source value={baseNote.replacement}/></>}<div className="source-label">原始说明</div><Source value={baseNote.explanation}/></details>}
  </div>
@@ -67,10 +71,6 @@ function NoteCard({item,entry,busy,original,onSave,onLocate,editMode,onEdit,onCu
   </div>}
   <p className="sentence-copy-message" role="status">{copyMessage}</p>
  </div>}
- {!editMode&&!note.hidden&&note.kind!=='task'&&note.scope!=='global'&&(!range||source==='manual')&&
-  <SentenceBinding title={note.title} rows={rows} busy={busy}
-   currentId={rows.find(row=>range?.start===row.start&&range?.end===row.end)?.id}
-   onSave={onBind}/>}
  <footer className="sentence-note-toolbar">
   <div className="sentence-note-decisions">
    <AnnotationAppeal review={review} note={note} disabled={busy||editMode} onChange={onChange} onSetup={onSetup}/>
