@@ -287,3 +287,12 @@
     position: static;
   }
 }
+
+.appeal-workspace-column .suggestion-kind.correction {
+  background: #f9e6d4;
+  color: #8c3d12;
+}
+.appeal-workspace-column .suggestion-kind.optimization {
+  background: #dceef3;
+  color: #135970;
+}
