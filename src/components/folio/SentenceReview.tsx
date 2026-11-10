@@ -52,9 +52,9 @@ function NoteCard({item,entry,busy,original,onSave,onLocate,editMode,onEdit,onCu
   </>:<><Source value={note.explanation}/>{note.replacement&&<><div className="source-label">可保留 / 补充的表达</div><Source value={note.replacement}/></>}</>}
   <div className="sentence-note-meta">
    {!!note.categories.length&&<div className="suggestion-categories">{note.categories.map(c=><span key={c}>{c}</span>)}<small>原始规则分类</small></div>}
-   {!editMode&&!note.hidden&&note.kind!=='task'&&note.scope!=='global'&&(!range||source==='manual')?
+   {!editMode&&!note.hidden&&note.kind!=='task'&&note.scope!=='global'?
     <SentenceBinding title={note.title} rows={rows} busy={busy}
-     currentId={rows.find(row=>range?.start===row.start&&range?.end===row.end)?.id}
+     currentRange={range} manual={source==='manual'} currentText={range?original.slice(range.start,range.end):undefined}
      onSave={onBind}/>
     :<span className="sentence-note-location">{location}</span>}
   </div>

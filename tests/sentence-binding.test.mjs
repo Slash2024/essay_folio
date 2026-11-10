@@ -1,0 +1,33 @@
+import {build} from 'esbuild';
+import assert from 'node:assert/strict';
+import {mkdtemp,rm,symlink} from 'node:fs/promises';
+import {join,resolve} from 'node:path';
+import {tmpdir} from 'node:os';
+import {createRequire} from 'node:module';
+import {createElement} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+const dir=await mkdtemp(join(tmpdir(),'folio-binding-'));
+try{
+ await symlink(resolve('node_modules'),join(dir,'node_modules'),'dir');
+ await build({entryPoints:['src/components/folio/SentenceBinding.tsx','src/components/folio/SentenceReview.tsx','src/lib/review-analysis.ts'],bundle:true,platform:'node',format:'cjs',outdir:dir,outbase:'src',jsx:'automatic',packages:'external',loader:{'.css':'empty'}});
+ const require=createRequire(import.meta.url);
+ const Binding=require(join(dir,'components/folio/SentenceBinding.js')).default;
+ const Review=require(join(dir,'components/folio/SentenceReview.js')).default;
+ const {parseReview}=require(join(dir,'lib/review-analysis.js'));
+ const rows=[{id:'one',number:3,start:0,end:25,kind:'sentence',section:'body',text:'The first sentence ends.'},{id:'two',number:4,start:26,end:52,kind:'sentence',section:'body',text:'The second sentence ends.'}];
+ const props={title:'优化 3',rows,busy:false,onSave:async()=>true};
+ const render=extra=>renderToStaticMarkup(createElement(Binding,{...props,...extra}));
+ assert(render({}).includes('绑定句子'));
+ assert(render({currentRange:{start:4,end:12}}).includes('自动匹配 · 第 03 句'),'sentence fragments display the containing sentence');
+ assert(render({currentRange:{start:0,end:52}}).includes('自动匹配 · 第 03–04 句'),'paragraph and cross-sentence anchors remain visibly bound');
+ assert(render({currentRange:{start:26,end:52},manual:true}).includes('手动关联 · 第 04 句'));
+ assert(render({currentRange:{start:60,end:65}}).includes('自动匹配 · 原文片段'),'unmapped existing ranges are not misrepresented as unbound');
+ assert(/disabled=""/.test(render({busy:true})));
+ const original='The first sentence ends.\n\nThe second sentence ends.';
+ const markdown='## 3. 逐句批改\n\n【原句】：The first sentence ends.\n\n【修改与说明】\n\n修改为：The first sentence has ended.\n\n说明：时态修改。';
+ const review={id:'review',markdown};
+ const html=renderToStaticMarkup(createElement(Review,{review,analysis:parseReview(markdown),original,onChange:()=>{}}));
+ assert(html.includes('自动匹配 · 第 01 句'),'an automatically matched annotation exposes the same inline binding control');
+ assert(html.includes('定位原文'),'jump-to-source remains a separate action');
+ console.log('PASS sentence binding: unbound, automatic fragment/paragraph, manual and busy states; actual auto-matched cards expose adjustment.');
+}finally{await rm(dir,{recursive:true,force:true});}

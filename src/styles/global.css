@@ -563,6 +563,9 @@
 .sentence-binding-trigger > svg {
   flex-shrink: 0;
 }
+.sentence-binding-chevron-open {
+  transform: rotate(180deg);
+}
 .sentence-binding-form {
   flex-basis: 100%;
   min-width: 0;
@@ -577,6 +580,17 @@
   flex-direction: column;
   gap: 8px;
   font-size: 12px;
+}
+.sentence-binding-heading {
+  display: block;
+  color: var(--sentence-ink);
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 6px;
+}
+.sentence-binding-form .sentence-binding-current {
+  color: var(--sentence-muted);
+  margin: 0 0 10px;
 }
 .sentence-binding-form select {
   width: 100%;

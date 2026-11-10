@@ -88,5 +88,20 @@ try{
  boundStudy.entries[missing.id].anchor=null;
  assert.equal(locateReviewNotes(bindingSource,[curatedMissing],boundStudy)[0].range,null);
  assert.equal(curatedMissing.original,missing.original);
+ const automatic={...note,id:'automatic-adjust',original:bindingRows[0].text,replacement:'A corrected first sentence.'};
+ const autoLocated=locateReviewNotes(bindingSource,[automatic]);
+ assert.equal(autoLocated[0].source,'quote');
+ const override={revision:1,entries:{[automatic.id]:{status:'mastered',starred:true,anchor:{start:bindingRows[1].start,end:bindingRows[1].end}}}};
+ const adjusted=locateReviewNotes(bindingSource,[automatic],override);
+ assert.equal(adjusted[0].source,'manual');
+ const adjustedDisplays=sentenceDisplays(bindingSource,bindingRows,adjusted);
+ assert.equal(adjustedDisplays[0].notes.length,0);
+ assert.equal(adjustedDisplays[1].notes[0].note.id,automatic.id);
+ assert(adjustedDisplays.every(d=>!d.inlineNoteIds.length),'moving a correction must not replace an unrelated sentence');
+ assert.equal(automatic.original,bindingRows[0].text);
+ const paragraph={...automatic,id:'paragraph-adjust',kind:'optimization',original:null,position:'第1段'};
+ assert.equal(locateReviewNotes(bindingSource,[paragraph])[0].range.end,bindingSource.length);
+ const paragraphOverride={revision:1,entries:{[paragraph.id]:override.entries[automatic.id]}};
+ assert.deepEqual(locateReviewNotes(bindingSource,[paragraph],paragraphOverride)[0].range,override.entries[automatic.id].anchor);
  console.log('PASS sentence reading: source offsets, quotes/abbreviations/decimals/possessives, natural paragraph and letter format groups, manual boundaries, exact inline diffs, cross-sentence/overlap/manual uncertainty, optional suggestions retained outside essay');
 }finally{await rm(dir,{recursive:true,force:true});}
