@@ -13,6 +13,7 @@
 .appeal-change{margin:10px 0}
 .appeal-change h4{margin:0 0 4px}
 
+/* The comparison and note editor own their scroll bodies and action footers. */
 .appeal-submitted-materials > summary {
   cursor: pointer;
   font-size: 13px;
@@ -24,7 +25,6 @@
   flex-direction: column;
   width: calc(100vw - 32px);
   max-width: 1920px;
-  height: calc(100vh - 32px);
   height: calc(100dvh - 32px);
   max-height: calc(100dvh - 32px);
   padding: 16px;
@@ -50,8 +50,8 @@
 .appeal-workspace {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.45fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 16px;
   min-height: 0;
 }
 .appeal-workspace-column {
@@ -69,7 +69,8 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 13px 16px;
+  min-height: 54px;
+  padding: 12px 18px;
   background: #eaf2f3;
   border-bottom: 1px solid #d3e0e5;
   flex-shrink: 0;
@@ -82,108 +83,190 @@
   font-weight: 650;
   margin: 0 auto 0 0;
 }
-.appeal-note-column > header > span {
-  font-size: 11px;
+.appeal-workspace-column > header > span {
+  font-size: 12px;
   color: #536f80;
 }
-.appeal-column-body {
+.appeal-comparison-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   scrollbar-width: thin;
-  padding: 16px;
+  scrollbar-gutter: stable;
+  padding: 20px;
   overflow-wrap: anywhere;
 }
-.appeal-workspace-field {
-  margin-bottom: 22px;
+.appeal-shared-source {
+  border: 1px solid #e0e8eb;
+  border-radius: 7px;
+  overflow: hidden;
+  margin-bottom: 20px;
 }
-.appeal-workspace-field h4 {
-  font-size: 12px;
-  font-weight: 600;
+.appeal-source-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 10px 14px;
+  background: #f1f5f7;
+}
+.appeal-source-heading h4,
+.appeal-verdict-heading h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+.appeal-source-heading > div {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
   color: #526b7c;
-  margin-bottom: 8px;
+  font-size: 12px;
 }
-.appeal-workspace-field .english {
+.appeal-source-heading > div > span { flex-shrink: 0; }
+.appeal-shared-source blockquote {
+  margin: 0;
+  padding: 14px 16px;
+  border-left: 2px solid #8fb5b3;
+  background: #f8fafb;
   font-size: 18px;
-  line-height: 1.85;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+.appeal-shared-source > .caption { padding: 14px; }
+.appeal-shared-source > .appeal-workspace-details {
+  margin: 0;
+  padding: 10px 14px;
+  border: 0;
 }
 .appeal-workspace .markdown {
-  font-size: 13px;
-  line-height: 1.9;
-  overflow-wrap: anywhere;
-}
-.appeal-workspace .english .markdown {
-  font: inherit;
-}
-.appeal-workspace .markdown p {
-  margin: 6px 0;
-}
-.appeal-verdict-summary {
-  padding: 14px;
-  background: #e4f2ed;
-  border: 1px solid #d1e6dd;
-  border-radius: 6px;
-  margin-bottom: 20px;
-  white-space: pre-wrap;
-}
-.appeal-verdict-summary > span {
-  font-size: 11px;
-  color: #32685e;
-}
-.appeal-verdict-summary h4 {
-  font-size: 16px;
-  font-weight: 650;
-  margin: 8px 0;
-}
-.appeal-verdict-summary p,
-.appeal-column-body > .caption {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.85;
-}
-.appeal-workspace-details {
-  border-top: 1px solid #e0e8eb;
-  padding-top: 10px;
-  margin-top: 14px;
-  font-size: 12px;
-  line-height: 1.9;
-}
-.appeal-workspace-details summary {
-  cursor: pointer;
-  color: #526b7c;
-}
-.appeal-workspace-details p {
-  margin: 6px 0 12px;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.appeal-workspace-details ul {
-  padding-left: 20px;
+.appeal-workspace .english .markdown { font: inherit; }
+.appeal-workspace .markdown p { margin: 6px 0; }
+.appeal-verdict-summary {
+  padding: 16px;
+  background: #eff6f4;
+  border: 1px solid #dceae5;
+  border-radius: 7px;
+  margin-bottom: 22px;
+  white-space: pre-wrap;
 }
-.appeal-workspace-column > footer {
+.appeal-verdict-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.appeal-verdict-badge {
+  display: inline-flex;
+  border: 1px solid #99bab4;
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: #206960;
+}
+.appeal-verdict-badge.insufficient {
+  color: #775d2a;
+  border-color: #cfbf9e;
+}
+.appeal-model { margin-left: auto; color: #64798a; font-size: 11px; }
+.appeal-verdict-summary h5 { font-size: 16px; margin: 12px 0 8px; font-weight: 650; }
+.appeal-verdict-summary p { font-size: 13px; line-height: 1.85; }
+.appeal-verdict-summary strong { font-weight: 600; margin-right: 6px; }
+.appeal-comparison-table { border: 1px solid #dce6eb; border-radius: 7px; overflow: hidden; }
+.appeal-comparison-headings,
+.appeal-comparison-cells,
+.appeal-comparison-resources {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.appeal-comparison-headings { background: #eaf2f3; }
+.appeal-comparison-headings > section {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 16px;
+}
+.appeal-comparison-headings h3 { font-size: 16px; margin: 0 auto 0 0; }
+.appeal-comparison-headings > section + section,
+.appeal-comparison-cells > div + div,
+.appeal-comparison-resources > div + div { border-left: 1px solid #dce6eb; }
+.appeal-comparison-row > h4 {
+  font-size: 12px;
+  color: #526b7c;
+  font-weight: 600;
+  margin: 0;
+  padding: 7px 16px;
+  background: #f1f5f7;
+  border-top: 1px solid #dce6eb;
+  border-bottom: 1px solid #e8eef1;
+}
+.appeal-comparison-cells > div { padding: 14px 16px; min-width: 0; }
+.appeal-comparison-cells .english { font-size: 18px; line-height: 1.85; }
+.appeal-comparison-resources { margin-top: 16px; border-top: 1px solid #e0e8eb; }
+.appeal-comparison-resources > div { min-width: 0; padding: 0 12px; }
+.appeal-workspace-details { font-size: 12px; line-height: 1.9; margin-top: 12px; }
+.appeal-workspace-details summary { cursor: pointer; color: #526b7c; }
+.appeal-workspace-details p { margin: 6px 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.appeal-workspace-details ul { padding-left: 20px; }
+.appeal-comparison-body > .caption { margin-top: 12px; }
+.appeal-decision-notices { flex-shrink: 0; }
+.appeal-decision-notices:empty { display: none; }
+.appeal-decision-notices > p { margin: 0; padding: 10px 16px; font-size: 12px; }
+.appeal-decision-notices .annotation-config-notice { border-radius: 0; border-width: 1px 0 0; }
+/* Option A: each task owns a fixed footer, on the same visual baseline. */
+.appeal-workspace .appeal-pane-actions,
+.appeal-workspace .curation-editor-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 10px;
   flex-shrink: 0;
-  min-height: 64px;
-  padding: 10px 14px;
-  background: #eaf2f3;
+  min-height: 72px;
+  padding: 16px;
+  margin: 0;
+  background: #f7f9fa;
   border-top: 1px solid #d3e0e5;
 }
-.appeal-workspace-column:first-child > footer {
-  justify-content: flex-start;
+.appeal-workspace .appeal-pane-actions > .appeal-retry { margin-right: auto; padding-left: 4px; padding-right: 4px; }
+.appeal-decision-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; }
+.appeal-workspace .appeal-pane-actions .button,
+.appeal-workspace .curation-editor-actions .button {
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 20px;
 }
-.appeal-note-body {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
+.appeal-workspace .appeal-pane-actions .button.primary,
+.appeal-workspace .curation-editor-actions .button.primary {
+  background: var(--color-primary, #087c77);
+  border-color: var(--color-primary, #087c77);
+  color: #fff;
 }
+.appeal-workspace .appeal-pane-actions .button.primary:hover:not(:disabled),
+.appeal-workspace .curation-editor-actions .button.primary:hover:not(:disabled) { background: #066964; }
+.appeal-workspace .appeal-pane-actions .button.outline { border-color: #9bafb9; color: #35566a; background: #fff; }
+.appeal-workspace .appeal-pane-actions .button.ghost,
+.appeal-workspace .curation-editor-actions .button.ghost { color: #35566a; background: transparent; }
+.appeal-workspace .appeal-pane-actions .button.ghost:hover:not(:disabled),
+.appeal-workspace .curation-editor-actions .button.ghost:hover:not(:disabled) { background: #eaf1f3; }
+.curation-action-hint { margin-right: auto; color: #64798a; font-size: 12px; }
+.appeal-note-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 .appeal-note-body .curation-editor {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
   border: 0;
@@ -194,69 +277,31 @@
 .appeal-note-body .curation-editor-body {
   flex: 1;
   min-height: 0;
-  padding: 16px;
+  padding: 18px;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
   scrollbar-width: thin;
+  scrollbar-gutter: stable;
 }
-.appeal-note-body .curation-editor-body > p {
-  font-size: 10px;
-  color: #7a8c9c;
-  line-height: 1.8;
-  margin: 9px 0 14px;
-}
-.appeal-note-body .curation-editor-body > h4 {
-  display: none;
-}
-.appeal-note-body .curation-editor textarea {
-  min-height: 95px;
-}
-.appeal-note-body .curation-form-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-.appeal-note-body .curation-editor-actions {
-  position: static;
-  flex-shrink: 0;
-  margin: 0;
-  padding: 12px 16px;
-  background: #eaf2f3;
-  border-top: 1px solid #d3e0e5;
-  z-index: 1;
-}
-.appeal-note-body .curation-editor-actions > .primary {
-  color: #006b60;
-  background: #fff;
-  border-color: #89b8ac;
-}
-.appeal-note-feedback {
-  padding: 8px 16px;
-  font-size: 11px;
-  color: #006b60;
-  background: #eff7f3;
-}
-.appeal-note-empty {
-  padding: 20px 16px;
-  font-size: 13px;
-  line-height: 1.9;
-}
-.appeal-note-empty .button {
-  margin-top: 12px;
-}
-@media (max-width: 1100px) and (min-width: 761px) {
-  .appeal-workspace {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.35fr);
-    gap: 8px;
-  }
-  .appeal-column-body,
-  .appeal-workspace-column > header {
-    padding: 12px;
-  }
-  .appeal-workspace-column > header h3 {
-    font-size: 15px;
-  }
-  .appeal-workspace-column > footer .button {
-    font-size: 11px;
-    padding: 8px;
-  }
+.appeal-note-body .curation-editor-body > p { font-size: 11px; color: #7a8c9c; line-height: 1.8; margin: 9px 0 14px; }
+.appeal-note-body .curation-editor-body > h4 { display: none; }
+.appeal-note-body .curation-editor textarea { min-height: 95px; }
+.appeal-note-body .curation-form-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.appeal-note-body .curation-editor-actions { position: static; z-index: 1; }
+.appeal-note-feedback { flex-shrink: 0; padding: 8px 16px; font-size: 11px; color: #006b60; background: #eff7f3; }
+.appeal-note-empty { padding: 20px 16px; font-size: 13px; line-height: 1.9; }
+.appeal-note-empty .button { margin-top: 12px; }
+.appeal-workspace .suggestion-kind.correction { background: #f9e6d4; color: #8c3d12; }
+.appeal-workspace .suggestion-kind.optimization { background: #dceef3; color: #135970; }
+@media (max-width: 1200px) and (min-width: 761px) {
+  .appeal-workspace { gap: 12px; }
+  .appeal-comparison-body { padding: 14px; }
+  .appeal-workspace .appeal-pane-actions,
+  .appeal-workspace .curation-editor-actions { padding: 12px; gap: 8px; }
+  .appeal-workspace .appeal-pane-actions .button,
+  .appeal-workspace .curation-editor-actions .button { font-size: 12px; padding: 8px 10px; }
+  .appeal-decision-actions { gap: 8px; }
+  .curation-action-hint { flex-basis: 100%; }
 }
 @media (max-width: 760px) {
   .appeal-workspace-dialog[open] {
@@ -267,32 +312,28 @@
     padding: 10px;
     overflow-y: auto;
   }
-  .appeal-workspace {
-    display: flex;
-    flex-direction: column;
-    flex: none;
-    min-height: auto;
-  }
-  .appeal-workspace-column {
-    flex: none;
-    overflow: visible;
-  }
-  .appeal-column-body,
+  .appeal-workspace { display: flex; flex-direction: column; flex: none; min-height: auto; }
+  .appeal-workspace-column { flex: none; overflow: visible; }
+  .appeal-comparison-body,
   .appeal-note-body,
   .appeal-note-body .curation-editor,
-  .appeal-note-body .curation-editor-body {
-    overflow: visible;
-  }
-  .appeal-note-body .curation-editor-actions {
-    position: static;
-  }
+  .appeal-note-body .curation-editor-body { overflow: visible; }
+  .appeal-comparison-body { padding: 12px; }
+  .appeal-source-heading { gap: 6px; }
+  .appeal-model { flex-basis: 100%; margin: 0; }
+  .appeal-shared-source blockquote,
+  .appeal-comparison-cells .english { font-size: 16px; }
+  .appeal-workspace .appeal-pane-actions,
+  .appeal-workspace .curation-editor-actions { padding: 12px; }
 }
-
-.appeal-workspace-column .suggestion-kind.correction {
-  background: #f9e6d4;
-  color: #8c3d12;
-}
-.appeal-workspace-column .suggestion-kind.optimization {
-  background: #dceef3;
-  color: #135970;
+@media (max-width: 520px) {
+  .appeal-comparison-headings > section { padding: 10px; }
+  .appeal-comparison-headings h3 { font-size: 14px; }
+  .appeal-comparison-cells,
+  .appeal-comparison-resources { grid-template-columns: minmax(0, 1fr); }
+  .appeal-comparison-cells > div + div,
+  .appeal-comparison-resources > div + div { border-left: 0; border-top: 1px solid #e0e8eb; }
+  .appeal-comparison-cells > div { padding: 12px; }
+  .appeal-comparison-cells > div::before { content: attr(aria-label); display: block; margin-bottom: 6px; color: #526b7c; font: 11px var(--font-sans, sans-serif); }
+  .curation-action-hint { flex-basis: 100%; }
 }
