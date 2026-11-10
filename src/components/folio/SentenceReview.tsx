@@ -4,7 +4,7 @@ import {alignmentInput} from '../../lib/alignment-input';
 import {currentAlignment,alignmentParts} from '../../lib/annotation-alignment';
 import CurationTour from './CurationTour';
 import {CURATION_GUIDE_VERSION,type GuideStatus} from '../../lib/curation-guide';
-import {curatedNotes,asCurated,KIND_LABELS,type CuratedNote} from '../../lib/review-curation';
+import {curatedNotes,asCurated,newPersonalNote,KIND_LABELS,type CuratedNote} from '../../lib/review-curation';
 import CurationEditor from './CurationEditor';
 import CurationHistory from './CurationHistory';
 import SentenceBinding from './SentenceBinding';
@@ -73,7 +73,7 @@ function NoteCard({item,entry,busy,original,onSave,onLocate,editMode,onEdit,onCu
  </div>}
  <footer className="sentence-note-toolbar">
   <div className="sentence-note-decisions">
-   <AnnotationAppeal review={review} note={note} disabled={busy||editMode} onChange={onChange} onSetup={onSetup}/>
+   <AnnotationAppeal original={original} anchor={range} review={review} note={note} disabled={busy||editMode} onChange={onChange} onSetup={onSetup}/>
    {pair&&<AnnotationOptimizer key={JSON.stringify([review.id,note.id,pair.original,pair.revised,pair.display])} review={review} noteId={note.id} pair={pair} disabled={busy||editMode} onChange={onChange} onSetup={onSetup}/>}
   </div>
   <div className="study-status-control"><label>复习状态<select aria-label={`${note.title}的复习状态`} value={entry.status} disabled={busy} onChange={e=>onSave(note.id,{status:e.target.value as StudyStatus})}>{Object.entries(STATUS).map(([v,label])=><option key={v} value={v}>{label}</option>)}</select></label></div>
@@ -113,7 +113,7 @@ export default function SentenceReview({review,analysis,original,onChange,focusN
  async function toggleEditing(){if(busy||editing||guideLoading)return;if(editMode){setEditMode(false);return;}if(guideChecked){setEditMode(true);return;}setGuideLoading(true);setGuideNotice('');try{const d=await api('getCurationGuide');if(d.guide?.version===CURATION_GUIDE_VERSION&&d.guide.status!=='unseen'){setGuideChecked(true);setEditMode(true);}else{setGuideStep(0);setGuideEntry(true);setGuideOpen(true);}}catch{setGuideNotice('暂时未能读取引导进度，可先体验示例或跳过后继续整理。');setGuideStep(0);setGuideEntry(true);setGuideOpen(true);}finally{setGuideLoading(false);}}
  async function finishGuide(status:Exclude<GuideStatus,'unseen'>,remember:boolean){const enter=guideEntry;setGuideOpen(false);setGuideEntry(false);setGuideChecked(remember);if(enter)setEditMode(true);setGuideNotice(status==='completed'?'引导已完成，可随时点击“新手引导”重看。':'已关闭引导，可随时从“新手引导”重新打开。');try{await api('saveCurationGuide',{version:CURATION_GUIDE_VERSION,status:remember?status:'unseen'});}catch{setGuideNotice('引导进度暂未保存，你仍可继续整理；下次可能再次提示。');}}
  async function curate(operation:string,extra:Record<string,unknown>={}){if(busy)return false;setBusy(true);setError('');setMessage('');try{const d=await api('saveReviewCuration',{reviewId:review.id,baseRevision:review.curation?.revision||0,operation,...extra});onChange(d.review);setMessage(d.unchanged?'整理内容没有变化':'人工整理已保存，原始作文、批阅与分数保留');return true;}catch(e){setError((e as Error).message);return false;}finally{setBusy(false);}}
- function startNote(){setError('');setEditing({id:`manual-${crypto.randomUUID()}`,kind:'personal',title:'个人笔记',original:row?.text||null,replacement:null,explanation:null,position:null,categories:[],scope:row?'range':'global',anchor:row?{start:row.start,end:row.end}:null,display:'notes',shortNote:'',emphasis:'none',hidden:false,origin:'personal'});}
+ function startNote(){setError('');setEditing(newPersonalNote(original,row?{start:row.start,end:row.end}:null));}
  const previousVersion=review.curation?.history.at(-2)?.id||'initial';
  async function save(id:string,change:Partial<StudyEntry>){
   if(busy)return false;

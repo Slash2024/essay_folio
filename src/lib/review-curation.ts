@@ -39,3 +39,14 @@ export function curationChanges(before:ReviewNote|undefined,after:ReviewNote|und
 export function validateCurationSize(data:CurationData){if(Object.keys(data.notes).length>150||new TextEncoder().encode(JSON.stringify(data)).length>120000)throw new Error('批阅整理内容过多，请缩短说明后再保存');}
 
 export function findSourceMatches(original:string,quote:string):TextAnchor[]{const matches:TextAnchor[]=[];if(!quote.trim())return matches;for(let start=original.indexOf(quote);start>=0;start=original.indexOf(quote,start+1))matches.push({start,end:start+quote.length});return matches;}
+
+
+export function newPersonalNote(original:string,anchor:TextAnchor|null):CuratedNote {
+ return {
+  id:`manual-${crypto.randomUUID()}`,kind:'personal',title:'个人笔记',
+  original:anchor?original.slice(anchor.start,anchor.end):null,
+  replacement:null,explanation:null,position:null,categories:[],
+  scope:anchor?'range':'global',anchor,display:'notes',shortNote:'',
+  emphasis:'none',hidden:false,origin:'personal'
+ };
+}

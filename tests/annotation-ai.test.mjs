@@ -9,7 +9,7 @@ const archive=`export const db=new Map();export async function find(id){return d
 const secrets=`export const values=new Map();const id=name=>'secret-id-'+name;export const secrets={listSecretInfo:async()=>({secrets:[...values].map(([name])=>({_id:id(name),name}))}),getSecretValue:async name=>{if(!values.has(name))throw Error('Secret name not found');return {value:values.get(name)}},createSecret:async s=>{values.set(s.name,s.value);return {_id:id(s.name)}},updateSecret:async(secretId,s)=>{const name=[...values.keys()].find(n=>id(n)===secretId);if(!name)throw Error('Secret ID not found');values.set(name,s.value)}}`;
 let providerCalls=0,latestBody=null;const realFetch=globalThis.fetch;
 try{
- await build({stdin:{contents:"export {POST} from './src/pages/api/annotation-ai';export {POST as folioPOST} from './src/pages/api/folio';export {effectiveIssues} from './src/lib/analytics';export {parseAppealDecision} from './src/lib/annotation-appeal';export {db,put} from './src/server/archive';export * from './src/lib/annotation-alignment';export * from './src/lib/review-interactions';export {readingRows,sentenceDisplays} from './src/lib/sentence-reading';export {endpoint} from './src/server/annotation-config';export {values} from '@wix/secrets';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'api.mjs'),plugins:[{name:'isolated',setup(b){
+ await build({stdin:{contents:"export {POST} from './src/pages/api/annotation-ai';export {POST as folioPOST} from './src/pages/api/folio';export {effectiveIssues} from './src/lib/analytics';export {newPersonalNote,curatedNotes} from './src/lib/review-curation';export {parseAppealDecision} from './src/lib/annotation-appeal';export {db,put} from './src/server/archive';export * from './src/lib/annotation-alignment';export * from './src/lib/review-interactions';export {readingRows,sentenceDisplays} from './src/lib/sentence-reading';export {endpoint} from './src/server/annotation-config';export {values} from '@wix/secrets';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'api.mjs'),plugins:[{name:'isolated',setup(b){
   b.onResolve({filter:/server\/archive$|^\.\/archive$/},()=>({path:'archive',namespace:'test'}));b.onResolve({filter:/server\/session$/},()=>({path:'session',namespace:'test'}));b.onResolve({filter:/^@wix\/secrets$/},()=>({path:'secrets',namespace:'test'}));b.onResolve({filter:/^@wix\/essentials$/},()=>({path:'auth',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},({path})=>({loader:'js',contents:path==='archive'?archive:path==='secrets'?secrets:path==='auth'?'export const auth={elevate:f=>f}':'export const authorized=async r=>r.headers.get("x-auth")!=="no",sameOrigin=r=>r.headers.get("origin")!=="https://foreign.invalid";export const accessConfig=async()=>({signing:"test"}),equal=(a,b)=>a===b,sign=async()=>"test",makeSession=async()=>"test",secret=async()=>"test",SITE_ORIGIN="https://test.invalid";'}));
  }}]});
  const m=await import(join(dir,'api.mjs'));const call=async(action,data={},headers={})=>{const r=await m.POST({request:new Request('https://test.invalid/api/annotation-ai',{method:'POST',headers:{'content-type':'application/json',...headers},body:JSON.stringify({action,...data})})});return {status:r.status,...await r.json()};};
@@ -160,6 +160,52 @@ try{
  fullRow.payload=JSON.stringify(fullChanged);
  assert.equal((await call('generate',{...fullRequest,requestId:'full-missing'})).status,400);
  assert.equal(providerCalls,callsBefore+1);
+
+ // A regular personal note can be saved while a decision is pending and survives adoption/undo.
+ const notedReview={...review,id:'review-with-note'};
+ await m.put(notedReview.id,'review',notedReview);
+ globalThis.fetch=async(url,init)=>{
+  providerCalls++;
+  return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify({
+   verdict:'revise',summary:'改为可选优化',response:'原搭配成立，可作为措辞优化。',
+   evidence:[original],patch:{kind:'optimization',explanation:'两种搭配均可使用。',replacement:revised},neededContext:null
+  })}}]}));
+ };
+ const noteMaterials=await call('appealMaterials',{reviewId:notedReview.id,noteId});
+ const pendingDecision=await call('previewAppeal',{
+  reviewId:notedReview.id,noteId,requestId:crypto.randomUUID(),reason:'保留原搭配',
+  fingerprint:noteMaterials.fingerprint
+ });
+ assert.equal(pendingDecision.status,200);
+ const personal=m.newPersonalNote(original,{start:0,end:original.length});
+ personal.shortNote='两种搭配均可使用';
+ personal.explanation='按考场复现需要选择熟悉的搭配。';
+ let noted=await folio('saveReviewCuration',{
+  reviewId:notedReview.id,baseRevision:0,operation:'upsert',note:personal
+ });
+ assert.equal(noted.status,200);assert.equal(noted.review.markdown,markdown);
+ assert.equal(noted.review.curation.notes[personal.id].origin,'personal');
+ assert.equal(noted.review.curation.notes[personal.id].scope,'range');
+ assert.equal(noted.review.curation.revision,1);
+ assert(!noted.review.curation.notes[noteId],'saving a note must leave the disputed opinion intact');
+ const repeatedSave=await folio('saveReviewCuration',{
+  reviewId:notedReview.id,baseRevision:1,operation:'upsert',note:personal
+ });
+ assert.equal(repeatedSave.unchanged,true);
+ const adopt=await folio('saveReviewCuration',{
+  reviewId:notedReview.id,noteId,baseRevision:1,operation:'acceptAppeal',candidateId:pendingDecision.candidate.id
+ });
+ assert.equal(adopt.status,200);
+ assert.equal(adopt.review.curation.notes[personal.id].explanation,personal.explanation);
+ const afterUndo=await folio('saveReviewCuration',{
+  reviewId:notedReview.id,noteId,baseRevision:2,operation:'undoAppeal',
+  versionId:adopt.review.curation.notes[noteId].appealVersion
+ });
+ assert.equal(afterUndo.status,200);
+ assert.equal(afterUndo.review.curation.notes[personal.id].kind,'personal');
+ assert.equal(afterUndo.review.markdown,markdown);
+ assert.equal(afterUndo.review.study.entries[noteId].starred,true);
+ console.log('PASS appeal notes: existing upsert contract, original opinion preserved, current revision adoption, note survival through appeal undo and idempotent note retry.');
  console.log('PASS full-text API: server-owned section-six pair, preview isolation, cached generation, explicit adoption, independent history, rules/undo and stale-source rejection.');
  console.log('PASS annotation appeal: fixed criteria, exact materials, preview-only model call, verified evidence, idempotent adoption, stale checks, history and undo.');
  console.log('PASS annotation API: auth/origin, secret redaction, config revision, no implicit calls, generation replay, strict text validation, preview isolation, adoption, locked rendering, undo, stale rejection and failure handling.');

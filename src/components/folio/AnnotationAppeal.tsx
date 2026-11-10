@@ -1,14 +1,18 @@
 import {useEffect,useRef,useState} from 'react';
 import {MessageSquareWarning,X} from 'lucide-react';
-import {APPEAL_CRITERIA,APPEAL_REASON_LIMIT,APPEAL_VERDICTS,type AppealCandidate,type AppealMaterials} from '../../lib/annotation-appeal';
+import {APPEAL_CRITERIA,APPEAL_REASON_LIMIT,type AppealCandidate,type AppealMaterials} from '../../lib/annotation-appeal';
 import type {Review} from '../../lib/folio';
-import type {ReviewNote} from '../../lib/review-interactions';
+import type {ReviewNote,TextAnchor} from '../../lib/review-interactions';
+import {confirmUnsavedNavigation} from '../../lib/navigation';
+import AppealWorkspace from './AppealWorkspace';
 import {KIND_LABELS} from '../../lib/review-curation';
 import {annotationApi,api} from '../../lib/client';
 import './annotation-appeal.css';
 
 interface Props {
   review:Review;
+  original:string;
+  anchor:TextAnchor|null;
   note:ReviewNote;
   disabled:boolean;
   onChange:(review:Review)=>void;
@@ -17,7 +21,7 @@ interface Props {
 interface MaterialPreview {materials:AppealMaterials;fingerprint:string}
 type Config={configured:boolean;enabled:boolean;model:string};
 
-export default function AnnotationAppeal({review,note,disabled,onChange,onSetup}:Props) {
+export default function AnnotationAppeal({review,note,disabled,onChange,onSetup,original,anchor}:Props) {
   const [open,setOpen]=useState(false);
   const [preview,setPreview]=useState<MaterialPreview|null>(null);
   const [config,setConfig]=useState<Config|null>(null);
@@ -27,6 +31,7 @@ export default function AnnotationAppeal({review,note,disabled,onChange,onSetup}
   const [includeWordRule,setIncludeWordRule]=useState(false);
   const [rubricBand,setRubricBand]=useState('');
   const [candidate,setCandidate]=useState<AppealCandidate|null>(null);
+  const [savingNote,setSavingNote]=useState(false);
   const [working,setWorking]=useState<'preview'|'save'|null>(null);
   const [error,setError]=useState('');
   const [message,setMessage]=useState('');
@@ -66,11 +71,14 @@ export default function AnnotationAppeal({review,note,disabled,onChange,onSetup}
     setOpen(true);
   }
   function close(){
-    if(working==='save')return;
+    if(working==='save'||savingNote||!confirmUnsavedNavigation())return false;
     controller.current?.abort();
     setWorking(null);
     setOpen(false);
+    return true;
   }
+  function keepCurrent(){if(close())clearRequest();}
+  function retry(){if(!working&&!savingNote&&confirmUnsavedNavigation())clearRequest();}
   async function generate(fresh=false){
     if(!canSend||!preview||working)return;
     if(fresh||!requestId.current)requestId.current=crypto.randomUUID();
@@ -90,7 +98,8 @@ export default function AnnotationAppeal({review,note,disabled,onChange,onSetup}
     finally{if(!abort.signal.aborted)setWorking(null);}
   }
   async function save(operation:'acceptAppeal'|'undoAppeal'){
-    if(working)return;
+    if(working||savingNote)return;
+    if(operation==='acceptAppeal'&&!confirmUnsavedNavigation())return;
     setWorking('save');
     setError('');
     try{
@@ -117,12 +126,12 @@ export default function AnnotationAppeal({review,note,disabled,onChange,onSetup}
     </div>
     {!open&&error&&<p className="error" role="alert">{error}</p>}
     {message&&<p className="caption" role="status">{message}</p>}
-    {open&&<dialog ref={dialog} className="modal modal-wide annotation-dialog appeal-dialog" aria-label="申诉批注" onCancel={e=>{e.preventDefault();close();}}>
-      <div className="modal-heading"><h2>申诉批注</h2><button type="button" className="icon-button" aria-label="关闭申诉" disabled={working==='save'} onClick={close}><X/></button></div>
-      <p className="muted">按考研英语送审准则复核当前意见。生成后可先核对裁定与改动，再决定是否采纳。</p>
+    {open&&<dialog ref={dialog} className={`modal modal-wide annotation-dialog appeal-dialog ${candidate?'appeal-workspace-dialog':''}`} aria-label="申诉批注" onCancel={e=>{e.preventDefault();close();}}>
+      <div className="modal-heading"><h2>申诉批注</h2><button type="button" className="icon-button" aria-label="关闭申诉" disabled={working==='save'||savingNote} onClick={close}><X/></button></div>
+      {!candidate&&<p className="muted">按考研英语送审准则复核当前意见。生成后可先核对裁定与改动，再决定是否采纳。</p>}
       {!materials&&!error&&<p role="status" className="caption">正在读取本条复核材料…</p>}
       {config&&(!config.configured||!config.enabled)&&<div className="annotation-config-notice"><p>请先启用现有模型配置。</p>{onSetup&&<button type="button" className="button outline small" onClick={()=>{close();onSetup();}}>前往 API 设置</button>}</div>}
-      {materials&&<>
+      {materials&&<details className="appeal-submitted-materials" open={candidate?undefined:true}><summary>{candidate?'查看申诉理由与复核材料':'申诉材料'}</summary>
         <div className="annotation-preview-grid appeal-materials">
           <section><h3>关联原文</h3>
             {materials.original&&<p className="english">{materials.original}</p>}
@@ -155,38 +164,26 @@ export default function AnnotationAppeal({review,note,disabled,onChange,onSetup}
           </label>}
           {rubricBand!==''&&materials.rubricBands[Number(rubricBand)]&&<p className="appeal-excerpt">{materials.rubricBands[Number(rubricBand)]}</p>}
         </details>
-      </>}
-      {candidate&&<section className="appeal-result" aria-label="模型裁定">
-        <span className="annotation-badge">{APPEAL_VERDICTS[candidate.decision.verdict]} · {candidate.model}</span>
-        <h3>{candidate.decision.summary}</h3>
-        <p>{candidate.decision.response}</p>
-        {!!candidate.decision.evidence.length&&<ul>{candidate.decision.evidence.map((quote,index)=><li key={index}><q>{quote}</q></li>)}</ul>}
-        {!!candidate.decision.unverifiedEvidence&&<p className="annotation-config-notice">有 {candidate.decision.unverifiedEvidence} 段引文无法在已发送材料中核对，已略去。你可以查看裁定说明，补充材料或重新复核后再采纳。</p>}
-        {candidate.decision.neededContext&&<p className="annotation-config-notice">需要补充 {candidate.decision.neededContext}</p>}
-        {candidate.changes.map(change=><div className="appeal-change" key={change.field}>
-          <h4>{change.field}</h4>
-          <div className="annotation-preview-grid"><section><small>当前</small><p>{change.before}</p></section><section><small>拟采纳</small><p>{change.after}</p></section></div>
-        </div>)}
-        {candidate.changes.length>0&&note.kind==='correction'&&(candidate.decision.verdict==='withdraw'||candidate.decision.patch?.kind!=='correction')&&<p className="caption">明确关联这条批注的问题统计会随采纳结果更新。</p>}
-        {candidate.decision.verdict==='withdraw'&&<p className="caption">采纳后可在「暂不采纳」中找到并恢复这条意见。</p>}
-        {Date.now()>=candidate.expiresAt&&<p className="caption">预览已过期，请重新提交申诉。</p>}
-        {candidate.decision.verdict==='revise'&&!candidate.changes.length&&<p className="caption">建议内容与当前批注相同。</p>}
-      </section>}
-      {error&&<p className="error" role="alert">{error}</p>}
-      {working==='preview'&&<p className="caption" role="status">正在复核这一条批注…</p>}
-      <div className="annotation-dialog-actions">
-        <button type="button" className="button ghost small" disabled={working==='save'} onClick={()=>{if(candidate)clearRequest();close();}}>
-          {working==='preview'?'取消等待':candidate?'保留当前批注':'关闭'}
-        </button>
-        {candidate?<button type="button" className="button outline small" disabled={!!working} onClick={clearRequest}>补充理由后重试</button>
-          :<button type="button" className="button primary small" disabled={!!working||!canSend} onClick={()=>generate()}>
+      </details>}
+      {candidate&&materials&&<AppealWorkspace
+        review={review} note={note} candidate={candidate} materials={materials}
+        original={original} anchor={anchor} busy={!!working} error={error}
+        onChange={onChange} onBusyChange={setSavingNote} onKeep={keepCurrent}
+        onRetry={retry} onAccept={()=>save('acceptAppeal')}
+      />}
+      {!candidate&&<>
+        {error&&<p className="error" role="alert">{error}</p>}
+        {working==='preview'&&<p className="caption" role="status">正在复核这一条批注…</p>}
+        <div className="annotation-dialog-actions">
+          <button type="button" className="button ghost small" disabled={working==='save'} onClick={close}>
+            {working==='preview'?'取消等待':'关闭'}
+          </button>
+          <button type="button" className="button primary small" disabled={!!working||!canSend} onClick={()=>generate()}>
             {hasRequest?'查询上次裁定':'提交申诉（调用一次）'}
-          </button>}
-        {!candidate&&hasRequest&&error&&<button type="button" className="button outline small" disabled={!!working||!canSend} onClick={()=>generate(true)}>重新提交（再次调用）</button>}
-        {candidate&&!!candidate.changes.length&&!candidate.decision.unverifiedEvidence&&<button type="button" className="button primary small" disabled={!!working||Date.now()>=candidate.expiresAt} onClick={()=>save('acceptAppeal')}>
-          {working==='save'?'正在采纳…':candidate.decision.verdict==='withdraw'?'确认撤回这条意见':'采纳修改'}
-        </button>}
-      </div>
+          </button>
+          {hasRequest&&error&&<button type="button" className="button outline small" disabled={!!working||!canSend} onClick={()=>generate(true)}>重新提交（再次调用）</button>}
+        </div>
+      </>}
     </dialog>}
   </div>;
 }
