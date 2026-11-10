@@ -1,0 +1,45 @@
+.lab-experiments { display: grid; gap: 20px; max-width: 960px; }
+.lab-experiment, .lab-short-review { padding: clamp(16px, 3vw, 28px); max-width: 960px; }
+.lab-experiment h2, .lab-short-header h2 { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin: 0; font-size: 18px; }
+.lab-experiment p { margin: 12px 0 20px; }
+.lab-short-header { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.lab-beta { display: inline-flex; align-items: center; font-size: 10px; font-weight: 650; letter-spacing: .06em; border: 1px solid #bed7d4; border-radius: 5px; padding: 2px 6px; background: var(--color-secondary); color: var(--color-primary); }
+.lab-short-select, .lab-short-answer { display: grid; gap: 8px; margin: 16px 0; font-weight: 550; }
+.lab-short-select select { width: 100%; min-width: 0; }
+.lab-short-picks { min-width: 0; display: grid; gap: 8px; margin: 16px 0; }
+.lab-short-picks legend { margin-bottom: 8px; }
+.lab-short-picks label { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer; }
+.lab-short-picks label:has(input:checked) { border-color: var(--color-primary); background: var(--color-secondary); }
+.lab-short-picks input, .lab-short-confirm input { flex: none; margin-top: 6px; accent-color: var(--color-primary); }
+.lab-short-confirm { display: flex; gap: 10px; align-items: flex-start; margin: 18px 0; }
+.lab-short-history { margin-top: 28px; border-top: 1px solid var(--color-border); padding-top: 16px; }
+.lab-short-history-row { display: flex; gap: 16px; justify-content: space-between; width: 100%; padding: 12px 0; text-align: left; border-bottom: 1px solid var(--color-border); }
+.lab-short-history-row small, .lab-short-summary small { display: block; margin-top: 6px; color: var(--color-muted-foreground); font-size: 12px; }
+.lab-short-review h3 { margin: 14px 0; font-size: 18px; scroll-margin-top: 130px; }
+.lab-short-review h3:focus { outline: none; }
+.lab-short-review h4 { font-size: 13px; font-weight: 600; color: var(--color-muted-foreground); margin-bottom: 10px; }
+.lab-short-original { padding: 16px; border-radius: 8px; background: #f5f8fa; border: 1px solid var(--color-border); }
+.lab-short-context { margin: 16px 0; }
+.lab-short-context summary { cursor: pointer; font-size: 13px; color: var(--color-primary); }
+.lab-short-context p, .lab-short-comparison p, .lab-short-explanation p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.lab-short-answer textarea { width: 100%; min-height: 140px; padding: 14px; border: 1px solid var(--color-border); border-radius: 8px; resize: vertical; }
+.lab-short-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 20px; }
+.lab-short-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; margin: 20px 0; }
+.lab-short-comparison > div { padding: 16px; min-width: 0; }
+.lab-short-comparison > div + div { border-left: 1px solid var(--color-border); background: #f5faf9; }
+.lab-short-explanation { margin: 18px 0; }
+.lab-short-saved { display: flex; gap: 8px; color: var(--color-primary); }
+.lab-short-summary { display: grid; gap: 10px; margin: 20px 0; }
+.lab-short-summary button { padding: 14px; text-align: left; border: 1px solid var(--color-border); border-radius: 8px; }
+.lab-short-review .english { overflow-wrap: anywhere; }
+.lab-short-review button:focus-visible, .lab-experiment button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.lab-return { margin-bottom: 16px; }
+@media (max-width: 650px) {
+  .lab-short-comparison { grid-template-columns: 1fr; }
+  .lab-short-comparison > div + div { border-left: 0; border-top: 1px solid var(--color-border); }
+  .lab-short-history-row { flex-direction: column; gap: 4px; }
+  .lab-short-actions { justify-content: stretch; }
+  .lab-short-actions .button { flex: 1 1 180px; }
+}
+
+.lab-short-context img { max-width: 100%; height: auto; margin: 10px 0; }
