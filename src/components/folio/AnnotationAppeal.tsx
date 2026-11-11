@@ -1,10 +1,11 @@
 import {useEffect,useRef,useState} from 'react';
 import {MessageSquareWarning,X} from 'lucide-react';
-import {APPEAL_CRITERIA,APPEAL_REASON_LIMIT,type AppealCandidate,type AppealMaterials} from '../../lib/annotation-appeal';
+import {APPEAL_REASON_LIMIT,type AppealCandidate,type AppealMaterials} from '../../lib/annotation-appeal';
 import type {Review} from '../../lib/folio';
 import type {ReviewNote,TextAnchor} from '../../lib/review-interactions';
 import {confirmUnsavedNavigation} from '../../lib/navigation';
 import AppealWorkspace from './AppealWorkspace';
+import AppealMaterialsOptions from './AppealMaterialsOptions';
 import {KIND_LABELS} from '../../lib/review-curation';
 import {annotationApi,api} from '../../lib/client';
 import './annotation-appeal.css';
@@ -147,23 +148,13 @@ export default function AnnotationAppeal({review,note,disabled,onChange,onSetup,
         <label className="appeal-reason">申诉理由<textarea value={reason} maxLength={APPEAL_REASON_LIMIT}
           placeholder="例如，我认为原句语法成立，建议改法只是更简洁。"
           disabled={!!working||!!candidate} onChange={e=>{setReason(e.target.value);clearRequest();}}/></label>
-        <details className="annotation-history appeal-inputs">
-          <summary>复核准则与可选材料</summary>
-          <p className="caption">{APPEAL_CRITERIA[materials.type]}</p>
-          {materials.context&&<label className="annotation-context"><input type="checkbox" checked={includeContext} disabled={!!working||!!candidate} onChange={e=>{setIncludeContext(e.target.checked);clearRequest();}}/>附带前后句</label>}
-          {includeContext&&materials.context&&<p className="appeal-excerpt english">{[materials.context.previous,materials.context.next].filter(Boolean).join('\n')}</p>}
-          {materials.task&&<label className="annotation-context"><input type="checkbox" checked={includeTask} disabled={!!working||!!candidate} onChange={e=>{setIncludeTask(e.target.checked);clearRequest();}}/>附带题目文字要求</label>}
-          {includeTask&&materials.task&&<><p className="appeal-excerpt english">{materials.task}</p><p className="caption">涉及题图内容时，可把相关文字或数值写入申诉理由。</p></>}
-          {materials.wordRule&&<label className="annotation-context"><input type="checkbox" checked={includeWordRule} disabled={!!working||!!candidate} onChange={e=>{setIncludeWordRule(e.target.checked);clearRequest();}}/>附带字数与扣分条款</label>}
-          {includeWordRule&&materials.wordRule&&<p className="appeal-excerpt">{materials.wordRule}</p>}
-          {!!materials.rubricBands.length&&<label className="annotation-context">附带评分档次原文
-            <select value={rubricBand} disabled={!!working||!!candidate} onChange={e=>{setRubricBand(e.target.value);clearRequest();}}>
-              <option value="">不附带</option>
-              {materials.rubricBands.map((band,index)=><option key={band} value={index}>{band.split(/[：:]/,1)[0]}</option>)}
-            </select>
-          </label>}
-          {rubricBand!==''&&materials.rubricBands[Number(rubricBand)]&&<p className="appeal-excerpt">{materials.rubricBands[Number(rubricBand)]}</p>}
-        </details>
+        <AppealMaterialsOptions materials={materials} includeContext={includeContext} includeTask={includeTask}
+          includeWordRule={includeWordRule} rubricBand={rubricBand} disabled={!!working||!!candidate}
+          onContextChange={value=>{setIncludeContext(value);clearRequest();}}
+          onTaskChange={value=>{setIncludeTask(value);clearRequest();}}
+          onWordRuleChange={value=>{setIncludeWordRule(value);clearRequest();}}
+          onRubricChange={value=>{setRubricBand(value);clearRequest();}}/>
+
       </details>}
       {candidate&&materials&&<AppealWorkspace
         review={review} note={note} candidate={candidate} materials={materials}
