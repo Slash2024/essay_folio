@@ -73,7 +73,7 @@ function NoteCard({item,entry,busy,original,onSave,onLocate,editMode,onEdit,onCu
  </div>}
  <footer className="sentence-note-toolbar">
   <div className="sentence-note-decisions">
-   <AnnotationAppeal original={original} anchor={range} review={review} note={note} disabled={busy||editMode} onChange={onChange} onSetup={onSetup}/>
+   <AnnotationAppeal original={original} anchor={range} review={review} note={note} disabled={busy} onChange={onChange} onSetup={onSetup}/>
    {pair&&<AnnotationOptimizer key={JSON.stringify([review.id,note.id,pair.original,pair.revised,pair.display])} review={review} noteId={note.id} pair={pair} disabled={busy||editMode} onChange={onChange} onSetup={onSetup}/>}
   </div>
   <div className="study-status-control"><label>复习状态<select aria-label={`${note.title}的复习状态`} value={entry.status} disabled={busy} onChange={e=>onSave(note.id,{status:e.target.value as StudyStatus})}>{Object.entries(STATUS).map(([v,label])=><option key={v} value={v}>{label}</option>)}</select></label></div>
