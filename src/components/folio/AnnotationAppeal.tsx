@@ -27,8 +27,8 @@ export default function AnnotationAppeal({review,note,disabled,onChange,onSetup,
   const [preview,setPreview]=useState<MaterialPreview|null>(null);
   const [config,setConfig]=useState<Config|null>(null);
   const [reason,setReason]=useState('');
-  const [includeContext,setIncludeContext]=useState(false);
-  const [includeTask,setIncludeTask]=useState(false);
+  const [includeContext,setIncludeContext]=useState(true);
+  const [includeTask,setIncludeTask]=useState(true);
   const [includeWordRule,setIncludeWordRule]=useState(false);
   const [rubricBand,setRubricBand]=useState('');
   const [candidate,setCandidate]=useState<AppealCandidate|null>(null);
