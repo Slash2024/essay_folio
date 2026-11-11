@@ -34,9 +34,11 @@ try{
  assert(html.includes('aria-label="意见对照"'));
  assert.equal((html.match(/class="appeal-shared-source"/g)||[]).length,1,'original source is shared, never presented as an LLM-editable field');
  assert.equal((html.match(/class="appeal-comparison-body"/g)||[]).length,1,'both opinions are in one scroll container');
- assert(html.includes('回应申诉：</strong>原句成立。'));
+ assert(html.includes('<h5>结论要点</h5>'));
+ assert(html.includes('<h5>回应申诉</h5>'));
+ assert(html.includes('- 原句成立。'));
  assert(html.includes('aria-label="当前批注 · 修改说明"><div><div class="markdown">当前说明'));
- assert(html.includes('aria-label="复核建议 · 修改说明"><div><div class="markdown">两种表达均成立。'));
+ assert(html.includes('aria-label="复核建议 · 修改说明"><div><div class="markdown">- 两种表达均成立。'));
  assert(html.includes('查看模型引用依据'));
  assert(html.includes('查看逐项改动'));
  assert(html.includes('关联第 01 句'));

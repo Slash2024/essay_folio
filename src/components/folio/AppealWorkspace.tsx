@@ -7,6 +7,7 @@ import {APPEAL_VERDICTS} from '../../lib/annotation-appeal';
 import {KIND_LABELS,newPersonalNote,type CuratedNote} from '../../lib/review-curation';
 import {readingRows} from '../../lib/sentence-reading';
 import {api} from '../../lib/client';
+import {formatAppealText} from '../../lib/appeal-format';
 import CurationEditor from './CurationEditor';
 import CurationTour from './CurationTour';
 import MarkdownView from './MarkdownView';
@@ -27,12 +28,12 @@ interface Props {
  onAccept:()=>void;
 }
 function ComparisonRow({label,before,after,english=false,notice}:{label:string;before:string|null;after:string|null;english?:boolean;notice?:ReactNode}){
- const content=(value:string|null)=>value?<div className={english?'english':undefined}><MarkdownView markdown={value}/></div>:<p className="caption">未提供</p>;
+ const content=(value:string|null,format=false)=>value?<div className={english?'english':undefined}><MarkdownView markdown={format?formatAppealText(value):value}/></div>:<p className="caption">未提供</p>;
  return <section className="appeal-comparison-row" aria-label={label}>
   <h4>{label}</h4>
   <div className="appeal-comparison-cells">
    <div aria-label={`当前批注 · ${label}`}>{content(before)}</div>
-   <div aria-label={`复核建议 · ${label}`}>{notice||content(after)}</div>
+   <div aria-label={`复核建议 · ${label}`}>{notice||content(after,!english)}</div>
   </div>
  </section>;
 }
@@ -73,7 +74,8 @@ export default function AppealWorkspace({review,note,candidate,materials,origina
     </section>
     <section className="appeal-verdict-summary" aria-label="复核结论">
      <div className="appeal-verdict-heading"><h4>复核结论</h4><span className={`appeal-verdict-badge ${decision.verdict}`}>{APPEAL_VERDICTS[decision.verdict]}</span><span className="appeal-model">{candidate.model} · 本次复核</span></div>
-     <h5>{decision.summary}</h5><p><strong>回应申诉：</strong>{decision.response}</p>
+     <div className="appeal-verdict-section"><h5>结论要点</h5><MarkdownView markdown={formatAppealText(decision.summary)}/></div>
+     <div className="appeal-verdict-section"><h5>回应申诉</h5><MarkdownView markdown={formatAppealText(decision.response)}/></div>
     </section>
     <div className="appeal-comparison-table">
      <div className="appeal-comparison-headings">

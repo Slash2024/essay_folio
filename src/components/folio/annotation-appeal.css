@@ -154,7 +154,6 @@
   border: 1px solid #dceae5;
   border-radius: 7px;
   margin-bottom: 22px;
-  white-space: pre-wrap;
 }
 .appeal-verdict-heading {
   display: flex;
@@ -175,9 +174,22 @@
   border-color: #cfbf9e;
 }
 .appeal-model { margin-left: auto; color: #64798a; font-size: 11px; }
-.appeal-verdict-summary h5 { font-size: 16px; margin: 12px 0 8px; font-weight: 650; }
-.appeal-verdict-summary p { font-size: 13px; line-height: 1.85; }
-.appeal-verdict-summary strong { font-weight: 600; margin-right: 6px; }
+.appeal-verdict-section { margin-top: 16px; }
+.appeal-verdict-section + .appeal-verdict-section { margin-top: 22px; }
+.appeal-verdict-section h5 { font-size: 13px; color: #526b7c; margin: 0 0 8px; font-weight: 650; }
+.appeal-verdict-summary .markdown,
+.appeal-comparison-cells .markdown { font-size: 14px; line-height: 1.85; }
+.appeal-verdict-summary .markdown :is(ul, ol),
+.appeal-comparison-cells .markdown :is(ul, ol) { margin: 0; padding-left: 22px; }
+.appeal-verdict-summary .markdown li,
+.appeal-comparison-cells .markdown li { padding-left: 2px; margin-block: 0 10px; }
+.appeal-verdict-summary .markdown li:last-child,
+.appeal-comparison-cells .markdown li:last-child { margin-bottom: 0; }
+.appeal-verdict-summary .markdown strong,
+.appeal-comparison-cells .markdown strong { font-weight: 650; }
+.appeal-verdict-summary .markdown p,
+.appeal-comparison-cells .markdown li > p { margin-block: 0 8px; }
+.appeal-comparison-cells .english .markdown { font: inherit; }
 .appeal-comparison-table { border: 1px solid #dce6eb; border-radius: 7px; overflow: hidden; }
 .appeal-comparison-headings,
 .appeal-comparison-cells,
