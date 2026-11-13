@@ -26,7 +26,7 @@ export async function shortReviewOverview() {
   const sources = reviewRows.map(row => decode<Review>(row)).filter(review => writings.has(review.writingId)).map(review => {
     const writing = writings.get(review.writingId)!;
     const question = writing.questionSnapshot ?? (questions as Question[]).find(item => item.id === writing.questionId);
-    return { reviewId: review.id, title: `${question?.title ?? '作文'} · ${review.label}`, createdAt: review.createdAt };
+    return { reviewId: review.id, questionId: writing.questionId, writingId: writing.id, title: `${question?.title ?? '作文'} · ${review.label}`, createdAt: review.createdAt };
   }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return { sources, sessions: sessions.rows.map(row => { const value = decode<ShortReviewSession>(row); return { id: value.id, title: value.title, createdAt: value.createdAt }; }) };
 }
@@ -72,7 +72,7 @@ export async function shortReviewProgress(id: string): Promise<ShortReviewProgre
   return { session: decode<ShortReviewSession>(row), attempts: attempts.rows.map(row => decode<ShortReviewAttempt>(row)), results: results.rows.map(row => decode<ShortReviewResult>(row)) };
 }
 
-async function insertOnce(id: string, kind: string, payload: object) {
+export async function insertOnce(id: string, kind: string, payload: object) {
   const previous = await find(id);
   if (previous) {
     if (previous.kind !== kind) throw new ShortReviewError('练习记录类型不匹配。', 409);

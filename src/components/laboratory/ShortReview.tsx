@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, CheckCircle2, RotateCcw } from 'lucide-react';
+import { CheckCircle2, RotateCcw } from 'lucide-react';
 import { dateLabel } from '../../lib/client';
-import { confirmUnsavedNavigation } from '../../lib/navigation';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import type { ShortReviewOverview, ShortReviewSource, ShortReviewProgress, SelfAssessment } from '../../lib/short-review';
 import './short-review.css';
@@ -16,7 +15,7 @@ async function request<T>(query = '', data?: object, signal?: AbortSignal): Prom
   return result;
 }
 
-export default function ShortReview({ onExit, onOpenMaterials }: { onExit: () => void; onOpenMaterials: (sessionId: string) => void }) {
+export default function ShortReview({ onOpenMaterials }: { onOpenMaterials: (sessionId: string) => void }) {
   const [overview, setOverview] = useState<ShortReviewOverview>();
   const [reviewId, setReviewId] = useState('');
   const [source, setSource] = useState<ShortReviewSource>();
@@ -88,13 +87,9 @@ export default function ShortReview({ onExit, onOpenMaterials }: { onExit: () =>
       open(value.progress);
     });
   }
-  function back() {
-    if (!confirmUnsavedNavigation()) return;
-    onExit();
-  }
 
   return <section className="panel lab-short-review" aria-labelledby="short-review-title" aria-busy={busy}>
-    <div className="lab-short-header"><h2 id="short-review-title">短复习单 <span className="lab-beta">BETA</span></h2><button className="text-button" disabled={busy} onClick={back}><ArrowLeft size={15}/>返回实验室</button></div>
+    <div className="lab-short-header"><h2 id="short-review-title">短复习单 <span className="lab-beta">BETA</span></h2></div>
     {error && <p className="error" role="alert">{error}<button className="text-button" disabled={busy} onClick={() => { setError(''); setReload(value => value + 1); }}>重新读取材料</button></p>}
     {!progress ? <>
       <p className="muted">选一篇已有批阅的作文，练习一至三个句子，约 5 分钟。先独立修改，再对照参考意见并自评。</p>

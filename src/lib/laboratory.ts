@@ -39,6 +39,11 @@ export const FEEDBACK_FACTORS = {
     { id: 'comparison', label: '参考对照清楚' }, { id: 'mastery', label: '仍难判断是否掌握' },
     { id: 'resume', label: '保存或继续不顺' },
   ],
+  transfer: [
+    { id: 'applying', label: '换题后能用上' }, { id: 'selection', label: '同类材料难找' },
+    { id: 'hint', label: '旧问题提示有帮助' }, { id: 'mastery', label: '仍难判断迁移效果' },
+    { id: 'matching', label: '题目匹配不准' },
+  ],
   materials: [
     { id: 'finding', label: '材料更好找' }, { id: 'comparison', label: '对照更清楚' },
     { id: 'notes', label: '相关笔记不足' }, { id: 'association', label: '材料关联不准确' },

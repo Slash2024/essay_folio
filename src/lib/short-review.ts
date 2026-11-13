@@ -38,6 +38,6 @@ export interface ShortReviewProgress {
   results: ShortReviewResult[];
 }
 export interface ShortReviewOverview {
-  sources: { reviewId: string; title: string; createdAt: string }[];
+  sources: { reviewId: string; questionId: string; writingId: string; title: string; createdAt: string }[];
   sessions: { id: string; title: string; createdAt: string }[];
 }

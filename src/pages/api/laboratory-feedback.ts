@@ -25,7 +25,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (feedback.contextId !== null) {
       if (typeof feedback.contextId !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(feedback.contextId)) return json({ error: '反馈来源不正确。' }, 400);
       const context = await find(feedback.contextId);
-      if (context?.kind !== (feature === 'short' ? 'labShortSession' : 'labMaterialPack')) return json({ error: '反馈对应的练习或材料包已不存在。' }, 404);
+      if (context?.kind !== ({ short: 'labShortSession', materials: 'labMaterialPack', transfer: 'labTransferSession' }[feature])) return json({ error: '反馈对应的练习或材料包已不存在。' }, 404);
     }
     try { await put(feedback.id, KIND, { ...feedback, questionId: feature }); }
     catch (error) {

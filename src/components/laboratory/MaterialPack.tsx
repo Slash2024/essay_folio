@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowUpRight, BookOpen, CheckCircle2 } from 'lucide-react';
+import { ArrowUpRight, BookOpen, CheckCircle2 } from 'lucide-react';
 import type { MaterialOverview, MaterialSource, MaterialPack as SavedPack } from '../../lib/laboratory';
 import { dateLabel } from '../../lib/client';
-import { confirmUnsavedNavigation } from '../../lib/navigation';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import FeatureFeedback from './FeatureFeedback';
 import './laboratory-materials.css';
@@ -15,8 +14,8 @@ async function request<T>(query = '', body?: object, signal?: AbortSignal): Prom
   if (!response.ok) throw new Error(result.error || '材料暂时无法读取或保存。');
   return result;
 }
-export default function MaterialPack({ onExit, initialSessionId, onOpenRecord }: {
-  onExit: () => void; initialSessionId?: string;
+export default function MaterialPack({ initialSessionId, onOpenRecord }: {
+  initialSessionId?: string;
   onOpenRecord: (writingId: string, reviewId: string, noteId: string) => void;
 }) {
   const [overview, setOverview] = useState<MaterialOverview>();
@@ -66,9 +65,8 @@ export default function MaterialPack({ onExit, initialSessionId, onOpenRecord }:
       setPack(value.pack); setReload(value => value + 1);
     });
   }
-  function leave() { if (confirmUnsavedNavigation()) onExit(); }
   return <section className="panel lab-materials" aria-labelledby="lab-materials-title" aria-busy={busy}>
-    <div className="lab-short-header"><h2 id="lab-materials-title"><BookOpen size={20}/>复习材料包 <span className="lab-beta">BETA</span></h2><button className="text-button" disabled={busy} onClick={leave}><ArrowLeft size={15}/>返回实验室</button></div>
+    <div className="lab-short-header"><h2 id="lab-materials-title"><BookOpen size={20}/>复习材料包 <span className="lab-beta">BETA</span></h2></div>
     <p className="muted">围绕一个问题，把原句、背景、批注、相关笔记和已有作答放在一起。</p>
     {error && <p className="error" role="alert">{error}<button className="text-button" disabled={busy} onClick={() => { setError(''); setReload(value => value + 1); }}>重新读取</button></p>}
     {!pack && <>
