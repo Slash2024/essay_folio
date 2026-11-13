@@ -5,6 +5,7 @@ import { confirmUnsavedNavigation } from '../../lib/navigation';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import type { ShortReviewOverview, ShortReviewSource, ShortReviewProgress, SelfAssessment } from '../../lib/short-review';
 import './short-review.css';
+import FeatureFeedback from './FeatureFeedback';
 
 async function request<T>(query = '', data?: object, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`/api/short-review${query}`, data ? {
@@ -15,7 +16,7 @@ async function request<T>(query = '', data?: object, signal?: AbortSignal): Prom
   return result;
 }
 
-export default function ShortReview({ onExit }: { onExit: () => void }) {
+export default function ShortReview({ onExit, onOpenMaterials }: { onExit: () => void; onOpenMaterials: (sessionId: string) => void }) {
   const [overview, setOverview] = useState<ShortReviewOverview>();
   const [reviewId, setReviewId] = useState('');
   const [source, setSource] = useState<ShortReviewSource>();
@@ -130,7 +131,9 @@ export default function ShortReview({ onExit }: { onExit: () => void }) {
       <p>{progress.session.items.length} 句已对照，其中 {progress.results.filter(value => value.assessment === 'understood').length} 句自评已理解，{progress.results.filter(value => value.assessment === 'uncertain').length} 句仍需再看。</p>
       <p className="muted">这里记录本次作答和自评。再次独立作答，可以继续检查是否掌握。</p>
       <div className="lab-short-summary">{progress.session.items.map((value, index) => <button key={value.noteId} onClick={() => move(index)}><span className="english">{value.original}</span><small>{progress.results.find(item => item.index === index)?.assessment === 'understood' ? '自评已理解' : '仍需再看'} · 查看作答 →</small></button>)}</div>
-      <button className="button outline" onClick={() => { setProgress(undefined); setReviewId(''); setSource(undefined); setSelected([]); setConfirmed(false); setReload(value => value + 1); }}><RotateCcw size={16}/>返回选材，开始新一轮</button>
+      <div className="lab-short-actions"><button className="button primary" onClick={() => onOpenMaterials(progress.session.id)}>整理本轮复习材料</button>
+      <button className="button outline" onClick={() => { setProgress(undefined); setReviewId(''); setSource(undefined); setSelected([]); setConfirmed(false); setReload(value => value + 1); }}><RotateCcw size={16}/>返回选材，开始新一轮</button></div>
     </>}
+    <FeatureFeedback key={progress?.session.id ?? 'short-selection'} feature="short" contextId={progress?.session.id} phase={!progress ? 'selection' : item ? 'practice' : 'result'} disabled={busy}/>
   </section>;
 }

@@ -57,7 +57,7 @@ export async function shortReviewSource(reviewId: string): Promise<ShortReviewSo
     const paragraph = paragraphs.find(item => item.start <= pair.start && item.end >= pair.end);
     const context = paragraph ? source.slice(paragraph.start, paragraph.end) : source.slice(Math.max(0, pair.start - 300), pair.end + 300);
     const personalNotes = notes.filter(item => item.kind === 'personal' && !item.hidden).filter(item => {
-      const at = noteAnchor(source, item, review.study?.entries[item.id]).range;
+      const at = item.scope === 'range' ? item.anchor : noteAnchor(source, item, review.study?.entries[item.id]).range;
       return at && at.start < pair.end && at.end > pair.start;
     }).map(item => plain([item.explanation, item.replacement, item.shortNote].filter(Boolean).join('\n')).slice(0, 2000)).filter(Boolean).slice(0, 3);
     items.push({ noteId: note.id, original: pair.original, reference: pair.revised, explanation: plain(pair.explanation).slice(0, 5000), context: context.slice(0, 6000), personalNotes });
