@@ -1,4 +1,5 @@
 import {plain} from './review-analysis';
+import manualSentenceUnits from '../data/manual-sentence-units.json';
 import {locateQuote,noteAnchor,type ReviewStudy,type TextAnchor,type ReviewNote,type StudyEntry} from './review-interactions';
 import {wordDiff,type DiffPart} from './revisions';
 import {currentAlignment,alignmentParts,type AlignmentStore} from './annotation-alignment';
@@ -47,6 +48,12 @@ function hasClosingQuote(text:string,index:number,end:number,close:string):boole
  return false;
 }
 function splitParagraph(text:string,start:number,end:number):TextAnchor[]{
+ // Explicit user-requested reading units: exact paragraph matches only.
+ // Keep source offsets and punctuation intact; other prose uses normal splitting.
+ const paragraph=text.slice(start,end),trimmed=paragraph.trim();
+ if(manualSentenceUnits.some(unit=>unit.text===trimmed)){
+  const from=start+paragraph.indexOf(trimmed);return [{start:from,end:from+trimmed.length}];
+ }
  const out:TextAnchor[]=[];let begin=start;const quoteStack:string[]=[];
  function emit(until:number){let a=begin,b=until;while(a<b&&/\s/.test(text[a]))a++;while(b>a&&/\s/.test(text[b-1]))b--;if(a<b)out.push({start:a,end:b});begin=until;}
  for(let i=start;i<end;i++){
