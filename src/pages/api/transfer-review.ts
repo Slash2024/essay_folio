@@ -1,13 +1,14 @@
 import type { APIRoute } from 'astro';
 import { authorized, sameOrigin } from '../../server/session';
 import { identifier, ShortReviewError } from '../../server/short-review';
-import { transferOverview, transferSource, transferProgress, startTransfer, saveTransfer } from '../../server/transfer-review';
+import { transferCandidates, transferOverview, transferSource, transferProgress, startTransfer, saveTransfer } from '../../server/transfer-review';
 export const prerender = false;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 export const GET: APIRoute = async ({ request }) => {
   try {
     if (!await authorized(request)) return json({ error: '请先输入个人访问码。' }, 401);
     const params = new URL(request.url).searchParams;
+    if (params.has('candidates')) return json(await transferCandidates(params.get('type') ?? '', identifier(params.get('source')), identifier(params.get('note'))));
     if (params.has('session')) return json({ progress: await transferProgress(identifier(params.get('session'))) });
     if (params.has('source')) return json({ source: await transferSource(params.get('type') ?? '', identifier(params.get('source'))) });
     return json(await transferOverview());

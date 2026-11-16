@@ -34,3 +34,12 @@ export interface TransferOverview {
   targets: { reviewId: string; questionId: string; title: string; createdAt: string }[];
   sessions: Pick<TransferSession, 'id' | 'createdAt'>[];
 }
+
+export interface TransferCandidate {
+  reviewId: string;
+  noteId: string;
+  title: string;
+  original: string;
+  categories: string[];
+}
+export interface TransferCandidates { items: TransferCandidate[]; checkedReviews: number; unavailableReviews: number }

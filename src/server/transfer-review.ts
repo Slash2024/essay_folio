@@ -1,5 +1,6 @@
 import type { Writing } from '../lib/folio';
-import type { TransferOverview, TransferSource, TransferSession, TransferProgress, TransferMaterial } from '../lib/transfer-review';
+import type { TransferOverview, TransferSource, TransferSession, TransferProgress, TransferMaterial, TransferCandidates } from '../lib/transfer-review';
+import { suggestCategories } from '../lib/review-analysis';
 import { interactionId } from '../lib/review-interactions';
 import { shortReviewOverview, shortReviewSource, shortReviewProgress, identifier, insertOnce, ShortReviewError } from './short-review';
 import { savedMaterialPack, MATERIAL_KIND } from './laboratory-materials';
@@ -73,4 +74,31 @@ export async function saveTransfer(body: Record<string, unknown>) {
     await insertOnce(`${id}-result`, 'labTransferResult', { writingId: id, index: 0, assessment: body.assessment, createdAt: new Date().toISOString() });
   }
   return transferProgress(id);
+}
+
+export async function transferCandidates(type: string, id: string, noteId: string): Promise<TransferCandidates> {
+  const origin = await transferSource(type, id), item = origin.items.find(item => item.noteId === noteId);
+  if (!item) throw new ShortReviewError('旧问题已变化，请重新选择。', 409);
+  const categories = new Set<string>(suggestCategories(item.explanation).filter(value => value !== '其他问题' && value !== '不计入问题'));
+  if (!categories.size) return { items: [], checkedReviews: 0, unavailableReviews: 0 };
+  const overview = await shortReviewOverview();
+  const unique = new Map<string, typeof overview.sources[number]>();
+  for (const review of overview.sources) {
+    if (review.questionId !== origin.questionId && !unique.has(review.writingId)) unique.set(review.writingId, review);
+  }
+  const reviews = [...unique.values()].slice(0, 12);
+  const sources = await Promise.allSettled(reviews.map(review => shortReviewSource(review.reviewId)));
+  const items: TransferCandidates['items'] = [];
+  const seen = new Set<string>();
+  for (const [index, result] of sources.entries()) {
+    if (result.status !== 'fulfilled') continue;
+    for (const candidate of result.value.items) {
+      const normalized = candidate.original.replace(/\s+/g, ' ').trim().toLowerCase();
+      const matched = suggestCategories(candidate.explanation).filter(value => categories.has(value));
+      if (!matched.length || seen.has(normalized) || normalized === item.original.replace(/\s+/g, ' ').trim().toLowerCase()) continue;
+      seen.add(normalized);
+      items.push({ reviewId: reviews[index].reviewId, noteId: candidate.noteId, title: reviews[index].title, original: candidate.original, categories: matched });
+    }
+  }
+  return { items: items.slice(0, 12), checkedReviews: reviews.length, unavailableReviews: sources.filter(result => result.status === 'rejected').length };
 }

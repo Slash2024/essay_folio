@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 const dir = await mkdtemp(join(tmpdir(), 'folio-transfer-'));
 const archive = (await readFile('tests/archive-consistency.test.mjs', 'utf8')).match(/const archive = `([\s\S]*?)`;/)[1];
-await build({ stdin: { contents: "export {GET,POST} from './src/pages/api/transfer-review';export {POST as feedback} from './src/pages/api/laboratory-feedback';export {db,put,failures} from './src/server/archive';", resolveDir: process.cwd() }, bundle: true, platform: 'node', format: 'esm', outfile: join(dir, 'api.mjs'), plugins: [{ name: 'isolate', setup(b) {
+await build({ stdin: { contents: "export {GET,POST} from './src/pages/api/transfer-review';export {GET as home} from './src/pages/api/laboratory-home';export {POST as feedback} from './src/pages/api/laboratory-feedback';export {db,put,failures} from './src/server/archive';", resolveDir: process.cwd() }, bundle: true, platform: 'node', format: 'esm', outfile: join(dir, 'api.mjs'), plugins: [{ name: 'isolate', setup(b) {
   b.onResolve({ filter: /server\/archive$|^\.\/archive$/ }, () => ({path:'archive',namespace:'test'}));
   b.onResolve({ filter: /server\/session$/ }, () => ({path:'session',namespace:'test'}));
   b.onLoad({filter:/.*/,namespace:'test'},({path})=>({loader:'js',contents:path==='archive'?archive:"export const authorized=async request=>request.headers.has('x-auth'),sameOrigin=request=>!request.headers.has('x-foreign');"}));
@@ -59,4 +59,39 @@ test('transfer feedback is linked to this experiment and access is enforced',asy
  const feedback={id:'lab-feedback-12345678-1234-1234-1234-123456789abc',feature:'transfer',contextId:body.id,phase:'result',ease:'smooth',value:'helpful',factors:['applying','hint']};
  assert.equal((await post(feedback,m.feedback)).status,200);assert.equal((await post(feedback,m.feedback)).status,200);
  assert.equal((await post({...feedback,id:'lab-feedback-22222222-1234-1234-1234-123456789abc',contextId:'r-old'},m.feedback)).status,404);
+});
+
+async function home() {
+ const response=await m.home({request:new Request('https://test.invalid/api/laboratory-home',{headers:{'x-auth':'1'}})});
+ return response.json();
+}
+test('direct candidates come from other questions and expose no reference answers',async()=>{
+ const before=JSON.stringify([...m.db]);
+ const {source}=await get('?type=review&source=r-old');
+ const candidates=await get('?candidates=1&type=review&source=r-old&note='+source.items[0].noteId);
+ assert.equal(candidates.status,200);assert.equal(candidates.items.length,1);
+ assert.equal(candidates.items[0].reviewId,'r-new');assert.equal(candidates.items[0].original,'Trees grows tall.');
+ assert.equal(Object.hasOwn(candidates.items[0],'reference'),false);assert.equal(JSON.stringify(candidates).includes('Trees grow tall.'),false);
+ assert.equal(JSON.stringify([...m.db]),before);
+ m.db.delete('v-new');
+ const partial=await get('?candidates=1&type=review&source=r-old&note='+source.items[0].noteId);
+ assert.equal(partial.unavailableReviews,1);assert.deepEqual(partial.items,[]);
+});
+test('home queue resumes pending work and removes older uncertainty after a newer understood result',async()=>{
+ const {source}=await get('?type=review&source=r-old');
+ const short={...source,id:'short-old',createdAt:'2026-11-10T10:00:00Z',version:1};
+ await m.put(short.id,'labShortSession',short);
+ await m.put('short-old-r','labShortResult',{writingId:short.id,index:0,assessment:'uncertain',createdAt:'2026-11-10T10:01:00Z'});
+ let queue=await home();assert.equal(queue.items.length,1);assert.equal(queue.items[0].route.view,'short');
+ assert.deepEqual(queue.items[0].route.entry.noteIds,[source.items[0].noteId]);
+ await m.put('short-new','labShortSession',{...short,id:'short-new',createdAt:'2026-11-11T10:00:00Z'});
+ queue=await home();assert.equal(queue.items.length,1);assert.equal(queue.items[0].status,'unfinished');assert.equal(queue.items[0].route.entry.sessionId,'short-new');
+ await m.put('short-new-r','labShortResult',{writingId:'short-new',index:0,assessment:'understood',createdAt:'2026-11-11T10:01:00Z'});
+ assert.deepEqual((await home()).items,[]);
+ const body=await selection();await post(body);
+ queue=await home();assert.equal(queue.items[0].route.sessionId,body.id);
+ await post({action:'answer',id:body.id,answer:'Trees grow tall.',unable:false,hintUsed:false});
+ await post({action:'assess',id:body.id,assessment:'uncertain'});
+ queue=await home();assert.equal(queue.items[0].status,'revisit');assert.equal(queue.items[0].route.entry.targetReviewId,'r-new');
+ const before=JSON.stringify([...m.db]);await home();assert.equal(JSON.stringify([...m.db]),before);
 });

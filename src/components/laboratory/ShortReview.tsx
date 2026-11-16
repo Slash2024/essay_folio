@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, RotateCcw } from 'lucide-react';
 import { dateLabel } from '../../lib/client';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
+import type { ShortEntry } from '../../lib/laboratory-navigation';
 import type { ShortReviewOverview, ShortReviewSource, ShortReviewProgress, SelfAssessment } from '../../lib/short-review';
 import './short-review.css';
 import FeatureFeedback from './FeatureFeedback';
@@ -15,9 +16,9 @@ async function request<T>(query = '', data?: object, signal?: AbortSignal): Prom
   return result;
 }
 
-export default function ShortReview({ onOpenMaterials }: { onOpenMaterials: (sessionId: string) => void }) {
+export default function ShortReview({ onOpenMaterials, entry }: { onOpenMaterials: (sessionId: string) => void; entry?: ShortEntry }) {
   const [overview, setOverview] = useState<ShortReviewOverview>();
-  const [reviewId, setReviewId] = useState('');
+  const [reviewId, setReviewId] = useState(entry?.reviewId ?? '');
   const [source, setSource] = useState<ShortReviewSource>();
   const [selected, setSelected] = useState<string[]>([]);
   const [confirmed, setConfirmed] = useState(false);
@@ -28,6 +29,7 @@ export default function ShortReview({ onOpenMaterials }: { onOpenMaterials: (ses
   const [loadingSource, setLoadingSource] = useState(false);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
+  const restored = useRef(false);
   const startRequest = useRef({ key: '', id: '' });
   const heading = useRef<HTMLHeadingElement>(null);
   const item = progress?.session.items[index];
@@ -44,11 +46,30 @@ export default function ShortReview({ onOpenMaterials }: { onOpenMaterials: (ses
   }, [reload]);
 
   useEffect(() => {
+    if (!entry?.sessionId || restored.current) return;
+    const controller = new AbortController();
+    setBusy(true);
+    request<{ progress: ShortReviewProgress }>(`?session=${encodeURIComponent(entry.sessionId)}`, undefined, controller.signal)
+      .then(value => { if (!controller.signal.aborted) { restored.current = true; open(value.progress); } })
+      .catch(cause => { if (!controller.signal.aborted) setError((cause as Error).message); })
+      .finally(() => setBusy(false));
+    return () => controller.abort();
+  }, [entry?.sessionId, reload]);
+
+  useEffect(() => {
     if (!reviewId) return;
     const controller = new AbortController();
     setSource(undefined); setSelected([]); setConfirmed(false); setLoadingSource(true); setError('');
     request<{ source: ShortReviewSource }>(`?review=${encodeURIComponent(reviewId)}`, undefined, controller.signal)
-      .then(value => setSource(value.source)).catch(cause => { if (!controller.signal.aborted) setError((cause as Error).message); })
+      .then(value => {
+        if (controller.signal.aborted) return;
+        setSource(value.source);
+        if (entry?.reviewId === reviewId && entry.noteIds?.length) {
+          const chosen = entry.noteIds.filter(id => value.source.items.some(item => item.noteId === id));
+          setSelected(chosen);
+          if (chosen.length !== entry.noteIds.length) setError('原批注已调整，请核对当前材料后重新选择。');
+        }
+      }).catch(cause => { if (!controller.signal.aborted) setError((cause as Error).message); })
       .finally(() => { if (!controller.signal.aborted) setLoadingSource(false); });
     return () => controller.abort();
   }, [reviewId, reload]);

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, BookOpen, CheckCircle2 } from 'lucide-react';
+import type { MaterialEntry, TransferEntry } from '../../lib/laboratory-navigation';
 import type { MaterialOverview, MaterialSource, MaterialPack as SavedPack } from '../../lib/laboratory';
 import { dateLabel } from '../../lib/client';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
@@ -14,12 +15,13 @@ async function request<T>(query = '', body?: object, signal?: AbortSignal): Prom
   if (!response.ok) throw new Error(result.error || '材料暂时无法读取或保存。');
   return result;
 }
-export default function MaterialPack({ initialSessionId, onOpenRecord }: {
-  initialSessionId?: string;
+export default function MaterialPack({ entry, onOpenRecord, onOpenTransfer }: {
+  entry?: MaterialEntry;
+  onOpenTransfer: (entry: TransferEntry) => void;
   onOpenRecord: (writingId: string, reviewId: string, noteId: string) => void;
 }) {
   const [overview, setOverview] = useState<MaterialOverview>();
-  const [selection, setSelection] = useState(initialSessionId ? `session:${initialSessionId}` : '');
+  const [selection, setSelection] = useState(entry?.sourceId ? `${entry.sourceType ?? 'session'}:${entry.sourceId}` : '');
   const [source, setSource] = useState<MaterialSource>();
   const [focusId, setFocusId] = useState('');
   const [pack, setPack] = useState<SavedPack>();
@@ -27,6 +29,7 @@ export default function MaterialPack({ initialSessionId, onOpenRecord }: {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
+  const restored = useRef(false);
   const pending = useRef({ key: '', id: '' });
   useUnsavedChanges(false, busy);
   useEffect(() => {
@@ -37,12 +40,28 @@ export default function MaterialPack({ initialSessionId, onOpenRecord }: {
     return () => controller.abort();
   }, [reload]);
   useEffect(() => {
+    if (!entry?.packId || restored.current) return;
+    const controller = new AbortController();
+    setBusy(true);
+    request<{ pack: SavedPack }>(`?pack=${encodeURIComponent(entry.packId)}`, undefined, controller.signal)
+      .then(value => { if (!controller.signal.aborted) { restored.current = true; setPack(value.pack); } })
+      .catch(cause => { if (!controller.signal.aborted) setError((cause as Error).message); })
+      .finally(() => setBusy(false));
+    return () => controller.abort();
+  }, [entry?.packId, reload]);
+  useEffect(() => {
     if (!selection || pack) return;
     const controller = new AbortController();
     const [type, id] = selection.split(':');
     setSource(undefined); setFocusId(''); setLoading(true); setError('');
     request<{ source: MaterialSource }>(`?type=${type}&source=${encodeURIComponent(id)}`, undefined, controller.signal)
-      .then(value => { setSource(value.source); setFocusId(value.source.items[0]?.noteId ?? ''); })
+      .then(value => {
+        if (controller.signal.aborted) return;
+        setSource(value.source);
+        const preferred = entry?.sourceId === id && (entry.sourceType ?? 'session') === type ? entry.noteId : undefined;
+        setFocusId(preferred ? value.source.items.find(item => item.noteId === preferred)?.noteId ?? '' : value.source.items[0]?.noteId ?? '');
+        if (preferred && !value.source.items.some(item => item.noteId === preferred)) setError('来源批注已调整，请重新选择要回看的问题。');
+      })
       .catch(cause => { if (!controller.signal.aborted) setError((cause as Error).message); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -73,7 +92,7 @@ export default function MaterialPack({ initialSessionId, onOpenRecord }: {
       <label className="lab-short-select">选择材料来源<select aria-label="材料包来源" value={selection} disabled={busy} onChange={event => setSelection(event.target.value)}><option value="">请选择一份短复习记录或作文批阅</option><optgroup label="短复习记录 · 含已有作答">{overview?.sessions.map(value => <option key={value.id} value={`session:${value.id}`}>{value.title} · {dateLabel(value.createdAt)}</option>)}</optgroup><optgroup label="作文批阅">{overview?.sources.map(value => <option key={value.reviewId} value={`review:${value.reviewId}`}>{value.title} · {dateLabel(value.createdAt)}</option>)}</optgroup></select></label>
       {!overview && !error && <p role="status">正在读取材料列表…</p>}
       {loading && <p role="status">正在整理关联材料…</p>}
-      {source && !loading && (source.items.length ? <label className="lab-short-select">这次聚焦哪一句<select aria-label="材料包聚焦句子" value={focusId} disabled={busy} onChange={event => setFocusId(event.target.value)}>{source.items.map((value, index) => <option key={value.noteId} value={value.noteId}>{index + 1}. {value.original}</option>)}</select></label> : <p className="muted">这份材料暂没有可核对的纠错条目，请选择其他来源。</p>)}
+      {source && !loading && (source.items.length ? <label className="lab-short-select">这次聚焦哪一句<select aria-label="材料包聚焦句子" value={focusId} disabled={busy} onChange={event => setFocusId(event.target.value)}><option value="">请选择聚焦的句子</option>{source.items.map((value, index) => <option key={value.noteId} value={value.noteId}>{index + 1}. {value.original}</option>)}</select></label> : <p className="muted">这份材料暂没有可核对的纠错条目，请选择其他来源。</p>)}
     </>}
     {item && <article className="lab-material-content" key={`content-${pack?.id ?? `${selection}:${focusId}`}`}>
       <div className="lab-material-meta"><span>{title}</span>{pack && <span className="lab-material-saved" role="status"><CheckCircle2 size={15}/>已保存 · {dateLabel(pack.createdAt)}</span>}</div>
@@ -84,6 +103,7 @@ export default function MaterialPack({ initialSessionId, onOpenRecord }: {
       <div className="lab-material-attempt"><h3>我的独立作答</h3>{attempt ? <><p className="english">{attempt.unable ? '本次选择了暂时不会' : attempt.answer}</p><p className="caption">{dateLabel(attempt.createdAt)} · {result ? result.assessment === 'understood' ? '自评已理解' : '仍需再看' : '尚未自评'}</p></> : <p className="muted">从短复习记录选材，可以把自己的作答一同整理进来。</p>}</div>
       <details className="lab-material-reference"><summary>展开批注与相关笔记</summary><div className="lab-material-pair"><div><h3>参考改法</h3><p className="english">{item.reference}</p><h3>批注说明</h3><p>{item.explanation || '这条批注没有附带说明。'}</p></div><div><h3>相关个人笔记</h3>{item.personalNotes.length ? item.personalNotes.map((note, index) => <p key={index}>{note}</p>) : <p className="muted">这句话暂没有关联的个人笔记。</p>}</div></div></details>
       <div className="lab-material-actions"><button className="text-button" disabled={busy} onClick={() => onOpenRecord(pack?.sourceWritingId ?? source!.writingId, pack?.reviewId ?? source!.reviewId, item.noteId)}>回到原批注<ArrowUpRight size={15}/></button>{pack ? <button className="button outline" disabled={busy} onClick={() => { setPack(undefined); setSource(undefined); setSelection(''); setFocusId(''); }}>返回选材</button> : <button className="button primary" disabled={busy} onClick={save}>{busy ? '正在保存…' : '保存材料包'}</button>}</div>
+      {pack && <button className="button primary" disabled={busy} onClick={() => onOpenTransfer({ originType: 'pack', originId: pack.id, noteId: pack.item.noteId })}>用这个问题做换语境复测</button>}
       {pack && <p className="caption">保存内容为当时的材料副本。可从来源重新整理，保留不同阶段的复习记录。</p>}
     </article>}
     {!pack && !!overview?.packs.length && <details className="lab-material-history"><summary>已保存的材料包 · {overview.packs.length} 份</summary>{overview.packs.map(value => <button className="lab-short-history-row" key={value.id} disabled={busy} onClick={() => void run(async () => { const value2 = await request<{ pack: SavedPack }>(`?pack=${encodeURIComponent(value.id)}`); setPack(value2.pack); })}><span>{value.title}<small>{dateLabel(value.createdAt)}</small></span><span>打开 →</span></button>)}</details>}
