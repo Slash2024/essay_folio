@@ -16,7 +16,7 @@ async function request<T>(query = '', data?: object, signal?: AbortSignal): Prom
   return result;
 }
 
-export default function ShortReview({ onOpenMaterials, entry }: { onOpenMaterials: (sessionId: string) => void; entry?: ShortEntry }) {
+export default function ShortReview({ onOpenMaterials, entry, onSessionChange }: { onSessionChange?: (id?: string) => void; onOpenMaterials: (sessionId: string) => void; entry?: ShortEntry }) {
   const [overview, setOverview] = useState<ShortReviewOverview>();
   const [reviewId, setReviewId] = useState(entry?.reviewId ?? '');
   const [source, setSource] = useState<ShortReviewSource>();
@@ -35,6 +35,7 @@ export default function ShortReview({ onOpenMaterials, entry }: { onOpenMaterial
   const item = progress?.session.items[index];
   const attempt = progress?.attempts.find(value => value.index === index);
   const result = progress?.results.find(value => value.index === index);
+  useEffect(() => { onSessionChange?.(progress?.session.id); }, [progress?.session.id, onSessionChange]);
   useUnsavedChanges(!!answer.trim() && !attempt, busy);
 
   useEffect(() => {
@@ -126,7 +127,7 @@ export default function ShortReview({ onOpenMaterials, entry }: { onOpenMaterial
           <button className="button primary" disabled={busy || !confirmed || selected.length === 0} onClick={start}>{busy ? '正在准备…' : `开始本轮${selected.length ? ` · ${selected.length} 句` : ''}`}</button>
         </>}
       </>}
-      {!!overview?.sessions.length && <div className="lab-short-history"><h3>最近的短复习</h3>{overview.sessions.map(value => <button key={value.id} className="lab-short-history-row" disabled={busy} onClick={() => void run(async () => { const data = await request<{ progress: ShortReviewProgress }>(`?session=${encodeURIComponent(value.id)}`); open(data.progress); })}><span>{value.title}<small>{dateLabel(value.createdAt)}</small></span><span>打开 / 继续 →</span></button>)}</div>}
+      {!!overview?.sessions.length && <details className="lab-short-history lab-history"><summary>历史记录 · 短复习（{overview.sessions.length}）</summary>{overview.sessions.map(value => <button key={value.id} className="lab-short-history-row" disabled={busy} onClick={() => void run(async () => { const data = await request<{ progress: ShortReviewProgress }>(`?session=${encodeURIComponent(value.id)}`); open(data.progress); })}><span>{value.title}<small>{dateLabel(value.createdAt)}</small></span><span>打开 / 继续 →</span></button>)}</details>}
     </> : item ? <>
       <p className="caption">第 {index + 1} / {progress.session.items.length} 句 · {attempt ? '作答已保存' : '独立作答'}</p>
       <h3 ref={heading} tabIndex={-1}>{attempt ? '对照本次修改' : '试着修改这句话'}</h3>

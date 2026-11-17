@@ -1,58 +1,76 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRightLeft, ClipboardList, NotebookPen, BookOpen, BookOpenCheck, Map as MapIcon, Layers } from 'lucide-react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, ArrowRightLeft, ClipboardList, NotebookPen, BookOpen, BookOpenCheck, Map as MapIcon, Layers, ChevronDown } from 'lucide-react';
 import ShortReview from './ShortReview';
 import { confirmUnsavedNavigation } from '../../lib/navigation';
+import { LAB_GROUPS, LAB_TOOLS, laboratoryGroup } from '../../lib/laboratory-catalog';
 import type { LabRoute, LabQueueItem } from '../../lib/laboratory-navigation';
 import './short-review.css';
+import './laboratory-hub.css';
 const MaterialPack = lazy(() => import('./MaterialPack'));
 const TransferReview = lazy(() => import('./TransferReview'));
 const CallMap = lazy(() => import('./CallMap'));
 const RecallCards = lazy(() => import('./RecallCards'));
 const TemplateTraining = lazy(() => import('./TemplateTraining'));
 const ExperienceSurvey = lazy(() => import('./ExperienceSurvey'));
-
+const TOOL_ICONS = { short: NotebookPen, materials: BookOpen, transfer: ArrowRightLeft, callmap: MapIcon, recall: Layers, template: BookOpenCheck };
 export default function LaboratoryPanel({ onOpenRecord }: { onOpenRecord: (writingId: string, reviewId: string, noteId: string) => void }) {
   const [route, setRoute] = useState<LabRoute>({ view: 'home' });
-  const [queue, setQueue] = useState<LabQueueItem[]>();
-  const [queueError, setQueueError] = useState('');
-  const [retry, setRetry] = useState(0);
+  const [trail, setTrail] = useState<LabRoute[]>([]);
+  const [queue, setQueue] = useState<LabQueueItem[]>(), [queueError, setQueueError] = useState('');
+  const [retry, setRetry] = useState(0), [expanded, setExpanded] = useState(false);
+  const activeRecord = useRef<string>();
   useEffect(() => {
     if (route.view !== 'home') return;
-    const controller = new AbortController();
-    setQueue(undefined); setQueueError('');
+    const controller = new AbortController(); setQueue(undefined); setQueueError('');
     fetch('/api/laboratory-home', { cache: 'no-store', signal: controller.signal }).then(async response => {
-      const value = await response.json();
-      if (!response.ok) throw new Error(value.error || '待继续记录暂时无法读取。');
+      const value = await response.json(); if (!response.ok) throw new Error(value.error || '待继续记录暂时无法读取。');
       if (!controller.signal.aborted) setQueue(value.items);
     }).catch(cause => { if (!controller.signal.aborted) setQueueError((cause as Error).message); });
     return () => controller.abort();
   }, [route.view, retry]);
-  function enter(next: LabRoute) {
-    if (!confirmUnsavedNavigation()) return;
-    setRoute(next); window.scrollTo({ top: 0 });
+  function currentRoute(): LabRoute {
+    const id = activeRecord.current;
+    if (route.view === 'callmap') return { view: 'callmap' };
+    if (!id) return route;
+    if (route.view === 'short') return { view: 'short', entry: { sessionId: id } };
+    if (route.view === 'materials') return { view: 'materials', entry: { packId: id } };
+    if (route.view === 'recall' || route.view === 'template' || route.view === 'transfer') return { view: route.view, sessionId: id };
+    return route;
   }
-  const view = route.view;
-  if (view !== 'home') return <>
-    <nav className="lab-experiment-nav" aria-label="实验室栏目导航"><button className="button outline" onClick={() => enter({ view: 'home' })}><ArrowLeft size={17}/>返回实验室入口</button><span>{({ short: '短复习单', materials: '复习材料包', transfer: '换语境复测', template: '模板迁移训练', callmap: '考场调用地图', recall: '情境唤回卡', survey: '产品体验问卷' })[view]}</span></nav>
-    {route.view === 'short' && <ShortReview key={JSON.stringify(route)} entry={route.entry} onOpenMaterials={id => enter({ view: 'materials', entry: { sourceType: 'session', sourceId: id } })}/>}
-    {route.view === 'materials' && <Suspense fallback={<p>正在打开复习材料包…</p>}><MaterialPack key={JSON.stringify(route)} entry={route.entry} onOpenRecord={onOpenRecord} onOpenTransfer={entry => enter({ view: 'transfer', entry })}/></Suspense>}
-    {route.view === 'transfer' && <Suspense fallback={<p>正在打开换语境复测…</p>}><TransferReview key={JSON.stringify(route)} entry={route.entry} sessionId={route.sessionId} onOpenMaterials={entry => enter({ view: 'materials', entry })}/></Suspense>}
-    {route.view === 'template' && <Suspense fallback={<p>正在打开模板迁移训练…</p>}><TemplateTraining key={route.sessionId ?? 'new'} sessionId={route.sessionId}/></Suspense>}
-    {route.view === 'callmap' && <Suspense fallback={<p>正在打开考场调用地图…</p>}><CallMap key={route.taskId ?? 'all'} taskId={route.taskId} onOpenRecall={taskId => enter({ view: 'recall', taskId })}/></Suspense>}
-    {route.view === 'recall' && <Suspense fallback={<p>正在打开情境唤回卡…</p>}><RecallCards key={JSON.stringify(route)} sessionId={route.sessionId} taskId={route.taskId} onOpenMap={taskId => enter({ view: 'callmap', taskId })}/></Suspense>}
-    {view === 'survey' && <Suspense fallback={<p>正在读取问卷…</p>}><ExperienceSurvey/></Suspense>}
-  </>;
-  return <div className="lab-experiments">
-    <section className="panel lab-experiment"><div className="lab-short-header"><h2><NotebookPen size={20}/>短复习单 <span className="lab-beta">BETA</span></h2><span className="caption">1–3 句 · 约 5 分钟</span></div><p>从已有批阅里选几句话，独立修改后再对照，把这次复习做完。</p><button className="button primary" onClick={() => enter({ view: 'short' })}>进入短复习</button></section>
-    <section className="panel lab-experiment" aria-labelledby="lab-continue-title"><div className="lab-short-header"><h2 id="lab-continue-title">待继续</h2><span className="caption">未完成 · 仍需再看</span></div>
-      {queueError ? <p className="error" role="alert">{queueError}<button className="text-button" onClick={() => setRetry(value => value + 1)}>重试</button></p> : !queue ? <p className="muted" role="status">正在读取复习进度…</p> : queue.length ? <div className="lab-continue-list">{queue.map(item => <button className="lab-continue-item" key={item.key} onClick={() => enter(item.route)}><span><strong>{item.title}</strong><small>{item.detail}</small></span><b>{item.status === 'unfinished' ? '继续 →' : '再练 →'}</b></button>)}</div> : <p className="muted">当前没有待继续的记录，可以从下方选择一次新的练习。</p>}
+  function enter(next: LabRoute, origin = currentRoute()) {
+    if (!confirmUnsavedNavigation()) return;
+    setTrail(previous => next.view === 'home' ? [] : [...previous, origin].slice(-12));
+    activeRecord.current = undefined; setExpanded(false); setRoute(next); window.scrollTo({ top: 0 });
+  }
+  function previous() {
+    if (!trail.length || !confirmUnsavedNavigation()) return;
+    const next = trail.at(-1)!; setTrail(old => old.slice(0, -1)); activeRecord.current = undefined; setRoute(next); window.scrollTo({ top: 0 });
+  }
+  const markRecord = (id?: string) => { activeRecord.current = id; };
+  const view = route.view, group = laboratoryGroup(view);
+  const title = view === 'survey' ? '产品体验问卷' : view === 'home' ? '实验室' : LAB_TOOLS[view].title;
+  if (view !== 'home') return <div className="lab-workspace">
+    <nav className="lab-experiment-nav" aria-label="实验室栏目导航">
+      <div className="lab-nav-top"><button className="button outline small" onClick={() => enter({ view: 'home' })}><ArrowLeft size={16}/>返回实验室入口</button>{trail.at(-1)?.view && trail.at(-1)!.view !== 'home' && <button className="text-button lab-nav-previous" onClick={previous}>返回上一步</button>}<span className="lab-nav-context">{group?.label ?? title}</span></div>
+      {group && <div className="lab-related-tools" role="group" aria-label={`${group.label}项目`}>{group.tools.map((key, index) => <button key={key} disabled={key === view} aria-current={key === view ? 'page' : undefined} onClick={() => enter({ view: key })}><small>{index + 1}</small>{LAB_TOOLS[key].title}</button>)}</div>}
+    </nav>
+    <Suspense fallback={<p className="muted" role="status">正在打开{title}…</p>}>
+      {route.view === 'short' && <ShortReview key={JSON.stringify(route)} entry={route.entry} onSessionChange={markRecord} onOpenMaterials={id => enter({ view: 'materials', entry: { sourceType: 'session', sourceId: id } }, { view: 'short', entry: { sessionId: id } })}/>}
+      {route.view === 'materials' && <MaterialPack key={JSON.stringify(route)} entry={route.entry} onPackChange={markRecord} onOpenRecord={onOpenRecord} onOpenTransfer={entry => enter({ view: 'transfer', entry })}/>}
+      {route.view === 'transfer' && <TransferReview key={JSON.stringify(route)} entry={route.entry} sessionId={route.sessionId} onSessionChange={markRecord} onOpenMaterials={entry => enter({ view: 'materials', entry })}/>}
+      {route.view === 'template' && <TemplateTraining key={JSON.stringify(route)} sessionId={route.sessionId} initialExpressionId={route.expressionId} onSessionChange={markRecord}/>}
+      {route.view === 'callmap' && <CallMap key={route.taskId ?? 'all'} taskId={route.taskId} onOpenRecall={taskId => enter({ view: 'recall', taskId })} onOpenTemplate={expressionId => enter({ view: 'template', expressionId })}/>}
+      {route.view === 'recall' && <RecallCards key={JSON.stringify(route)} sessionId={route.sessionId} taskId={route.taskId} onSessionChange={markRecord} onOpenMap={taskId => enter({ view: 'callmap', taskId })} onOpenTemplate={expressionId => enter({ view: 'template', expressionId })}/>}
+      {view === 'survey' && <ExperienceSurvey/>}
+    </Suspense>
+  </div>;
+  const visibleQueue = expanded ? queue : queue?.slice(0, 3);
+  return <div className="lab-hub">
+    <p className="lab-hub-intro">选一个目标开始。每个工具都可单独进入，也可以按下面的顺序衔接。</p>
+    <div className="lab-pathways">{LAB_GROUPS.map(path => <section className="panel lab-pathway" key={path.id} aria-labelledby={`lab-path-${path.id}`}><div className="lab-pathway-heading"><span>{path.label}</span><h2 id={`lab-path-${path.id}`}>{path.title}</h2><p>{path.description}</p></div><ol className="lab-tool-list">{path.tools.map((key, index) => { const tool = LAB_TOOLS[key], Icon = TOOL_ICONS[key]; return <li key={key}><button className={`lab-tool-entry ${key === 'short' || key === 'recall' ? 'lab-tool-featured' : ''}`} aria-label={tool.action} onClick={() => enter({ view: key })}><span className="lab-tool-number">{index + 1}</span><span className="lab-tool-copy"><small>{tool.role}</small><strong><Icon size={17}/>{tool.title}<span className="lab-beta">BETA</span></strong><span>{tool.description}</span></span><ArrowRight className="lab-tool-arrow" size={17}/></button></li>; })}</ol></section>)}</div>
+    <section className={`panel lab-continue ${!queue?.length ? 'lab-continue-compact' : ''}`} aria-labelledby="lab-continue-title"><div className="lab-continue-heading"><h2 id="lab-continue-title">待继续</h2><span className="caption">{queue?.length ? `${queue.length} 项 · 未完成或仍需再看` : '从上次停下的地方继续'}</span></div>
+      {queueError ? <p className="error" role="alert">{queueError} <button className="text-button" onClick={() => setRetry(value => value + 1)}>重试</button></p> : !queue ? <p className="muted" role="status">正在读取复习进度…</p> : queue.length ? <><div className="lab-continue-list">{visibleQueue?.map(item => <button className="lab-continue-item" key={item.key} onClick={() => enter(item.route)}><span><strong>{item.title}</strong><small>{item.detail}</small></span><b>{item.status === 'unfinished' ? '继续 →' : '再练 →'}</b></button>)}</div>{queue.length > 3 && <button className="text-button lab-queue-toggle" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? '收起列表' : `展开其余 ${queue.length - 3} 项`}<ChevronDown size={15}/></button>}</> : <p className="muted">当前没有待继续的记录。</p>}
     </section>
-
-    <section className="panel lab-experiment"><div className="lab-short-header"><h2><BookOpen size={20}/>复习材料包 <span className="lab-beta">BETA</span></h2><span className="caption">原句 · 批注 · 笔记 · 作答</span></div><p>围绕一个问题，把复习需要的材料整理在一起，保存后随时回看。</p><button className="button primary" onClick={() => enter({ view: 'materials' })}>进入材料包</button></section>
-    <section className="panel lab-experiment"><div className="lab-short-header"><h2><ArrowRightLeft size={20}/>换语境复测 <span className="lab-beta">BETA</span></h2><span className="caption">旧问题 · 另一道题</span></div><p>把学过的问题带到另一道题里，先独立修改，再查看参考和记录自评。</p><button className="button primary" onClick={() => enter({ view: 'transfer' })}>进入换语境复测</button></section>
-    <section className="panel lab-experiment"><div className="lab-short-header"><h2><BookOpenCheck size={20}/>模板迁移训练 <span className="lab-beta">BETA</span></h2><span className="caption">一条表达 · 三题适配</span></div><p>判断熟悉句式在不同题目里能否使用，写出关键表达，再逐项核对主题、指代、展开和任务。</p><button className="button primary" onClick={() => enter({ view: 'template' })}>进入模板迁移训练</button></section>
-    <section className="panel lab-experiment"><div className="lab-short-header"><h2><Layers size={20}/>情境唤回卡 <span className="lab-beta">BETA</span></h2><span className="caption">每轮 1–5 张 · 默想或口述</span></div><p>看到中文任务后先回忆，再展开表达核对，记录本次独立想起、提示后想起或暂未想起。</p><button className="button primary" onClick={() => enter({ view: 'recall' })}>进入情境唤回卡</button></section>
-    <section className="panel lab-experiment"><div className="lab-short-header"><h2><MapIcon size={20}/>考场调用地图 <span className="lab-beta">BETA</span></h2><span className="caption">写作任务 · 首选与备用</span></div><p>按要完成的写作任务，确认首选表达、备用表达和适用条件，建立自己的调用入口。</p><button className="button primary" onClick={() => enter({ view: 'callmap' })}>进入考场调用地图</button></section>
-    <section className="panel lab-experiment"><h2><ClipboardList size={20}/>产品体验问卷</h2><p className="muted">填写或回看已提交的七道客观题，记录实际使用体验。</p><button className="button outline" onClick={() => enter({ view: 'survey' })}>打开体验问卷</button></section>
+    <section className="lab-survey-entry" aria-label="整体体验反馈"><ClipboardList size={19}/><div><strong>产品体验问卷</strong><p>记录整体使用体验；单项体验可在各工具底部反馈。</p></div><button className="button outline small" onClick={() => enter({ view: 'survey' })}>打开体验问卷</button></section>
   </div>;
 }

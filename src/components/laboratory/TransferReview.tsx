@@ -14,7 +14,7 @@ async function request<T>(query = '', body?: object, signal?: AbortSignal): Prom
   return result;
 }
 const categories = (text: string) => suggestCategories(text).filter(value => value !== '其他问题' && value !== '不计入问题');
-export default function TransferReview({ entry, sessionId, onOpenMaterials }: { entry?: TransferEntry; sessionId?: string; onOpenMaterials: (entry: MaterialEntry) => void }) {
+export default function TransferReview({ entry, sessionId, onOpenMaterials, onSessionChange }: { onSessionChange?: (id?: string) => void; entry?: TransferEntry; sessionId?: string; onOpenMaterials: (entry: MaterialEntry) => void }) {
   const [overview, setOverview] = useState<TransferOverview>();
   const [originKey, setOriginKey] = useState(entry ? `${entry.originType}:${entry.originId}` : '');
   const [origin, setOrigin] = useState<TransferSource>();
@@ -37,6 +37,7 @@ export default function TransferReview({ entry, sessionId, onOpenMaterials }: { 
   const nextTargetNote = useRef<string>();
   const restored = useRef(false);
   const pending = useRef({ key: '', id: '' });
+  useEffect(() => { onSessionChange?.(progress?.session.id); }, [progress?.session.id, onSessionChange]);
   useUnsavedChanges((!!answer.trim() || (hintUsed && !progress?.hintUsed)) && !progress?.attempt, busy);
   useEffect(() => {
     const controller = new AbortController();
@@ -162,7 +163,7 @@ export default function TransferReview({ entry, sessionId, onOpenMaterials }: { 
           <button className="button primary" disabled={busy || !confirmed || !oldItem || !newItem} onClick={start}>开始换语境复测</button>
         </>}
       </>}
-      {!!overview?.sessions.length && <div className="lab-short-history"><h3>最近的换语境复测</h3>{overview.sessions.map(value => <button className="lab-short-history-row" key={value.id} disabled={busy} onClick={() => void run(async () => { const data = await request<{ progress: TransferProgress }>(`?session=${encodeURIComponent(value.id)}`); open(data.progress); })}><span>换语境复测 · {dateLabel(value.createdAt)}</span><span>打开 / 继续 →</span></button>)}</div>}
+      {!!overview?.sessions.length && <details className="lab-short-history lab-history"><summary>历史记录 · 换语境复测（{overview.sessions.length}）</summary>{overview.sessions.map(value => <button className="lab-short-history-row" key={value.id} disabled={busy} onClick={() => void run(async () => { const data = await request<{ progress: TransferProgress }>(`?session=${encodeURIComponent(value.id)}`); open(data.progress); })}><span>换语境复测 · {dateLabel(value.createdAt)}</span><span>打开 / 继续 →</span></button>)}</details>}
     </> : <>
       <p className="caption">{progress.session.target.title}</p>
       <h3>{progress.result ? '本次复测已记录' : progress.attempt ? '对照换语境后的修改' : '在新语境里独立修改'}</h3>

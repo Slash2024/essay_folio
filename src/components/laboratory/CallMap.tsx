@@ -12,7 +12,7 @@ async function request(signal?: AbortSignal, body?: object): Promise<CallMapOver
   const response = await fetch('/api/call-map', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal } : { cache: 'no-store', signal });
   const value = await response.json(); if (!response.ok) throw new Error(value.error || '调用地图暂时不可用。'); return value;
 }
-export default function CallMap({ taskId, onOpenRecall }: { taskId?: CallTaskId; onOpenRecall: (taskId?: CallTaskId) => void }) {
+export default function CallMap({ taskId, onOpenRecall, onOpenTemplate }: { taskId?: CallTaskId; onOpenRecall: (taskId?: CallTaskId) => void; onOpenTemplate?: (expressionId: string) => void }) {
   const [overview, setOverview] = useState<CallMapOverview>(), [draft, setDraft] = useState<Draft>();
   const [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [loading, setLoading] = useState(true);
   const [error, setError] = useState(''), [saved, setSaved] = useState(''), [reload, setReload] = useState(0);
@@ -54,14 +54,16 @@ export default function CallMap({ taskId, onOpenRecall }: { taskId?: CallTaskId;
     {!draft && errorMessage}
     {saved && <p className="lab-short-saved" role="status">{saved}</p>}
     {loading && !overview ? <p role="status">正在读取调用地图与表达库…</p> : overview && <>
+      {!draft && <>
       <div className="lab-call-toolbar"><span className="caption">已确认可用 {usable} / {CALL_TASKS.length} 项</span><button className="button outline small" disabled={busy || !usable} onClick={() => onOpenRecall()}>用已确认任务练唤回</button></div>
       <div className="lab-call-map-grid">{orderedTasks.map(t => { const map = overview.maps.find(m => m.taskId === t.id); return <article className="lab-call-task" key={t.id}><div className="lab-short-header"><h3>{t.label}</h3><span className="caption">{map?.primary ? CALL_SCOPES[map.scope] : '尚未配置'}</span></div>{map?.primary ? <>
         {!map.current && <p className="error">表达库内容已变化或停用。请重新核对并保存，才能用于新的唤回卡。</p>}
         <p className="lab-call-cue">{map.cue}</p><CallExpressionView binding={map.primary} role="首选"/>{map.backup && <CallExpressionView binding={map.backup} role="备用"/>}
       </> : <p className="muted">从表达库选出你熟悉、适合这项任务的表达。</p>}
-      <div className="lab-short-actions"><button className="button outline small" disabled={busy} onClick={() => edit(t.id)}>配置{t.label}</button>{map?.current && <button className="text-button" disabled={busy} onClick={() => onOpenRecall(t.id)}>练这个任务</button>}</div>
+      <div className="lab-short-actions">{map?.current && map.primary?.expression.kind === 'sentence' && onOpenTemplate && <button className="text-button" disabled={busy} onClick={() => onOpenTemplate(map.primary!.expression.id)}>用首选句式练迁移</button>}<button className="button outline small" disabled={busy} onClick={() => edit(t.id)}>配置{t.label}</button>{map?.current && <button className="text-button" disabled={busy} onClick={() => onOpenRecall(t.id)}>练这个任务</button>}</div>
       </article>; })}</div>
-      {draft && task && <section className="lab-call-editor" aria-labelledby="call-map-editor-heading"><h3 id="call-map-editor-heading" ref={heading} tabIndex={-1}>配置：{task.label}</h3><p className="caption">候选仅按现有分类与标题筛选，请核对用途后确认。原表达库保持独立。</p>
+      </>}
+      {draft && task && <section className="lab-call-editor" aria-labelledby="call-map-editor-heading"><button className="text-button lab-map-back" disabled={busy} onClick={() => { if (confirmUnsavedNavigation()) { setDraft(undefined); baseline.current = ''; setConfirmed(false); } }}>← 返回调用地图</button><h3 id="call-map-editor-heading" ref={heading} tabIndex={-1}>配置：{task.label}</h3><p className="caption">候选仅按现有分类与标题筛选，请核对用途后确认。原表达库保持独立。</p>
         <fieldset disabled={busy} className="lab-call-fields">
           <label className="lab-short-select">适用范围<select aria-label="调用配置适用范围" value={draft.scope} onChange={e => change({ scope: e.target.value as CallScope })}>{Object.entries(CALL_SCOPES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
           <label className="lab-short-answer">中文唤回情境<textarea aria-label="中文唤回情境" maxLength={600} value={draft.cue} onChange={e => change({ cue: e.target.value })}/></label><p className="caption">只描述要完成的任务，不填英文答案。保留默认情境时，每轮会换用同一任务的不同中文表述。</p>

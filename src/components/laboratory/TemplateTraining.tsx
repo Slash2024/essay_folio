@@ -23,9 +23,10 @@ function suggestedQuestions(items: Question[]) {
   for (const q of items) { if (!selected.includes(q.id)) selected.push(q.id); if (selected.length === 3) break; }
   return selected;
 }
-export default function TemplateTraining({ sessionId }: { sessionId?: string }) {
+export default function TemplateTraining({ sessionId, initialExpressionId, onSessionChange }: { sessionId?: string; initialExpressionId?: string; onSessionChange?: (id?: string) => void }) {
   const [overview, setOverview] = useState<TemplateOverview>();
-  const [expressionId, setExpressionId] = useState('');
+  const [expressionId, setExpressionId] = useState(initialExpressionId ?? '');
+  const [entryNotice, setEntryNotice] = useState('');
   const [mode, setMode] = useState<TrainingMode>('picture');
   const [picks, setPicks] = useState<string[]>([]);
   const [selectionConfirmed, setSelectionConfirmed] = useState(false);
@@ -39,6 +40,7 @@ export default function TemplateTraining({ sessionId }: { sessionId?: string }) 
   const [validationConfirmed, setValidationConfirmed] = useState(false);
   const [busy, setBusy] = useState(false), [loading, setLoading] = useState(true);
   const [error, setError] = useState(''), [reload, setReload] = useState(0);
+  const carryChecked = useRef(false);
   const restored = useRef(false), pending = useRef({ key: '', id: '' });
   const startedAt = useRef(Date.now()), answerRequest = useRef({ key: '', body: {} });
   const controller = useRef<AbortController>();
@@ -49,12 +51,13 @@ export default function TemplateTraining({ sessionId }: { sessionId?: string }) 
   const doneTraining = !!progress && [0, 1, 2].every(i => progress.results.some(r => r.index === i));
   const showSummary = !!progress && (index === 4 || (index === 3 && !progress.validation));
   const dirty = !!progress && !attempt && !!(task.trim() || answer.trim() || decision) || !!attempt && !result && Object.keys(checks).length > 0;
+  useEffect(() => { onSessionChange?.(progress?.session.id); }, [progress?.session.id, onSessionChange]);
   useUnsavedChanges(dirty, busy);
   useEffect(() => () => controller.current?.abort(), []);
   useEffect(() => {
     const abort = new AbortController();
     setLoading(true); setError(''); setSelectionConfirmed(false);
-    request<TemplateOverview>('', undefined, abort.signal).then(value => { if (!abort.signal.aborted) setOverview(value); }).catch(cause => { if (!abort.signal.aborted) setError((cause as Error).message); }).finally(() => { if (!abort.signal.aborted) setLoading(false); });
+    request<TemplateOverview>('', undefined, abort.signal).then(value => { if (!abort.signal.aborted) { setOverview(value); if (initialExpressionId && !carryChecked.current) { carryChecked.current = true; if (!value.expressions.some(e => e.id === initialExpressionId)) { setExpressionId(''); setEntryNotice('带入的句式已停用或删除，请从当前表达库重新选择。'); } } } }).catch(cause => { if (!abort.signal.aborted) setError((cause as Error).message); }).finally(() => { if (!abort.signal.aborted) setLoading(false); });
     return () => abort.abort();
   }, [reload]);
   useEffect(() => {
@@ -108,8 +111,9 @@ export default function TemplateTraining({ sessionId }: { sessionId?: string }) 
     <p className="muted">检验熟悉的表达何时能用、何时需要调整。每题只练一两句关键表达。</p>
     {error && <p className="error" role="alert">{error} <button className="text-button" disabled={busy} onClick={() => setReload(v => v + 1)}>重新读取</button></p>}
     {!progress ? <>
+      {entryNotice && <p className="muted" role="status">{entryNotice}</p>}
       {loading ? <p role="status">正在读取表达库与题库…</p> : overview && <fieldset className="lab-template-setup" disabled={busy || !!sessionId && !restored.current}>
-        <label className="lab-short-select">选择熟悉的句式<select aria-label="训练句式" value={expressionId} onChange={e => { setExpressionId(e.target.value); setSelectionConfirmed(false); }}><option value="">请选择表达库中的句式</option>{overview.expressions.map(e => <option key={e.id} value={e.id}>{e.category} · {e.title}</option>)}</select></label>
+        <label className="lab-short-select">选择熟悉的句式<select aria-label="训练句式" value={expressionId} onChange={e => { setExpressionId(e.target.value); setSelectionConfirmed(false); setEntryNotice(''); }}><option value="">请选择表达库中的句式</option>{overview.expressions.map(e => <option key={e.id} value={e.id}>{e.category} · {e.title}</option>)}</select></label>
         {!overview.expressions.length && <p className="muted">表达库尚无启用的句式，请先在表达库添加或启用一条句式。</p>}
         {expression && <div className="lab-short-original"><strong>{expression.title}</strong><p className="english lab-template-pre">{expression.template}</p>{expression.notes && <details><summary>填空说明</summary><p className="lab-template-pre">{expression.notes}</p></details>}</div>}
         <label className="lab-short-select">题目类型<select aria-label="训练题目类型" value={mode} onChange={e => chooseMode(e.target.value as TrainingMode)}>{Object.entries(TRAINING_MODES).map(([key, name]) => <option key={key} value={key} disabled={overview.questions.filter(q => trainingMode(q) === key).length < 3}>{name}{overview.questions.filter(q => trainingMode(q) === key).length < 3 ? '（题量不足三题）' : ''}</option>)}</select></label>
@@ -119,7 +123,7 @@ export default function TemplateTraining({ sessionId }: { sessionId?: string }) 
         <label className="lab-short-confirm"><input type="checkbox" checked={selectionConfirmed} onChange={e => setSelectionConfirmed(e.target.checked)}/>将结合每题原始文字和题图核对题意，不把题目标题当作完整要求</label>
         <button className="button primary" onClick={start} disabled={!expression || picks.filter(Boolean).length !== 3 || new Set(picks).size !== 3 || !selectionConfirmed}>{busy ? '正在保存…' : '开始三题训练'}</button>
       </fieldset>}
-      {!!overview?.sessions.length && <div className="lab-short-history"><h3>已保存的模板训练</h3>{overview.sessions.map(s => <button className="lab-short-history-row" key={s.id} disabled={busy} onClick={() => void resume(s.id)}><span>{s.title}</span><small>{dateLabel(s.createdAt)}</small></button>)}</div>}
+      {!!overview?.sessions.length && <details className="lab-short-history lab-history"><summary>历史记录 · 模板迁移（{overview.sessions.length}）</summary>{overview.sessions.map(s => <button className="lab-short-history-row" key={s.id} disabled={busy} onClick={() => void resume(s.id)}><span>{s.title}</span><small>{dateLabel(s.createdAt)}</small></button>)}</details>}
     </> : showSummary ? <>
       <h3 ref={heading} tabIndex={-1}>本轮迁移记录</h3><p className="caption">下列结论来自你的逐项自检；规则提示只帮助核对，不代替切题性或语法判断。</p>
       <div className="lab-template-results">{[...progress.attempts].sort((a, b) => a.index - b.index).map(a => { const q = a.index === 3 ? progress.validation : progress.session.questions[a.index], r = progress.results.find(item => item.index === a.index); return <details key={a.index}><summary>{a.index === 3 ? '独立验证' : `训练 ${a.index + 1}`} · {q?.title} · {a.unable ? '暂时不会' : r && Object.values(r.checks).every(v => v === 'matched' || v === 'na') ? '自检已对应' : '仍需核对'}</summary><p>模板处理：{TEMPLATE_DECISIONS[a.decision]}{a.index === 3 ? ` · ${a.hintUsed ? '查看过模板提示' : '未查看模板提示'}` : ''}</p><p>本题任务：{a.task}</p><p className="english lab-template-pre">{a.answer || '暂时不会'}</p><p className="caption">本次打开至提交约 {a.elapsedSeconds} 秒（含停留时间，仅供参考）</p>{r && <ul>{TEMPLATE_CHECKS.map(check => <li key={check.id}>{check.title}：{CHECK_VALUES[r.checks[check.id]]}</li>)}</ul>}<ul>{trainingSignals(a, progress.attempts.filter(other => other.index < a.index)).map(text => <li key={text}>{text}</li>)}</ul></details>; })}</div>

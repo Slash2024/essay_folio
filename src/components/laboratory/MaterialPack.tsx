@@ -15,7 +15,8 @@ async function request<T>(query = '', body?: object, signal?: AbortSignal): Prom
   if (!response.ok) throw new Error(result.error || '材料暂时无法读取或保存。');
   return result;
 }
-export default function MaterialPack({ entry, onOpenRecord, onOpenTransfer }: {
+export default function MaterialPack({ entry, onOpenRecord, onOpenTransfer, onPackChange }: {
+  onPackChange?: (id?: string) => void;
   entry?: MaterialEntry;
   onOpenTransfer: (entry: TransferEntry) => void;
   onOpenRecord: (writingId: string, reviewId: string, noteId: string) => void;
@@ -32,6 +33,7 @@ export default function MaterialPack({ entry, onOpenRecord, onOpenTransfer }: {
   const restored = useRef(false);
   const pending = useRef({ key: '', id: '' });
   useUnsavedChanges(false, busy);
+  useEffect(() => { onPackChange?.(pack?.id); }, [pack?.id, onPackChange]);
   useEffect(() => {
     const controller = new AbortController();
     request<MaterialOverview>('', undefined, controller.signal).then(setOverview).catch(cause => {
@@ -106,7 +108,7 @@ export default function MaterialPack({ entry, onOpenRecord, onOpenTransfer }: {
       {pack && <button className="button primary" disabled={busy} onClick={() => onOpenTransfer({ originType: 'pack', originId: pack.id, noteId: pack.item.noteId })}>用这个问题做换语境复测</button>}
       {pack && <p className="caption">保存内容为当时的材料副本。可从来源重新整理，保留不同阶段的复习记录。</p>}
     </article>}
-    {!pack && !!overview?.packs.length && <details className="lab-material-history"><summary>已保存的材料包 · {overview.packs.length} 份</summary>{overview.packs.map(value => <button className="lab-short-history-row" key={value.id} disabled={busy} onClick={() => void run(async () => { const value2 = await request<{ pack: SavedPack }>(`?pack=${encodeURIComponent(value.id)}`); setPack(value2.pack); })}><span>{value.title}<small>{dateLabel(value.createdAt)}</small></span><span>打开 →</span></button>)}</details>}
+    {!pack && !!overview?.packs.length && <details className="lab-material-history lab-history"><summary>已保存的材料包 · {overview.packs.length} 份</summary>{overview.packs.map(value => <button className="lab-short-history-row" key={value.id} disabled={busy} onClick={() => void run(async () => { const value2 = await request<{ pack: SavedPack }>(`?pack=${encodeURIComponent(value.id)}`); setPack(value2.pack); })}><span>{value.title}<small>{dateLabel(value.createdAt)}</small></span><span>打开 →</span></button>)}</details>}
     <FeatureFeedback key={`feedback-${pack?.id ?? `${selection}-${focusId}`}`} feature="materials" contextId={pack?.id} phase={item ? 'reading' : 'selection'} disabled={busy}/>
   </section>;
 }

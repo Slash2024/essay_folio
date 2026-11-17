@@ -10,7 +10,7 @@ async function request<T>(query = '', body?: object, signal?: AbortSignal): Prom
   const response = await fetch('/api/recall-cards' + query, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal } : { cache: 'no-store', signal });
   const value = await response.json(); if (!response.ok) throw new Error(value.error || '情境唤回卡暂时不可用。'); return value;
 }
-export default function RecallCards({ sessionId, taskId, onOpenMap }: { sessionId?: string; taskId?: CallTaskId; onOpenMap: (taskId?: CallTaskId) => void }) {
+export default function RecallCards({ sessionId, taskId, onOpenMap, onOpenTemplate, onSessionChange }: { sessionId?: string; taskId?: CallTaskId; onOpenMap: (taskId?: CallTaskId) => void; onOpenTemplate?: (expressionId: string) => void; onSessionChange?: (id?: string) => void }) {
   const [overview, setOverview] = useState<RecallOverview>(), [progress, setProgress] = useState<RecallProgress>();
   const [scope, setScope] = useState('all'), [limit, setLimit] = useState(3), [selected, setSelected] = useState<CallTaskId[]>([]);
   const [assessment, setAssessment] = useState<RecallAssessment | ''>(''), [confirmed, setConfirmed] = useState(false);
@@ -18,6 +18,7 @@ export default function RecallCards({ sessionId, taskId, onOpenMap }: { sessionI
   const controller = useRef<AbortController>(), restored = useRef(false), initialized = useRef(false), pending = useRef({ key: '', id: '' }), heading = useRef<HTMLHeadingElement>(null);
   const index = progress ? progress.cards.findIndex(card => !progress.results.some(r => r.index === card.index)) : -1;
   const card = progress?.cards[index], reveal = progress?.reveals.find(r => r.index === index), hint = progress?.hints.find(h => h.index === index);
+  useEffect(() => { onSessionChange?.(progress?.session.id); }, [progress?.session.id, onSessionChange]);
   useUnsavedChanges(!!assessment || confirmed, busy);
   useEffect(() => () => controller.current?.abort(), []);
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function RecallCards({ sessionId, taskId, onOpenMap }: { sessionI
     finally { if (!abort.signal.aborted) setBusy(false); }
   }
   const errorMessage = error && <p className="error" role="alert">{error} <button className="text-button" disabled={busy} onClick={() => setReload(v => v + 1)}>重新读取</button></p>;
+  const sentences = [...new Map(progress?.reveals.flatMap(r => [r.primary, ...(r.backup ? [r.backup] : [])]).filter(b => b.expression.kind === 'sentence').map(b => [b.expression.id, b.expression]) ?? []).values()];
   const pool = overview?.maps.filter(map => scope === 'all' || map.scope === scope || map.scope === 'both') ?? [];
   function start() {
     const maps = pool.filter(map => selected.includes(map.taskId)).map(({ taskId, revision }) => ({ taskId, revision }));
@@ -60,11 +62,12 @@ export default function RecallCards({ sessionId, taskId, onOpenMap }: { sessionI
           <div className="lab-short-actions"><button className="button outline" onClick={() => onOpenMap()}>查看调用地图</button><button className="button primary" disabled={!pool.some(map => selected.includes(map.taskId))} onClick={start}>{busy ? '正在开始…' : '开始情境唤回'}</button></div>
         </fieldset>}
       </>}
-      {!!overview?.sessions.length && <div className="lab-short-history"><h3>已保存的唤回记录</h3>{overview.sessions.map(s => <button className="lab-short-history-row" key={s.id} disabled={busy} onClick={() => void action(undefined, '?session=' + encodeURIComponent(s.id))}><span>{s.count} 张任务卡</span><small>{dateLabel(s.createdAt)}</small></button>)}</div>}
+      {!!overview?.sessions.length && <details className="lab-short-history lab-history"><summary>历史记录 · 情境唤回（{overview.sessions.length}）</summary>{overview.sessions.map(s => <button className="lab-short-history-row" key={s.id} disabled={busy} onClick={() => void action(undefined, '?session=' + encodeURIComponent(s.id))}><span>{s.count} 张任务卡</span><small>{dateLabel(s.createdAt)}</small></button>)}</details>}
     </> : index < 0 ? <>
       <h3 ref={heading} tabIndex={-1}>本轮唤回记录</h3><p className="caption">以下为本轮自报结果，结合提示与展开前记录；不等同于长期掌握。</p>
       <div className="lab-recall-counts">{Object.entries(RECALL_ASSESSMENTS).map(([key, label]) => <div key={key}><strong>{progress.results.filter(r => r.assessment === key).length}</strong><span>{label}</span></div>)}</div>
       <div className="lab-short-summary">{progress.cards.map(c => <div className="lab-recall-summary" key={c.index}><strong>{c.label}</strong><span>{RECALL_ASSESSMENTS[progress.results.find(r => r.index === c.index)!.assessment]}</span></div>)}</div>
+      {!!sentences.length && onOpenTemplate && <details className="lab-next-tools"><summary>下一步：选一句做模板迁移</summary><p className="caption">带入所选句式，在不同题目里练习适配。</p>{sentences.map(expression => <button className="lab-short-history-row" key={expression.id} disabled={busy} onClick={() => onOpenTemplate(expression.id)}><span>{expression.title}</span><span>带入句式 →</span></button>)}</details>}
       <div className="lab-short-actions"><button className="button outline" disabled={busy} onClick={() => onOpenMap()}>回看调用地图</button><button className="button primary" disabled={busy} onClick={() => { setProgress(undefined); setAssessment(''); setConfirmed(false); pending.current = { key: '', id: '' }; setReload(v => v + 1); }}>再练一轮</button></div>
     </> : card && <>
       <div className="lab-short-header"><h3 ref={heading} tabIndex={-1}>第 {index + 1} / {progress.session.total} 张 · {card.label}</h3><span className="caption">{CALL_SCOPES[card.scope]}</span></div>

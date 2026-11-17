@@ -7,7 +7,7 @@ export type LabRoute =
   | { view: 'home' | 'survey' }
   | { view: 'callmap'; taskId?: CallTaskId }
   | { view: 'recall'; taskId?: CallTaskId; sessionId?: string }
-  | { view: 'template'; sessionId?: string }
+  | { view: 'template'; sessionId?: string; expressionId?: string }
   | { view: 'short'; entry?: ShortEntry }
   | { view: 'materials'; entry?: MaterialEntry }
   | { view: 'transfer'; entry?: TransferEntry; sessionId?: string };
