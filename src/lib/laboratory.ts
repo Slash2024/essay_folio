@@ -44,6 +44,14 @@ export const FEEDBACK_FACTORS = {
     { id: 'hint', label: '旧问题提示有帮助' }, { id: 'mastery', label: '仍难判断迁移效果' },
     { id: 'matching', label: '题目匹配不准' },
   ],
+  callmap: [
+    { id: 'finding', label: '按任务更好找' }, { id: 'choice', label: '首选备用更清楚' },
+    { id: 'setup', label: '配置费力' }, { id: 'boundary', label: '适用条件仍不清楚' }, { id: 'volume', label: '内容太多' },
+  ],
+  recall: [
+    { id: 'retrieval', label: '更容易主动想起' }, { id: 'cue', label: '情境不够明确' },
+    { id: 'hint', label: '提示有帮助' }, { id: 'assessment', label: '自评没把握' }, { id: 'size', label: '任务量合适' },
+  ],
   template: [
     { id: 'applying', label: '更清楚何时能用' }, { id: 'selection', label: '选题费力' },
     { id: 'checking', label: '逐项检查有帮助' }, { id: 'confidence', label: '自检仍没把握' },

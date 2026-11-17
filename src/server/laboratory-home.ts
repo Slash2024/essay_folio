@@ -1,3 +1,4 @@
+import type { RecallSession, RecallResult } from '../lib/exam-recall';
 import type { TemplateSession, TemplateResult } from '../lib/template-training';
 import type { LabQueueItem } from '../lib/laboratory-navigation';
 import type { ShortReviewSession, ShortReviewResult, ShortReviewItem } from '../lib/short-review';
@@ -5,8 +6,8 @@ import type { TransferSession } from '../lib/transfer-review';
 import { all, decode } from './archive';
 
 export async function laboratoryQueue(): Promise<LabQueueItem[]> {
-  const [shortRows, shortResults, transferRows, transferResults, templateRows, templateResults, templateValidations] = await Promise.all([
-    all('labShortSession'), all('labShortResult'), all('labTransferSession'), all('labTransferResult'), all('labTemplateSession'), all('labTemplateResult'), all('labTemplateValidation'),
+  const [shortRows, shortResults, transferRows, transferResults, templateRows, templateResults, templateValidations, recallRows, recallResults] = await Promise.all([
+    all('labShortSession'), all('labShortResult'), all('labTransferSession'), all('labTransferResult'), all('labTemplateSession'), all('labTemplateResult'), all('labTemplateValidation'), all('labRecallSession'), all('labRecallResult'),
   ]);
   const shortBySession = new Map<string, ShortReviewResult[]>();
   for (const row of shortResults) {
@@ -59,6 +60,16 @@ export async function laboratoryQueue(): Promise<LabQueueItem[]> {
     const session = decode<TemplateSession>(row), done = templateDone.get(session.id) ?? new Set<number>();
     const count = [0, 1, 2].filter(index => done.has(index)).length;
     if (count < 3 || validationIds.has(session.id) && !done.has(3)) queue.push({ key: session.id, title: count < 3 ? '继续模板迁移训练' : '继续模板独立验证', detail: `${session.expression.title} · 已自检 ${count}/3 题`, createdAt: session.createdAt, status: 'unfinished', route: { view: 'template', sessionId: session.id } });
+  }
+  const recallDone = new Map<string, Set<number>>();
+  for (const row of recallResults) {
+    const result = decode<RecallResult>(row), indexes = recallDone.get(result.writingId) ?? new Set<number>();
+    indexes.add(result.index); recallDone.set(result.writingId, indexes);
+  }
+  for (const row of recallRows) {
+    const session = decode<RecallSession>(row), done = recallDone.get(session.id) ?? new Set<number>();
+    const count = session.cards.filter((_, index) => done.has(index)).length;
+    if (count < session.cards.length) queue.push({ key: session.id, title: '继续情境唤回', detail: `已核对 ${count}/${session.cards.length} 张任务卡`, createdAt: session.createdAt, status: 'unfinished', route: { view: 'recall', sessionId: session.id } });
   }
   return queue.sort((a, b) => Number(b.status === 'unfinished') - Number(a.status === 'unfinished') || b.createdAt.localeCompare(a.createdAt) || a.key.localeCompare(b.key)).slice(0, 12);
 }

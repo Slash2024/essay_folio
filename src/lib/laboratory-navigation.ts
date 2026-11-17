@@ -1,9 +1,12 @@
+import type { CallTaskId } from './exam-recall';
 import type { OriginType } from './transfer-review';
 export interface ShortEntry { sessionId?: string; reviewId?: string; noteIds?: string[] }
 export interface MaterialEntry { packId?: string; sourceType?: 'review' | 'session'; sourceId?: string; noteId?: string }
 export interface TransferEntry { originType: OriginType; originId: string; noteId?: string; targetReviewId?: string; targetNoteId?: string }
 export type LabRoute =
   | { view: 'home' | 'survey' }
+  | { view: 'callmap'; taskId?: CallTaskId }
+  | { view: 'recall'; taskId?: CallTaskId; sessionId?: string }
   | { view: 'template'; sessionId?: string }
   | { view: 'short'; entry?: ShortEntry }
   | { view: 'materials'; entry?: MaterialEntry }
