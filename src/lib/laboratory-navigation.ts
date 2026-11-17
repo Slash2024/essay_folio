@@ -4,6 +4,7 @@ export interface MaterialEntry { packId?: string; sourceType?: 'review' | 'sessi
 export interface TransferEntry { originType: OriginType; originId: string; noteId?: string; targetReviewId?: string; targetNoteId?: string }
 export type LabRoute =
   | { view: 'home' | 'survey' }
+  | { view: 'template'; sessionId?: string }
   | { view: 'short'; entry?: ShortEntry }
   | { view: 'materials'; entry?: MaterialEntry }
   | { view: 'transfer'; entry?: TransferEntry; sessionId?: string };

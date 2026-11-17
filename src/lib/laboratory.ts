@@ -44,6 +44,11 @@ export const FEEDBACK_FACTORS = {
     { id: 'hint', label: '旧问题提示有帮助' }, { id: 'mastery', label: '仍难判断迁移效果' },
     { id: 'matching', label: '题目匹配不准' },
   ],
+  template: [
+    { id: 'applying', label: '更清楚何时能用' }, { id: 'selection', label: '选题费力' },
+    { id: 'checking', label: '逐项检查有帮助' }, { id: 'confidence', label: '自检仍没把握' },
+    { id: 'volume', label: '单轮训练偏长' },
+  ],
   materials: [
     { id: 'finding', label: '材料更好找' }, { id: 'comparison', label: '对照更清楚' },
     { id: 'notes', label: '相关笔记不足' }, { id: 'association', label: '材料关联不准确' },
