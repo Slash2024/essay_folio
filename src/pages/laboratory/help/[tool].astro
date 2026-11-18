@@ -3,8 +3,10 @@ import { LAB_GUIDES, type LabGuideId } from '../../../lib/laboratory-help';
 import { LAB_GUIDE_CONTENT } from '../../../lib/laboratory-guide-content';
 import '../../../styles/global.css';
 import '../../../styles/laboratory-guide.css';
-export const prerender = true;
-export function getStaticPaths() { return Object.keys(LAB_GUIDES).map(tool => ({ params: { tool } })); }
+export const prerender = false;
+if (!Astro.params.tool || !Object.hasOwn(LAB_GUIDES, Astro.params.tool)) {
+  return new Response('未找到此功能的使用说明。', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+}
 const id = Astro.params.tool as LabGuideId;
 const meta = LAB_GUIDES[id], guide = LAB_GUIDE_CONTENT[id];
 const navigation = {
