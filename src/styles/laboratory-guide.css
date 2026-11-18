@@ -1,0 +1,78 @@
+.lab-guide-page { background: #f6f8fb; font-size: 15px; }
+.guide-header { max-width: 1120px; margin: 0 auto; padding: 26px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.guide-brand { display: inline-flex; align-items: center; gap: 12px; }
+.guide-brand strong { display: block; font-size: 20px; letter-spacing: -.5px; }
+.guide-brand small { display: block; color: var(--color-muted-foreground); font-size: 11px; margin-top: 2px; }
+.guide-layout { display: grid; grid-template-columns: 190px minmax(0, 1fr); align-items: start; gap: 36px; max-width: 1120px; padding: 8px 24px 44px; margin: 0 auto; }
+.guide-sidebar { position: sticky; top: 24px; }
+.guide-sidebar nav { display: grid; gap: 4px; }
+.guide-sidebar nav > strong { font-size: 12px; margin-bottom: 8px; }
+.guide-sidebar a { color: var(--color-muted-foreground); font-size: 12px; padding: 7px 10px; border-radius: 6px; }
+.guide-sidebar a:hover, .guide-sidebar a[aria-current=page] { background: #e7f3f2; color: var(--color-primary); }
+.guide-sidebar .guide-other-pages { margin-top: 26px; border-top: 1px solid var(--color-border); padding-top: 20px; }
+.guide-main { min-width: 0; background: #fff; border: 1px solid var(--color-border); border-radius: 12px; padding: clamp(22px, 4vw, 42px); }
+.guide-hero h1 { font-size: clamp(25px, 3vw, 32px); font-weight: 700; letter-spacing: -.5px; line-height: 1.45; margin: 10px 0 14px; }
+.guide-hero h1 span { display: block; color: var(--color-muted-foreground); font-size: 17px; font-weight: 500; letter-spacing: 0; margin-top: 4px; }
+.guide-eyebrow { font-size: 11px; color: var(--color-primary); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.guide-beta { background: var(--color-secondary); padding: 2px 7px; border: 1px solid #c7dedb; border-radius: 5px; font-size: 10px; }
+.guide-purpose { color: #536779; font-size: 14px; line-height: 1.8; }
+.guide-finish { margin-top: 24px; border-left: 3px solid var(--color-primary); padding: 6px 0 6px 14px; }
+.guide-finish strong, .guide-first > strong, .guide-navigation-note strong { font-size: 13px; }
+.guide-finish p { font-size: 13px; margin-top: 6px; line-height: 1.85; }
+.guide-tab-note { font-size: 11px; line-height: 1.9; color: var(--color-muted-foreground); margin: 22px 0; }
+.guide-first { border: 1px solid #d1e4e0; border-radius: 9px; background: #f3faf8; padding: 18px; }
+.guide-first p { font-size: 13px; line-height: 1.9; margin: 8px 0 16px; }
+.guide-section { margin-top: 36px; scroll-margin-top: 22px; }
+.guide-section h2 { font-size: 19px; margin-bottom: 16px; }
+.guide-section ul { list-style: disc; padding-left: 20px; margin: 0; font-size: 14px; line-height: 1.95; }
+.guide-section li + li { margin-top: 10px; }
+.guide-section-note { color: var(--color-muted-foreground); font-size: 12px; margin: -6px 0 18px; line-height: 1.8; }
+.guide-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 18px; }
+.guide-steps > li { border: 1px solid var(--color-border); border-radius: 9px; padding: 20px; margin: 0 !important; }
+.guide-step-heading { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+.guide-step-heading > span { flex: none; width: 27px; height: 27px; display: grid; place-items: center; background: var(--color-secondary); color: var(--color-primary); border-radius: 50%; font-size: 12px; }
+.guide-step-heading h3 { font-size: 16px; line-height: 1.6; }
+.guide-where { display: grid; gap: 4px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid #edf1f5; font-size: 12px; color: #536779; }
+.guide-where strong, .guide-expect strong { display: block; font-size: 11px; color: var(--color-muted-foreground); font-weight: 500; }
+.guide-expect { margin-top: 16px; padding: 12px 14px; background: #f6faf9; border-radius: 7px; font-size: 12px; line-height: 1.85; }
+.guide-expect strong { color: var(--color-primary); margin-bottom: 4px; }
+.guide-example { background: #f8fafc; border: 1px solid var(--color-border); border-radius: 9px; padding: 20px; }
+.guide-example h3 { font-size: 15px; margin-bottom: 14px; }
+.guide-example dl { margin: 0; display: grid; gap: 14px; }
+.guide-example dl > div { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 12px; font-size: 13px; line-height: 1.85; }
+.guide-example dt { color: var(--color-muted-foreground); }
+.guide-example dd { margin: 0; }
+.guide-navigation-note { padding: 16px; border: 1px solid var(--color-border); border-radius: 8px; margin-top: 20px; }
+.guide-navigation-note p { font-size: 12px; line-height: 1.9; margin-top: 8px; color: #536779; }
+.guide-questions { display: grid; gap: 10px; }
+.guide-questions details { padding: 14px 16px; border: 1px solid var(--color-border); border-radius: 8px; }
+.guide-questions summary { cursor: pointer; color: var(--color-primary); font-size: 13px; font-weight: 550; }
+.guide-questions p { font-size: 13px; line-height: 1.95; margin-top: 12px; }
+.guide-next { display: grid; gap: 12px; }
+.guide-next a { border: 1px solid var(--color-border); border-radius: 8px; padding: 16px; display: grid; gap: 8px; }
+.guide-next a:hover { border-color: #9bc7c0; background: #f7fbfa; }
+.guide-next strong { font-size: 13px; color: var(--color-primary); }
+.guide-next a > span { font-size: 12px; line-height: 1.85; color: var(--color-muted-foreground); }
+.guide-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 24px; }
+.guide-footer { margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--color-border); font-size: 11px; color: var(--color-muted-foreground); line-height: 1.85; }
+.guide-skip { position: fixed; top: -80px; left: 18px; z-index: 20; padding: 10px 16px; background: #fff; border: 1px solid var(--color-primary); border-radius: 6px; }
+.guide-skip:focus { top: 12px; }
+.guide-main p, .guide-main li, .guide-main dd { overflow-wrap: anywhere; }
+@media(max-width:800px) {
+ .guide-layout { display: flex; flex-direction: column; padding: 0 16px 26px; gap: 16px; }
+ .guide-sidebar { position: static; width: 100%; }
+ .guide-sidebar nav { grid-template-columns: repeat(3, minmax(0,1fr)); gap: 4px; }
+ .guide-sidebar nav > strong { grid-column: 1 / -1; margin: 0; padding-left: 8px; }
+ .guide-sidebar a { font-size: 11px; padding: 7px 8px; }
+ .guide-sidebar .guide-other-pages { display: none; }
+ .guide-header { padding: 20px 16px; }
+ .guide-brand strong { font-size: 18px; }
+ .guide-main { width: 100%; padding: 22px 18px; }
+ .guide-step-heading { gap: 10px; }
+ .guide-steps > li { padding: 16px; }
+ .guide-step-heading h3 { font-size: 15px; }
+ .guide-section ul { font-size: 13px; }
+ .guide-example dl > div { grid-template-columns: 1fr; gap: 3px; }
+ .guide-hero h1 { font-size: 25px; }
+ .guide-actions .button { flex: 1; }
+}

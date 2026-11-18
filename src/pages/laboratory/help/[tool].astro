@@ -1,0 +1,40 @@
+---
+import { LAB_GUIDES, type LabGuideId } from '../../../lib/laboratory-help';
+import { LAB_GUIDE_CONTENT } from '../../../lib/laboratory-guide-content';
+import '../../../styles/global.css';
+import '../../../styles/laboratory-guide.css';
+export const prerender = true;
+export function getStaticPaths() { return Object.keys(LAB_GUIDES).map(tool => ({ params: { tool } })); }
+const id = Astro.params.tool as LabGuideId;
+const meta = LAB_GUIDES[id], guide = LAB_GUIDE_CONTENT[id];
+const navigation = {
+  materials: '“返回选材”用于整理另一句；“回到原批注”打开对应作文中的批注。',
+  transfer: '“返回选材，再测一题”用于开始新的选材；“回看来源材料”返回本次使用的旧问题。',
+  callmap: '“← 返回调用地图”从配置回到浏览；有未保存修改时，先按提示决定是否放弃这些修改。',
+  recall: '“再练一轮”用于重新选任务出卡；“回看调用地图”用于核对表达配置。',
+  template: '“再开一轮训练”用于重新选择句式和三道题；第四题独立验证在本轮汇总页另行开始。',
+  survey: '“上一题”回到前一题；已提交答卷的“返回问卷首页”回到本份问卷的首页。',
+}[id];
+const contents = [['prepare', '开始前准备'], ['steps', '第一次照着做'], ['example', '操作小例子'], ['save', '保存与继续'], ['questions', '常见问题'], ['next', '接下来做什么']];
+---
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="robots" content="noindex,nofollow"/><meta name="theme-color" content="#087c77"/><title>{meta.title}使用说明 · Essay Folio</title><meta name="description" content={`${meta.title}：从准备到操作、保存和继续的逐步说明。`}/><link rel="icon" href="/favicon.svg" type="image/svg+xml"/></head>
+<body class="lab-guide-page">
+  <a class="guide-skip" href="#steps">跳到使用步骤</a>
+  <header class="guide-header"><a class="guide-brand" href="/?lab=home"><img src="/favicon.svg" alt="" width="30" height="30"/><span><strong>Essay Folio</strong><small>实验室 · 使用说明</small></span></a><a class="button outline small" href="/?lab=home">打开实验室入口</a></header>
+  <div class="guide-layout">
+    <aside class="guide-sidebar"><nav aria-label="本页目录"><strong>本页目录</strong>{contents.map(([anchor, title]) => <a href={`#${anchor}`}>{title}</a>)}</nav><nav class="guide-other-pages" aria-label="其他功能说明"><strong>其他功能说明</strong>{Object.entries(LAB_GUIDES).map(([key, value]) => <a href={`/laboratory/help/${key}/`} aria-current={id === key ? 'page' : undefined}>{value.title}</a>)}</nav></aside>
+    <main id="guide-content" class="guide-main">
+      <div class="guide-hero"><p class="guide-eyebrow">手把手操作说明 {id !== 'survey' && <span class="guide-beta">BETA 功能</span>}</p><h1>{meta.title}<span>使用说明</span></h1><p class="guide-purpose">{meta.purpose}</p><div class="guide-finish"><strong>这一轮做到什么算完成？</strong><p>{guide.finish}</p></div></div>
+      <p class="guide-tab-note">从功能页打开本说明时，会另开标签页。切回原标签可继续原来的输入；本页的“打开{meta.title}”会在当前标签进入功能的初始页面。</p>
+      <div class="guide-first"><strong>第一次建议这样开始</strong><p>{guide.first}</p><a class="button primary" href={`/?lab=${id}`}>打开{meta.title}</a></div>
+      <section id="prepare" class="guide-section"><h2>开始前准备</h2><ul>{guide.prerequisites.map(item => <li>{item}</li>)}</ul></section>
+      <section id="steps" class="guide-section"><h2>第一次照着做</h2><p class="guide-section-note">按钮和输入框名称与功能页面一致。每完成一步，再核对下面的页面变化。</p><ol class="guide-steps">{guide.steps.map((step, index) => <li><div class="guide-step-heading"><span>{index + 1}</span><h3>{step.title}</h3></div><p class="guide-where"><strong>在这里操作</strong>{step.where}</p><ul>{step.actions.map(action => <li>{action}</li>)}</ul><p class="guide-expect"><strong>完成后你会看到</strong>{step.expect}</p></li>)}</ol></section>
+      <section id="example" class="guide-section"><h2>操作小例子</h2><p class="guide-section-note">以下为演示场景，帮助理解操作顺序；实际使用时选择自己的材料与表达。</p><div class="guide-example"><h3>{guide.example.title}</h3><dl>{guide.example.rows.map(row => <div><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl></div></section>
+      <section id="save" class="guide-section"><h2>保存与继续</h2><ul>{guide.saving.map(item => <li>{item}</li>)}</ul><div class="guide-navigation-note"><strong>页面上几个返回按钮怎么区分？</strong><p>“返回实验室入口”回到全部工具。从其他工具跳转过来时，顶部还会显示“返回上一步”，沿本次路径返回对应记录。{navigation}</p></div></section>
+      <section id="questions" class="guide-section"><h2>常见问题</h2><div class="guide-questions">{guide.questions.map(item => <details><summary>{item.q}</summary><p>{item.a}</p></details>)}</div></section>
+      <section id="next" class="guide-section"><h2>接下来做什么</h2><div class="guide-next">{guide.next.map(item => <a href={`/laboratory/help/${item.id}/`}><strong>{LAB_GUIDES[item.id].title}使用说明 <span aria-hidden="true">→</span></strong><span>{item.reason}</span></a>)}</div><div class="guide-actions"><a class="button primary" href={`/?lab=${id}`}>打开{meta.title}</a><a class="button outline" href="/?lab=home">打开实验室入口</a><a class="text-button" href="#guide-content">回到页首 ↑</a></div></section>
+      <footer class="guide-footer">保留原功能标签页，查完说明后可切回继续。单项体验可在功能页底部“反馈这次体验”中提交。</footer>
+    </main>
+  </div>
+</body></html>

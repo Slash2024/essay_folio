@@ -57,3 +57,9 @@
  .lab-related-tools button { flex: 1; min-width: 0; font-size: 11px; padding: 7px 4px; gap: 4px; }
  .lab-workspace .lab-short-review h3 { scroll-margin-top: 300px; }
 }
+
+.lab-help-entry { display: inline-flex; align-items: center; gap: 5px; color: var(--color-primary); font-size: 12px; padding: 6px 0; white-space: nowrap; }
+.lab-help-entry:hover, .lab-help-card-link:hover { text-decoration: underline; }
+.lab-help-card-link { display: flex; align-items: center; justify-content: flex-end; gap: 5px; color: var(--color-primary); font-size: 11px; padding: 5px 3px 0; }
+.lab-nav-top { flex-wrap: wrap; }
+@media(max-width:650px) { .lab-nav-top .lab-help-entry { margin-left: auto; } }

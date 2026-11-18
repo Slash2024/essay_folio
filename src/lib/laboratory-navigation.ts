@@ -19,3 +19,9 @@ export interface LabQueueItem {
   status: 'unfinished' | 'revisit';
   route: LabRoute;
 }
+
+const LAB_ENTRY_VIEWS = ['home', 'survey', 'short', 'materials', 'transfer', 'callmap', 'recall', 'template'] as const;
+export function labViewFromSearch(search: string): LabRoute['view'] | undefined {
+  const value = new URLSearchParams(search).get('lab');
+  return LAB_ENTRY_VIEWS.find(view => view === value);
+}
