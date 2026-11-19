@@ -1,3 +1,4 @@
+import type { QuizSession, QuizAnswer, QuizReview, QuizCorrection } from '../lib/expression-quiz';
 import type { RecallSession, RecallResult } from '../lib/exam-recall';
 import type { TemplateSession, TemplateResult } from '../lib/template-training';
 import type { LabQueueItem } from '../lib/laboratory-navigation';
@@ -70,6 +71,16 @@ export async function laboratoryQueue(): Promise<LabQueueItem[]> {
     const session = decode<RecallSession>(row), done = recallDone.get(session.id) ?? new Set<number>();
     const count = session.cards.filter((_, index) => done.has(index)).length;
     if (count < session.cards.length) queue.push({ key: session.id, title: '继续情境唤回', detail: `已核对 ${count}/${session.cards.length} 张任务卡`, createdAt: session.createdAt, status: 'unfinished', route: { view: 'recall', sessionId: session.id } });
+  }
+  const [quizRows, quizAnswers, quizReviews, quizCorrections] = await Promise.all([all('labQuizSession'), all('labQuizAnswer'), all('labQuizReview'), all('labQuizCorrection')]);
+  for (const row of quizRows) {
+    const session = decode<QuizSession>(row);
+    const answers = quizAnswers.map(row => decode<QuizAnswer>(row)).filter(a => a.writingId === session.id);
+    const reviews = quizReviews.map(row => decode<QuizReview>(row)).filter(r => r.writingId === session.id);
+    const corrections = quizCorrections.map(row => decode<QuizCorrection>(row)).filter(c => c.writingId === session.id);
+    const count = new Set(answers.map(a => a.index)).size;
+    const pending = reviews.filter(r => !corrections.some(c => c.index === r.index)).length;
+    if (count < session.questions.length || pending) queue.push({ key: session.id, title: count < session.questions.length ? '继续表达库抽背' : '抽背判定待复核', detail: `已答 ${count}/${session.questions.length} 题${pending ? ` · ${pending}题待复核` : ''}`, createdAt: session.createdAt, status: count < session.questions.length ? 'unfinished' : 'revisit', route: { view: 'quiz', sessionId: session.id } });
   }
   return queue.sort((a, b) => Number(b.status === 'unfinished') - Number(a.status === 'unfinished') || b.createdAt.localeCompare(a.createdAt) || a.key.localeCompare(b.key)).slice(0, 12);
 }

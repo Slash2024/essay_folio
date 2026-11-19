@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ArrowRightLeft, ClipboardList, NotebookPen, BookOpen, BookOpenCheck, Map as MapIcon, Layers, ChevronDown, CircleHelp } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowRightLeft, ClipboardList, NotebookPen, BookOpen, BookOpenCheck, Map as MapIcon, Layers, ChevronDown, CircleHelp, ClipboardCheck } from 'lucide-react';
 import ShortReview from './ShortReview';
 import { guideForView } from '../../lib/laboratory-help';
 import { confirmUnsavedNavigation } from '../../lib/navigation';
@@ -12,8 +12,9 @@ const TransferReview = lazy(() => import('./TransferReview'));
 const CallMap = lazy(() => import('./CallMap'));
 const RecallCards = lazy(() => import('./RecallCards'));
 const TemplateTraining = lazy(() => import('./TemplateTraining'));
+const ExpressionQuiz = lazy(() => import('./ExpressionQuiz'));
 const ExperienceSurvey = lazy(() => import('./ExperienceSurvey'));
-const TOOL_ICONS = { short: NotebookPen, materials: BookOpen, transfer: ArrowRightLeft, callmap: MapIcon, recall: Layers, template: BookOpenCheck };
+const TOOL_ICONS = { short: NotebookPen, materials: BookOpen, transfer: ArrowRightLeft, callmap: MapIcon, recall: Layers, template: BookOpenCheck, quiz: ClipboardCheck };
 export default function LaboratoryPanel({ onOpenRecord, initialView }: { initialView?: LabRoute['view']; onOpenRecord: (writingId: string, reviewId: string, noteId: string) => void }) {
   const [route, setRoute] = useState<LabRoute>({ view: initialView ?? 'home' });
   const [trail, setTrail] = useState<LabRoute[]>([]);
@@ -35,7 +36,7 @@ export default function LaboratoryPanel({ onOpenRecord, initialView }: { initial
     if (!id) return route;
     if (route.view === 'short') return { view: 'short', entry: { sessionId: id } };
     if (route.view === 'materials') return { view: 'materials', entry: { packId: id } };
-    if (route.view === 'recall' || route.view === 'template' || route.view === 'transfer') return { view: route.view, sessionId: id };
+    if (route.view === 'quiz' || route.view === 'recall' || route.view === 'template' || route.view === 'transfer') return { view: route.view, sessionId: id };
     return route;
   }
   function enter(next: LabRoute, origin = currentRoute()) {
@@ -59,6 +60,7 @@ export default function LaboratoryPanel({ onOpenRecord, initialView }: { initial
       {route.view === 'short' && <ShortReview key={JSON.stringify(route)} entry={route.entry} onSessionChange={markRecord} onOpenMaterials={id => enter({ view: 'materials', entry: { sourceType: 'session', sourceId: id } }, { view: 'short', entry: { sessionId: id } })}/>}
       {route.view === 'materials' && <MaterialPack key={JSON.stringify(route)} entry={route.entry} onPackChange={markRecord} onOpenRecord={onOpenRecord} onOpenTransfer={entry => enter({ view: 'transfer', entry })}/>}
       {route.view === 'transfer' && <TransferReview key={JSON.stringify(route)} entry={route.entry} sessionId={route.sessionId} onSessionChange={markRecord} onOpenMaterials={entry => enter({ view: 'materials', entry })}/>}
+      {route.view === 'quiz' && <ExpressionQuiz key={JSON.stringify(route)} sessionId={route.sessionId} onSessionChange={markRecord}/>}
       {route.view === 'template' && <TemplateTraining key={JSON.stringify(route)} sessionId={route.sessionId} initialExpressionId={route.expressionId} onSessionChange={markRecord}/>}
       {route.view === 'callmap' && <CallMap key={route.taskId ?? 'all'} taskId={route.taskId} onOpenRecall={taskId => enter({ view: 'recall', taskId })} onOpenTemplate={expressionId => enter({ view: 'template', expressionId })}/>}
       {route.view === 'recall' && <RecallCards key={JSON.stringify(route)} sessionId={route.sessionId} taskId={route.taskId} onSessionChange={markRecord} onOpenMap={taskId => enter({ view: 'callmap', taskId })} onOpenTemplate={expressionId => enter({ view: 'template', expressionId })}/>}
@@ -68,7 +70,7 @@ export default function LaboratoryPanel({ onOpenRecord, initialView }: { initial
   const visibleQueue = expanded ? queue : queue?.slice(0, 3);
   return <div className="lab-hub">
     <p className="lab-hub-intro">选一个目标开始。每个工具都可单独进入，也可以按下面的顺序衔接。</p>
-    <div className="lab-pathways">{LAB_GROUPS.map(path => <section className="panel lab-pathway" key={path.id} aria-labelledby={`lab-path-${path.id}`}><div className="lab-pathway-heading"><span>{path.label}</span><h2 id={`lab-path-${path.id}`}>{path.title}</h2><p>{path.description}</p></div><ol className="lab-tool-list">{path.tools.map((key, index) => { const tool = LAB_TOOLS[key], Icon = TOOL_ICONS[key], help = guideForView(key); return <li key={key}><button className={`lab-tool-entry ${key === 'short' || key === 'recall' ? 'lab-tool-featured' : ''}`} aria-label={tool.action} onClick={() => enter({ view: key })}><span className="lab-tool-number">{index + 1}</span><span className="lab-tool-copy"><small>{tool.role}</small><strong><Icon size={17}/>{tool.title}<span className="lab-beta">BETA</span></strong><span>{tool.description}</span></span><ArrowRight className="lab-tool-arrow" size={17}/></button>{help && <a className="lab-help-card-link" href={help.href} target="_blank" rel="noopener noreferrer" aria-label={`查看${help.title}使用说明（新标签页）`}><CircleHelp size={13}/>如何使用</a>}</li>; })}</ol></section>)}</div>
+    <div className="lab-pathways">{LAB_GROUPS.map(path => <section className="panel lab-pathway" key={path.id} aria-labelledby={`lab-path-${path.id}`}><div className="lab-pathway-heading"><span>{path.label}</span><h2 id={`lab-path-${path.id}`}>{path.title}</h2><p>{path.description}</p></div><ol className="lab-tool-list">{path.tools.map((key, index) => { const tool = LAB_TOOLS[key], Icon = TOOL_ICONS[key], help = guideForView(key); return <li key={key}><button className={`lab-tool-entry ${key === 'short' || key === 'quiz' || key === 'recall' ? 'lab-tool-featured' : ''}`} aria-label={tool.action} onClick={() => enter({ view: key })}><span className="lab-tool-number">{index + 1}</span><span className="lab-tool-copy"><small>{tool.role}</small><strong><Icon size={17}/>{tool.title}<span className="lab-beta">BETA</span></strong><span>{tool.description}</span></span><ArrowRight className="lab-tool-arrow" size={17}/></button>{help && <a className="lab-help-card-link" href={help.href} target="_blank" rel="noopener noreferrer" aria-label={`查看${help.title}使用说明（新标签页）`}><CircleHelp size={13}/>如何使用</a>}</li>; })}</ol></section>)}</div>
     <section className={`panel lab-continue ${!queue?.length ? 'lab-continue-compact' : ''}`} aria-labelledby="lab-continue-title"><div className="lab-continue-heading"><h2 id="lab-continue-title">待继续</h2><span className="caption">{queue?.length ? `${queue.length} 项 · 未完成或仍需再看` : '从上次停下的地方继续'}</span></div>
       {queueError ? <p className="error" role="alert">{queueError} <button className="text-button" onClick={() => setRetry(value => value + 1)}>重试</button></p> : !queue ? <p className="muted" role="status">正在读取复习进度…</p> : queue.length ? <><div className="lab-continue-list">{visibleQueue?.map(item => <button className="lab-continue-item" key={item.key} onClick={() => enter(item.route)}><span><strong>{item.title}</strong><small>{item.detail}</small></span><b>{item.status === 'unfinished' ? '继续 →' : '再练 →'}</b></button>)}</div>{queue.length > 3 && <button className="text-button lab-queue-toggle" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? '收起列表' : `展开其余 ${queue.length - 3} 项`}<ChevronDown size={15}/></button>}</> : <p className="muted">当前没有待继续的记录。</p>}
     </section>

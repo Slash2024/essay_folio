@@ -10,6 +10,7 @@ if (!Astro.params.tool || !Object.hasOwn(LAB_GUIDES, Astro.params.tool)) {
 const id = Astro.params.tool as LabGuideId;
 const meta = LAB_GUIDES[id], guide = LAB_GUIDE_CONTENT[id];
 const navigation = {
+  quiz: '“开始抽背”设置新一轮；“历史成绩”回看记录；“本轮记录”核对已答题，“继续未完成题目”恢复进度。',
   materials: '“返回选材”用于整理另一句；“回到原批注”打开对应作文中的批注。',
   transfer: '“返回选材，再测一题”用于开始新的选材；“回看来源材料”返回本次使用的旧问题。',
   callmap: '“← 返回调用地图”从配置回到浏览；有未保存修改时，先按提示决定是否放弃这些修改。',

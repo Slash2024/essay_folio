@@ -1,5 +1,6 @@
 import type { LabRoute } from './laboratory-navigation';
 export const LAB_GUIDES = {
+  quiz: { title: '表达库抽背', purpose: '根据中文或情景默写英文，自动核对并保存首次正确率。' },
   materials: { title: '复习材料包', purpose: '把一个问题的原句、批注、笔记和作答整理在一起。' },
   transfer: { title: '换语境复测', purpose: '用另一道题中的纠错句，检验同一类问题能否处理。' },
   callmap: { title: '考场调用地图', purpose: '按写作任务，为熟悉的表达确定首选、备用和适用条件。' },

@@ -34,6 +34,10 @@ export const FEEDBACK_VALUE = [
   { id: 'helpful', label: '有帮助' }, { id: 'unclear', label: '还不确定' }, { id: 'unhelpful', label: '帮助不大' },
 ] as const;
 export const FEEDBACK_FACTORS = {
+  quiz: [
+    { id: 'retrieval', label: '更容易独立想起' }, { id: 'cue', label: '提示不够明确' },
+    { id: 'grading', label: '判分符合预期' }, { id: 'review', label: '判分需要复核' }, { id: 'resume', label: '保存或继续不顺' },
+  ],
   short: [
     { id: 'size', label: '任务量合适' }, { id: 'selection', label: '选材费力' },
     { id: 'comparison', label: '参考对照清楚' }, { id: 'mastery', label: '仍难判断是否掌握' },
