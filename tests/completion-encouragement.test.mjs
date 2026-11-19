@@ -30,7 +30,7 @@ export const secrets = {
 try {
   await build({
     stdin:{contents:`export {POST} from './src/pages/api/folio';
-export {prepareCompletionMessage} from './src/server/completion-encouragement';
+export {prepareCompletionMessage,readCompletionMessage} from './src/server/completion-encouragement';
 export * from './src/lib/completion-encouragement';
 export {db,put} from './src/server/archive';
 export {values} from '@wix/secrets';`,resolveDir:process.cwd()},
@@ -94,15 +94,29 @@ export {values} from '@wix/secrets';`,resolveDir:process.cwd()},
   assert.deepEqual((await first).message,{zh:answer.zh,en:answer.en});
   assert.deepEqual((await call('prepareCompletionMessage',{...input,text:source.replace('.', '。')})).message,{zh:answer.zh,en:answer.en});
   assert.equal(calls,1,'first-round punctuation changes share the same result');
+  const reopened=await call('get',{id:writing.id});
+  assert.equal(reopened.status,200);
+  assert.deepEqual(reopened.completionMessage,{zh:answer.zh,en:answer.en});
+  assert.equal(calls,1,'reopening a completed manuscript must not call the provider');
+  assert.equal(await m.readCompletionMessage(writing.id,'A newer manuscript.'),null,'a different manuscript has its own message');
+  const historyWriting={...writing,id:'history-writing',status:'reviewed'};
+  await m.put(historyWriting.id,'writing',historyWriting);
+  assert.equal((await call('get',{id:historyWriting.id})).completionMessage,null);
+  globalThis.fetch=async()=>{calls++;return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(answer)}}]}));};
+  const restored=await call('prepareCompletionMessage',{writingId:historyWriting.id,text:source});
+  assert.deepEqual(restored.message,{zh:answer.zh,en:answer.en});
+  assert.deepEqual((await call('get',{id:historyWriting.id})).completionMessage,restored.message);
+  assert.equal(calls,2,'an old reviewed manuscript is generated once and can be reopened');
+
   assert.deepEqual((await call('prepareCompletionMessage',{...input,text:'A different essay.'})).message,m.COMPLETION_FALLBACK);
-  assert.equal(calls,1,'a stale source must not trigger generation');
+  assert.equal(calls,2,'a stale source must not trigger generation');
 
   const failedWriting={...writing,id:'failed-writing'};
   await m.put(failedWriting.id,'writing',failedWriting);
   globalThis.fetch=async()=>{calls++;throw Error('provider unavailable');};
   assert.deepEqual(await m.prepareCompletionMessage(failedWriting.id,source),m.COMPLETION_FALLBACK);
   assert.deepEqual(await m.prepareCompletionMessage(failedWriting.id,source),m.COMPLETION_FALLBACK);
-  assert.equal(calls,2,'failed calls use a cached fallback without automatic paid retries');
+  assert.equal(calls,3,'failed calls use a cached fallback without automatic paid retries');
 
   const deletedWriting={...writing,id:'deleted-writing'};
   await m.put(deletedWriting.id,'writing',deletedWriting);

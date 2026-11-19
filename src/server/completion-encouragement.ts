@@ -30,6 +30,13 @@ async function candidateId(writingId: string, source: string): Promise<string> {
   return 'completion-' + hash;
 }
 
+export async function readCompletionMessage(writingId: string, manuscript: string): Promise<CompletionMessage | null> {
+  const id = await candidateId(writingId, completionSource(manuscript));
+  const saved = await find(id);
+  if (saved?.kind !== 'completionMessage') return null;
+  return decode<SavedMessage>(saved).message || null;
+}
+
 export async function prepareCompletionMessage(writingId: string, manuscript: string): Promise<CompletionMessage> {
   const row = await find(writingId);
   if (row?.kind !== 'writing' || !manuscript.trim()) return COMPLETION_FALLBACK;

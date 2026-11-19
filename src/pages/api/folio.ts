@@ -1,4 +1,4 @@
-import {prepareCompletionMessage} from '../../server/completion-encouragement';
+import {prepareCompletionMessage,readCompletionMessage} from '../../server/completion-encouragement';
 import {attachIssueDecisions,classifyIssues} from '../../server/issue-classification';
 import {AlignmentError} from '../../server/annotation-config';
 import {earnedMilestoneRules,personalNoteCounts} from '../../server/achievement-milestones';
@@ -56,7 +56,7 @@ export const POST:APIRoute=async({request})=>{
       const [history,notices]=await Promise.all([ensureHistory(writing),list('notice',{writingId:row._id,limit:20})]);
       const reviews:Review[]=[];
       for(let offset=0;;offset+=100){const page=await list('review',{writingId:row._id,limit:100,offset});reviews.push(...page.rows.map(r=>analyzedReview(decode<Review>(r))));if(page.rows.length<100)break;}
-      return json({writing,reviews:reviews.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||b.id.localeCompare(a.id)),versions:history,notices:notices.rows.map(r=>decode<Notice>(r))});
+      return json({writing,reviews:reviews.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)||b.id.localeCompare(a.id)),versions:history,notices:notices.rows.map(r=>decode<Notice>(r)),completionMessage:writing.status==='draft'?null:await readCompletionMessage(writing.id,writing.text)});
     }
     if(action==='delete') {
       const recordId=id(body.id);
