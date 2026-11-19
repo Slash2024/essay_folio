@@ -1,3 +1,4 @@
+import {prepareCompletionMessage} from '../../server/completion-encouragement';
 import {attachIssueDecisions,classifyIssues} from '../../server/issue-classification';
 import {AlignmentError} from '../../server/annotation-config';
 import {earnedMilestoneRules,personalNoteCounts} from '../../server/achievement-milestones';
@@ -71,7 +72,7 @@ export const POST:APIRoute=async({request})=>{
         await put(recordId,'deleted',{id:recordId,deletedAt:new Date().toISOString()},row);
       }
       try {
-      for(const kind of ['review','snapshot','notice','revision','curationVersion','curationClaim','alignmentCandidate','appealCandidate','issueDecision']) {
+      for(const kind of ['review','snapshot','notice','revision','curationVersion','curationClaim','alignmentCandidate','appealCandidate','issueDecision','completionMessage']) {
         // Always drain the first page: advancing an offset while deleting skips rows.
         while(true) {
           const batch=await list(kind,{writingId:recordId,limit:100});
@@ -83,6 +84,9 @@ export const POST:APIRoute=async({request})=>{
         return json({error:'记录正文已移除，关联内容尚未清理完毕。请再次点击“确认删除”重试。'},503);
       }
       return json({ok:true});
+    }
+    if(action==='prepareCompletionMessage') {
+      return json({message:await prepareCompletionMessage(id(body.writingId),str(body.text,60000))});
     }
     if(action==='draft'||action==='submit') {
       const recordId=id(body.id);const q=questionMap.get(str(body.questionId,100));if(!q)throw new Error('请选择有效真题');
