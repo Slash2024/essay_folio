@@ -30,7 +30,10 @@ export interface QuizProgress {
   practices: QuizPractice[]; score: QuizScore;
 }
 export interface QuizHistory { id: string; createdAt: string; mode: QuizMode; scope: QuizScope; score: QuizScore }
-export interface QuizOverview { signature: string; counts: Record<QuizMode, Record<QuizScope, number>>; excluded: number; sessions: QuizHistory[]; totalSessions: number; offset: number; hasNext: boolean }
+export interface QuizCoverage { enabled: Record<QuizScope, number>; covered: Record<QuizMode, Record<QuizScope, number>> }
+export interface QuizOverview { signature: string; counts: Record<QuizMode, Record<QuizScope, number>>; coverage: QuizCoverage; excluded: number; sessions: QuizHistory[]; totalSessions: number; offset: number; hasNext: boolean }
+// Reviewed cues stay in the private archive, never in a public source bundle.
+export interface QuizCuePack { version: 1; sourceRevision: number; entries: { key: string; text: string; sourceMeaning?: string; meaning: string; scenario: string }[] }
 export interface QuizCueConfig { key: string; sourceSignature: string; meaning: string; scenario: string; answers: string[]; revision: number; operationId: string }
 export interface QuizCueEditor { key: string; title: string; text: string; kind: 'word' | 'sentence'; sourceSignature: string; meaning: string; scenario: string; answers: string[]; revision: number; stale: boolean }
 export const QUIZ_MODES = { meaning: '中文释义', scenario: '情景描述' } as const;

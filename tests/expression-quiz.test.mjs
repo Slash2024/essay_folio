@@ -106,3 +106,31 @@ test('feedback uses the correct experiment session and history paginates', async
  for (let i = 0; i < 11; i++) await m.put('extra-' + i, 'labQuizSession', { ...JSON.parse(m.db.get(id).payload), id: 'extra-' + i });
  assert.equal((await get()).sessions.length, 10); assert.equal((await get('?offset=10')).sessions.length, 2);
 });
+test('imported Chinese meanings keep usable text after filename annotations while actual English leaks stay excluded', async () => {
+ const row = m.db.get('expression-library'), lib = JSON.parse(row.payload);
+ lib.sentences = [];
+ lib.words = [{ ...word, id: 'a', term: 'recover', meaning: '恢复（来源：个人笔记.docx）' }, { ...word, id: 'b', term: 'respond', meaning: '回应（来源：应用文 (1).docx）' }, { ...word, id: 'c', term: 'hello', meaning: '请写 hello（来源：个人笔记.docx）' }];
+ row.payload = JSON.stringify(lib);
+ const overview = await get(); assert.equal(overview.coverage.enabled.word, 3); assert.equal(overview.coverage.covered.meaning.word, 2);
+ const cues = (await get('?cues=1')).entries; assert.equal(cues.find(e => e.key === 'word:a').meaning, '恢复'); assert.equal(cues.find(e => e.key === 'word:b').meaning, '回应'); assert.equal(cues.find(e => e.key === 'word:c').meaning, '');
+});
+test('private reviewed cues cover 174 imported sentence entries and 72 words in both modes without requiring default seed IDs', async () => {
+ const row = m.db.get('expression-library'), lib = JSON.parse(row.payload);
+ lib.sentences = Array.from({length:174},(_,i)=>({ ...sentence, id:'import-s-'+i, title:'自定义句式'+i, template:'Structure '+i+' includes {{内容}}.' }));
+ lib.words = Array.from({length:72},(_,i)=>({ ...word, id:'import-w-'+i, term:'word'+i, meaning:'分类选项（来源：私人文件.docx）' }));
+ row.payload = JSON.stringify(lib); const original = snapshot();
+ const entries = [...lib.sentences.map((s,i)=>({ key:'sentence:'+s.id, text:s.template, meaning:'第'+i+'个结构的完整中文含义。', scenario:'需要使用第'+i+'种结构完成一个具体表达。' })), ...lib.words.map((w,i)=>({ key:'word:'+w.id, text:w.term, sourceMeaning:w.meaning, meaning:'第'+i+'个词的具体中文含义。', scenario:'在明确的第'+i+'种情景中使用这个词。' }))];
+ await m.put('lab-quiz-cue-pack', 'labQuizCuePack', {version:1,sourceRevision:1,entries});
+ const overview=await get();
+ for (const mode of ['meaning','scenario']) { assert.deepEqual(overview.counts[mode],{all:246,word:72,sentence:174}); assert.deepEqual(overview.coverage.covered[mode],{all:246,word:72,sentence:174}); }
+ const s=await start({scope:'all',mode:'scenario',count:50});assert.equal(s.status,200);assert.equal(s.progress.questions.length,50);assert.equal(new Set(s.progress.questions.map(q=>q.prompt)).size,50);assert.equal(snapshot(),original);
+});
+test('reviewed pack follows source text; custom cue overrides remain authoritative; snapshots survive edits', async () => {
+ await m.put('lab-quiz-cue-pack', 'labQuizCuePack', {version:1,sourceRevision:1,entries:[{key:'sentence:'+sentence.id,text:sentence.template,meaning:'经核对的中文含义。',scenario:'经核对的具体情景。'}]});
+ const first=(await get('?cues=1')).entries.find(e=>e.kind==='sentence');assert.equal(first.meaning,'经核对的中文含义。');
+ await start({scope:'sentence'});await answer('At its heart lies ___');const old=await get('?session='+id);
+ const body={action:'cue',key:first.key,sourceSignature:first.sourceSignature,baseRevision:0,meaning:'我的自定义含义。',scenario:'',answers:[],operationId:'lab-quiz-cue-save-22222222-1234-1234-1234-123456789abc'};
+ await post(body);assert.equal((await get()).coverage.covered.scenario.sentence,0);
+ const row=m.db.get('expression-library'),lib=JSON.parse(row.payload);lib.sentences[0].template='Newly changed structure {{内容}}.';row.payload=JSON.stringify(lib);
+ assert.equal((await get()).coverage.covered.meaning.sentence,0);assert.deepEqual((await get('?session='+id)).progress.results,old.progress.results);
+});

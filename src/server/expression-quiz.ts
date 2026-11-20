@@ -1,7 +1,7 @@
 import seed from '../data/expressions.json';
 import { DEFAULT_EXPRESSIONS, type ExpressionLibrary } from '../lib/expressions';
 import { SENTENCE_QUIZ_CUES, WORD_SCENARIOS } from '../lib/expression-quiz-cues';
-import { gradeQuiz, quizScore, slotCount, QUIZ_REVIEW_REASONS, type QuizSource, type QuizQuestion, type QuizSession, type QuizAnswer, type QuizReview, type QuizCorrection, type QuizPractice, type QuizProgress, type QuizOverview, type QuizCueConfig, type QuizCueEditor, type QuizMode, type QuizScope } from '../lib/expression-quiz';
+import { gradeQuiz, quizScore, slotCount, QUIZ_REVIEW_REASONS, type QuizSource, type QuizQuestion, type QuizSession, type QuizAnswer, type QuizReview, type QuizCorrection, type QuizPractice, type QuizProgress, type QuizOverview, type QuizCueConfig, type QuizCueEditor, type QuizMode, type QuizScope, type QuizCuePack } from '../lib/expression-quiz';
 import { interactionId } from '../lib/review-interactions';
 import { all, decode, find, list, put } from './archive';
 import { ShortReviewError, identifier } from './short-review';
@@ -21,8 +21,11 @@ async function once(id: string, kind: string, value: object) {
   try { await put(id, kind, value); } catch (error) { const row = await find(id); if (!row) throw error; check(row); }
 }
 async function sources() {
-  const [row, cueRows] = await Promise.all([find('expression-library'), all(CUE)]);
+  const [row, cueRows, packRow] = await Promise.all([find('expression-library'), all(CUE), find('lab-quiz-cue-pack')]);
   const library = row ? decode<ExpressionLibrary>(row) : DEFAULT_EXPRESSIONS;
+  if (packRow && packRow.kind !== 'labQuizCuePack') throw new ShortReviewError('抽背提示资料类型不正确。', 503);
+  const pack = packRow ? decode<QuizCuePack>(packRow) : null;
+  const reviewed = new Map((pack?.version === 1 ? pack.entries : []).map(entry => [entry.key, entry]));
   const configs = new Map(cueRows.map(row => { const c = decode<QuizCueConfig>(row); return [c.key, c]; }));
   const entries: QuizCueEditor[] = [], pool: QuizSource[] = [];
   for (const item of [...library.sentences.map(s => ({ ...s, kind: 'sentence' as const })), ...library.words.map(w => ({ ...w, kind: 'word' as const }))]) {
@@ -31,9 +34,16 @@ async function sources() {
     const answers = item.kind === 'word' ? [item.term, ...item.forms] : [item.template];
     const sourceSignature = signature(item), config = configs.get(key), current = config?.sourceSignature === sourceSignature;
     const defaults = item.kind === 'sentence' && seed.sentences.some(s => s.id === item.id && s.template === item.template) ? SENTENCE_QUIZ_CUES[item.id] : null;
-    const cleanChinese = (v: string) => /[\u3400-\u9fff]/.test(v) && !/[A-Za-z]/.test(v) ? v.trim() : '';
-    const meaning = current ? config.meaning : defaults?.[0] ?? (item.kind === 'word' ? cleanChinese(item.meaning) : '');
-    const scenario = current ? config.scenario : defaults?.[1] ?? (item.kind === 'word' ? WORD_SCENARIOS[item.term] ?? '' : '');
+    // A source filename is metadata, not a leaked English answer. Remove only
+    // that trailing annotation; real English in a cue still needs review.
+    const cleanChinese = (v: string) => {
+      const text = v.replace(/\s*[（(]\s*来源[：:][^\n]*[）)]\s*$/g, '').trim();
+      return /[\u3400-\u9fff]/.test(text) && !/[A-Za-z]/.test(text) ? text : '';
+    };
+    const reviewedEntry = reviewed.get(key);
+    const bound = reviewedEntry?.text === text && (item.kind !== 'word' || reviewedEntry.sourceMeaning === item.meaning) ? reviewedEntry : null;
+    const meaning = current ? config.meaning : bound ? cleanChinese(bound.meaning) : defaults?.[0] ?? (item.kind === 'word' ? cleanChinese(item.meaning) : '');
+    const scenario = current ? config.scenario : bound ? cleanChinese(bound.scenario) : defaults?.[1] ?? (item.kind === 'word' ? WORD_SCENARIOS[item.term.toLowerCase()] ?? '' : '');
     const accepted = [...new Set([...answers, ...(current ? config.answers : [])])];
     entries.push({ key, title: item.kind === 'word' ? item.term : item.title, text, kind: item.kind, sourceSignature, meaning, scenario, answers: current ? config.answers : [], revision: config?.revision ?? 0, stale: !!config && !current });
     pool.push({ key, title: item.kind === 'word' ? item.meaning : item.title, text, kind: item.kind, answers: accepted, meaning, scenario, signature: sourceSignature });
@@ -97,8 +107,10 @@ export async function quizOverview(offset = 0): Promise<QuizOverview> {
   const [source, rows] = await Promise.all([sources(), list(QUIZ_KIND, { offset, limit: 10 })]);
   const counts = {} as QuizOverview['counts'];
   for (const mode of ['meaning', 'scenario'] as const) counts[mode] = { all: questions(source.pool, mode, 'all').length, word: questions(source.pool, mode, 'word').length, sentence: questions(source.pool, mode, 'sentence').length };
+  const totals = (pool: QuizSource[]) => ({ all: pool.length, word: pool.filter(e => e.kind === 'word').length, sentence: pool.filter(e => e.kind === 'sentence').length });
+  const coverage: QuizOverview['coverage'] = { enabled: totals(source.pool), covered: { meaning: totals(source.pool.filter(e => !!e.meaning)), scenario: totals(source.pool.filter(e => !!e.scenario)) } };
   const sessions = await Promise.all(rows.rows.map(async row => { const s = decode<QuizSession>(row), v = await state(s.id); return { id: s.id, createdAt: s.createdAt, mode: s.mode, scope: s.scope, score: quizScore(s.questions.length, v.answers, v.reviews, v.corrections) }; }));
-  return { signature: source.signature, counts, excluded: source.pool.filter(e => !e.meaning || !e.scenario).length, sessions: sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt)), totalSessions: rows.total, offset, hasNext: rows.hasNext };
+  return { signature: source.signature, counts, coverage, excluded: source.pool.filter(e => !e.meaning || !e.scenario).length, sessions: sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt)), totalSessions: rows.total, offset, hasNext: rows.hasNext };
 }
 export async function startQuiz(body: Record<string, unknown>) {
   const id = uuid(body.id, 'lab-quiz');
