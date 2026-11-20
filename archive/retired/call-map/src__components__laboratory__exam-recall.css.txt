@@ -1,0 +1,43 @@
+.lab-call-toolbar { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; margin: 20px 0; }
+.lab-call-map-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 20px 0; align-items: start; }
+.lab-call-task { min-width: 0; border: 1px solid var(--color-border); border-radius: 10px; padding: 16px; }
+.lab-call-task h3 { font-size: 15px; margin: 0; }
+.lab-call-cue, .lab-call-text, .lab-call-preview { white-space: pre-wrap; overflow-wrap: anywhere; }
+.lab-call-cue { font-size: 13px; color: var(--color-muted-foreground); }
+.lab-call-expression { min-width: 0; padding: 14px; border: 1px solid var(--color-border); background: #f7fafb; border-radius: 8px; margin: 12px 0; }
+.lab-call-expression-title { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.lab-call-expression-title strong { color: var(--color-primary); }
+.lab-call-expression-title span { color: var(--color-muted-foreground); }
+.lab-call-expression .english { line-height: 1.8; }
+.lab-call-expression mark { background: #e0efeb; color: #1d625b; padding: 1px 2px; border-radius: 3px; }
+.lab-call-expression dl { margin: 14px 0 0; font-size: 12px; }
+.lab-call-expression dt { color: var(--color-muted-foreground); margin-top: 10px; }
+.lab-call-expression dd { margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lab-call-expression details { margin-top: 12px; font-size: 12px; }
+.lab-call-expression summary, .lab-call-binding summary { color: var(--color-primary); cursor: pointer; }
+.lab-call-fields { min-width: 0; border: 0; padding: 0; margin: 0; }
+.lab-call-editor { padding: 20px; border: 1px solid var(--color-primary); border-radius: 10px; margin-top: 24px; }
+.lab-call-editor > h3 { scroll-margin-top: 100px; }
+.lab-call-editor .lab-short-answer textarea { min-height: 90px; }
+.lab-call-binding { min-width: 0; border: 1px solid var(--color-border); border-radius: 8px; padding: 14px; margin: 20px 0; }
+.lab-call-binding legend { font-size: 13px; font-weight: 600; padding: 0 6px; }
+.lab-call-preview { padding: 12px; background: #f5f8fa; border-radius: 6px; }
+.lab-call-suggestions { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; font-size: 12px; }
+.lab-call-suggestions > span { color: var(--color-muted-foreground); }
+.lab-call-legend { margin: 24px 0 0; }
+.lab-recall-empty { padding: 20px; border: 1px dashed var(--color-border); border-radius: 9px; }
+.lab-recall-front { padding: 28px 22px; margin: 20px 0; border: 1px solid var(--color-border); border-radius: 10px; background: #f5faf9; }
+.lab-recall-front p { margin: 0 0 16px; font-size: 18px; line-height: 1.8; }
+.lab-recall-front small { color: var(--color-muted-foreground); }
+.lab-recall-hint { border-left: 3px solid var(--color-primary); padding: 10px 14px; font-size: 13px; }
+.lab-recall-assess { padding: 14px; border: 1px solid var(--color-border); border-radius: 8px; min-width: 0; }
+.lab-recall-assess legend { font-weight: 600; font-size: 14px; }
+.lab-recall-assess > label:not(.lab-short-confirm) { display: inline-flex; gap: 8px; align-items: center; margin: 8px 14px 8px 0; font-size: 13px; }
+.lab-recall-assess > label:has(input:disabled) { color: var(--color-muted-foreground); }
+.lab-recall-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 20px 0; }
+.lab-recall-counts > div { display: grid; gap: 6px; justify-items: center; padding: 14px 8px; border: 1px solid var(--color-border); border-radius: 8px; }
+.lab-recall-counts strong { font-size: 24px; color: var(--color-primary); }
+.lab-recall-counts span { font-size: 12px; }
+.lab-recall-summary { display: flex; justify-content: space-between; gap: 14px; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 13px; }
+.lab-call-map input, .lab-recall-cards input { accent-color: var(--color-primary); }
+@media(max-width:650px) { .lab-call-map-grid { grid-template-columns: 1fr; } .lab-call-editor { padding: 14px; } .lab-call-editor > h3 { scroll-margin-top: 240px; } .lab-recall-front { padding: 20px 16px; } .lab-recall-front p { font-size: 16px; } }

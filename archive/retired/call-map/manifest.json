@@ -1,0 +1,47 @@
+{
+  "retiredOn": "2026-11-20",
+  "sourceCommit": "74f58807c4c9d02efabb44abe8b2c1dacaf3dc30",
+  "wixRevision": "7698cc72ec8292dcb1d16c23d6712e12e323f3dc",
+  "files": [
+    {
+      "originalPath": "src/components/laboratory/CallMap.tsx",
+      "archivePath": "src__components__laboratory__CallMap.tsx.txt",
+      "sha256": "8b3ec5c73a1740358805386d5e26317200041061d95b72565cd06e56296f5b53"
+    },
+    {
+      "originalPath": "src/server/exam-recall.ts",
+      "archivePath": "src__server__exam-recall.ts.txt",
+      "sha256": "44f1eb63005092baebc30b33e508f7fd37224c520ea6003deb90fb4b0bd0004c"
+    },
+    {
+      "originalPath": "src/lib/exam-recall.ts",
+      "archivePath": "src__lib__exam-recall.ts.txt",
+      "sha256": "5ff33d4fe349b28124a501d27983d5d79de11bab3414c3f5608349fb746bf776"
+    },
+    {
+      "originalPath": "src/pages/api/call-map.ts",
+      "archivePath": "src__pages__api__call-map.ts.txt",
+      "sha256": "7d3f5655baf56803593a54e1a38a1d5717fafe94f0034ceb8b82d0f0481307c2"
+    },
+    {
+      "originalPath": "src/components/laboratory/exam-recall.css",
+      "archivePath": "src__components__laboratory__exam-recall.css.txt",
+      "sha256": "5b2763f9e7aff126c7da524163e09fc4bfc909d530a482b86d5e4ba43cdab084"
+    },
+    {
+      "originalPath": "src/lib/laboratory-guide-content.ts",
+      "archivePath": "src__lib__laboratory-guide-content.ts.txt",
+      "sha256": "6cc594422994644740ba3a8c72f03e9a4085d7a33a65ce290050c15eb1142388"
+    },
+    {
+      "originalPath": "tests/exam-recall.test.mjs",
+      "archivePath": "tests__exam-recall.test.mjs.txt",
+      "sha256": "d55b1408bc41f0d988c751703304ef0a788db58c35bc8cff0b9a44e79b8661d0"
+    },
+    {
+      "originalPath": "src/components/laboratory/CallExpressionView.tsx",
+      "archivePath": "src__components__laboratory__CallExpressionView.tsx.txt",
+      "sha256": "db4f4d321ba9ffa34978482ee6765db42c3b1610e38a18e76b208e1c62ad55a8"
+    }
+  ]
+}

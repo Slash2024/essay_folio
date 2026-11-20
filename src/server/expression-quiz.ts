@@ -78,6 +78,12 @@ function questions(pool: QuizSource[], mode: QuizMode, scope: QuizScope, range?:
   return [...grouped.values()];
 }
 export async function quizCues() { const value = await sources(); return { entries: value.entries }; }
+// Server-only source for oral/mental recall. Share reviewed Chinese cues, not
+// quiz sessions, answers, scores or any retired preparation module.
+export async function expressionRecallSources() {
+  const { pool, signature } = await sources();
+  return { pool: pool.filter(source => !!source.scenario), signature };
+}
 export async function saveQuizCue(body: Record<string, unknown>) {
   const operationId = uuid(body.operationId, 'lab-quiz-cue-save');
   if (typeof body.key !== 'string' || !Number.isInteger(body.baseRevision)) throw new ShortReviewError('提示设置不正确。');

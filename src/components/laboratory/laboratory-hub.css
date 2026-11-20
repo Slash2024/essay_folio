@@ -43,7 +43,6 @@
 .lab-next-tools { margin-top: 24px; border-top: 1px solid var(--color-border); padding-top: 16px; }
 .lab-next-tools summary { font-size: 13px; color: var(--color-primary); cursor: pointer; }
 .lab-next-tools .lab-short-history-row { font-size: 12px; }
-.lab-workspace .lab-call-editor { margin-top: 16px; padding: 0; border: 0; }
 .lab-map-back { margin: 12px 0; }
 .lab-hub button:focus-visible, .lab-workspace .lab-related-tools button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
 @media(max-width:1050px) and (min-width:651px) { .lab-pathway { padding: 18px; } .lab-tool-entry { gap: 8px; } .lab-tool-copy > strong { font-size: 13px; } .lab-tool-arrow { display: none; } }

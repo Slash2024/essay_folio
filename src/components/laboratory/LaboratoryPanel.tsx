@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ArrowRightLeft, ClipboardList, NotebookPen, BookOpen, BookOpenCheck, Map as MapIcon, Layers, ChevronDown, CircleHelp, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowRightLeft, ClipboardList, NotebookPen, BookOpen, BookOpenCheck, Layers, ChevronDown, CircleHelp, ClipboardCheck } from 'lucide-react';
 import ShortReview from './ShortReview';
 import { guideForView } from '../../lib/laboratory-help';
 import { confirmUnsavedNavigation } from '../../lib/navigation';
@@ -9,12 +9,11 @@ import './short-review.css';
 import './laboratory-hub.css';
 const MaterialPack = lazy(() => import('./MaterialPack'));
 const TransferReview = lazy(() => import('./TransferReview'));
-const CallMap = lazy(() => import('./CallMap'));
 const RecallCards = lazy(() => import('./RecallCards'));
 const TemplateTraining = lazy(() => import('./TemplateTraining'));
 const ExpressionQuiz = lazy(() => import('./ExpressionQuiz'));
 const ExperienceSurvey = lazy(() => import('./ExperienceSurvey'));
-const TOOL_ICONS = { short: NotebookPen, materials: BookOpen, transfer: ArrowRightLeft, callmap: MapIcon, recall: Layers, template: BookOpenCheck, quiz: ClipboardCheck };
+const TOOL_ICONS = { short: NotebookPen, materials: BookOpen, transfer: ArrowRightLeft, recall: Layers, template: BookOpenCheck, quiz: ClipboardCheck };
 export default function LaboratoryPanel({ onOpenRecord, initialView }: { initialView?: LabRoute['view']; onOpenRecord: (writingId: string, reviewId: string, noteId: string) => void }) {
   const [route, setRoute] = useState<LabRoute>({ view: initialView ?? 'home' });
   const [trail, setTrail] = useState<LabRoute[]>([]);
@@ -32,7 +31,6 @@ export default function LaboratoryPanel({ onOpenRecord, initialView }: { initial
   }, [route.view, retry]);
   function currentRoute(): LabRoute {
     const id = activeRecord.current;
-    if (route.view === 'callmap') return { view: 'callmap' };
     if (!id) return route;
     if (route.view === 'short') return { view: 'short', entry: { sessionId: id } };
     if (route.view === 'materials') return { view: 'materials', entry: { packId: id } };
@@ -62,8 +60,7 @@ export default function LaboratoryPanel({ onOpenRecord, initialView }: { initial
       {route.view === 'transfer' && <TransferReview key={JSON.stringify(route)} entry={route.entry} sessionId={route.sessionId} onSessionChange={markRecord} onOpenMaterials={entry => enter({ view: 'materials', entry })}/>}
       {route.view === 'quiz' && <ExpressionQuiz key={JSON.stringify(route)} sessionId={route.sessionId} onSessionChange={markRecord}/>}
       {route.view === 'template' && <TemplateTraining key={JSON.stringify(route)} sessionId={route.sessionId} initialExpressionId={route.expressionId} onSessionChange={markRecord}/>}
-      {route.view === 'callmap' && <CallMap key={route.taskId ?? 'all'} taskId={route.taskId} onOpenRecall={taskId => enter({ view: 'recall', taskId })} onOpenTemplate={expressionId => enter({ view: 'template', expressionId })}/>}
-      {route.view === 'recall' && <RecallCards key={JSON.stringify(route)} sessionId={route.sessionId} taskId={route.taskId} onSessionChange={markRecord} onOpenMap={taskId => enter({ view: 'callmap', taskId })} onOpenTemplate={expressionId => enter({ view: 'template', expressionId })}/>}
+      {route.view === 'recall' && <RecallCards key={JSON.stringify(route)} sessionId={route.sessionId} onSessionChange={markRecord} onOpenTemplate={expressionId => enter({ view: 'template', expressionId })}/>}
       {view === 'survey' && <ExperienceSurvey/>}
     </Suspense>
   </div>;
