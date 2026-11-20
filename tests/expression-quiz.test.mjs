@@ -134,3 +134,55 @@ test('reviewed pack follows source text; custom cue overrides remain authoritati
  const row=m.db.get('expression-library'),lib=JSON.parse(row.payload);lib.sentences[0].template='Newly changed structure {{内容}}.';row.payload=JSON.stringify(lib);
  assert.equal((await get()).coverage.covered.meaning.sentence,0);assert.deepEqual((await get('?session='+id)).progress.results,old.progress.results);
 });
+async function classifiedLibrary() {
+ const lib = { revision: 2, tolerance: 'balanced', sourceText: '', sentences: [
+  { ...sentence, id: 'reason', category: '大作文 / 原因 / 经济', template: 'A reason is {{内容}}.' },
+  { ...sentence, id: 'advice', category: '大作文／建议／个人', template: 'An action is {{内容}}.' },
+  { ...sentence, id: 'invite', category: '小作文 / 邀请 / 中间段', template: 'An invitation is {{内容}}.' },
+  { ...sentence, id: 'accumulated', category: '批阅积累', template: 'Another expression is {{内容}}.' },
+ ], words: [
+  { ...word, id: 'large', meaning: '坚持不懈（来源：大作文.docx）' },
+  { ...word, id: 'small', term: 'attend', meaning: '出席（来源：小作文 (1).docx）' },
+  { ...word, id: 'unknown', term: 'unknown', meaning: '未标来源' },
+ ] };
+ await m.put('expression-library', 'expressions', lib, m.db.get('expression-library'));
+ await m.put('lab-quiz-cue-pack', 'labQuizCuePack', {version:1,sourceRevision:2,entries:lib.sentences.map(s=>({key:'sentence:'+s.id,text:s.template,meaning:'共同中文提示。',scenario:'共同情境提示。'}))});
+ return lib;
+}
+test('two-level taxonomy counts include descendants, sourced words and uncategorized entries without double-counting', async () => {
+ await classifiedLibrary(); const before=snapshot(), overview=await get();
+ const range=(main,sub='')=>overview.ranges.find(r=>r.main===main&&r.sub===sub);
+ assert.equal(range('').enabled,7); assert.equal(range('大作文').enabled,3);assert.equal(range('小作文').enabled,2);
+ assert.equal(range('大作文','原因').enabled,1);assert.equal(range('大作文','建议').enabled,1);
+ assert.equal(range('小作文','邀请').enabled,1);assert.equal(range('小作文','通用词条').enabled,1);
+ assert.equal(range('未分类','通用词条').enabled,1);assert.equal(range('批阅积累','未细分').enabled,1);
+ assert.equal(range('大作文').counts.meaning,2); // Two sentence aliases collapse only within this range.
+ assert.equal(range('小作文').counts.scenario,1); // No scenario cue for the word yet.
+ assert.equal(overview.ranges.filter(r=>r.sub).reduce((n,r)=>n+r.enabled,0),7);assert.equal(snapshot(),before);
+});
+test('category filtering precedes alias grouping in both modes; rounds save and expose the selected category', async () => {
+ await classifiedLibrary();
+ for(const [i,mode] of ['meaning','scenario'].entries()) {
+  const roundId=id.replace('12345678',i?'66666666':'55555555'),range={main:i?'小作文':'大作文',sub:i?'邀请':'原因'};
+  const result=await start({id:roundId,scope:'all',mode,range});assert.equal(result.status,200);assert.deepEqual(result.progress.session.range,range);
+  const saved=JSON.parse(m.db.get(roundId).payload);assert.equal(saved.questions.length,1);assert.deepEqual(saved.questions[0].sources.map(s=>s.key),['sentence:'+(i?'invite':'reason')]);
+  assert.deepEqual((await get()).sessions.find(s=>s.id===roundId).range,range);
+  assert.equal((await start({id:roundId,scope:'all',mode,range})).status,200);
+  assert.equal((await start({id:roundId,scope:'all',mode,range:{main:'大作文',sub:'建议'}})).status,409);
+ }
+});
+test('invalid, mismatched and oversized category selections cannot widen the draw', async () => {
+ await classifiedLibrary();
+ for(const range of [null,[],{}, {main:'',sub:'邀请'}, {main:'大作文',sub:3}, {main:' 大作文',sub:''}]) assert.equal((await start({scope:'all',range})).status,400);
+ for(const range of [{main:'大作文',sub:'邀请'},{main:'不存在',sub:''}]) assert.equal((await start({scope:'all',range})).status,409);
+ assert.equal((await start({scope:'all',range:{main:'大作文',sub:'原因'},count:2})).status,400);
+ assert.equal((await start({scope:'all',range:{main:'',sub:''},count:4})).status,200);
+});
+test('category snapshots survive reclassification and wrong-only rounds intersect the current selected range', async () => {
+ const lib=await classifiedLibrary(),range={main:'大作文',sub:'原因'};await start({scope:'all',range});await answer('wrong');
+ const before=await get('?session='+id);lib.sentences[0].category='小作文 / 邀请 / 中间段';lib.revision++;m.db.get('expression-library').payload=JSON.stringify(lib);
+ assert.deepEqual((await get('?session='+id)).progress,before.progress);assert.deepEqual((await get()).sessions.find(s=>s.id===id).range,range);
+ const nextId=id.replace('12345678','77777777');assert.equal((await start({id:nextId,scope:'all',range,retryOf:id})).status,409);
+ const next=await start({id:nextId,scope:'all',range:{main:'小作文',sub:'邀请'},retryOf:id});assert.equal(next.status,200);assert.equal(next.progress.session.retryOf,id);
+ const legacy=await start({id:id.replace('12345678','88888888'),scope:'word'});assert.equal(legacy.status,200);assert.equal(legacy.progress.session.range,undefined);
+});

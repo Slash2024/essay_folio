@@ -1,7 +1,7 @@
 import seed from '../data/expressions.json';
 import { DEFAULT_EXPRESSIONS, type ExpressionLibrary } from '../lib/expressions';
 import { SENTENCE_QUIZ_CUES, WORD_SCENARIOS } from '../lib/expression-quiz-cues';
-import { gradeQuiz, quizScore, slotCount, QUIZ_REVIEW_REASONS, type QuizSource, type QuizQuestion, type QuizSession, type QuizAnswer, type QuizReview, type QuizCorrection, type QuizPractice, type QuizProgress, type QuizOverview, type QuizCueConfig, type QuizCueEditor, type QuizMode, type QuizScope, type QuizCuePack } from '../lib/expression-quiz';
+import { gradeQuiz, quizScore, slotCount, QUIZ_REVIEW_REASONS, type QuizSource, type QuizQuestion, type QuizSession, type QuizAnswer, type QuizReview, type QuizCorrection, type QuizPractice, type QuizProgress, type QuizOverview, type QuizCueConfig, type QuizCueEditor, type QuizMode, type QuizScope, type QuizCuePack, type QuizRange } from '../lib/expression-quiz';
 import { interactionId } from '../lib/review-interactions';
 import { all, decode, find, list, put } from './archive';
 import { ShortReviewError, identifier } from './short-review';
@@ -11,6 +11,22 @@ const canonical = (value: unknown) => JSON.stringify(value, (key, v) => key === 
 const signature = (v: unknown) => interactionId('quiz-source', JSON.stringify(v));
 const uuid = (v: unknown, prefix: string) => { const id = identifier(v); if (!new RegExp(`^${prefix}-[a-f0-9-]{36}$`).test(id)) throw new ShortReviewError('抽背编号不正确。'); return id; };
 const cueId = (key: string) => interactionId('lab-quiz-cue', key);
+// Use stored taxonomy, never infer a writing task from an English term. Imported
+// words without taxonomy retain their documented source and a general-word bin.
+function categoryOf(item: { category?: unknown; kind: string; meaning?: string }): QuizRange {
+  const parts = typeof item.category === 'string' ? item.category.split(/[/／]/).map(s => s.trim()).filter(Boolean) : [];
+  if (parts.length) return { main: parts[0], sub: parts[1] || '未细分' };
+  const source = item.meaning?.match(/[（(]\s*来源[：:]([^\n]*)[）)]\s*$/)?.[1];
+  return { main: source?.includes('大作文') ? '大作文' : source?.includes('小作文') ? '小作文' : '未分类', sub: item.kind === 'word' ? '通用词条' : '未细分' };
+}
+const inRange = (source: QuizSource, range?: QuizRange) => !range?.main || source.category?.main === range.main && (!range.sub || source.category.sub === range.sub);
+function readRange(value: unknown): QuizRange | undefined {
+  if (value === undefined) return undefined; // Existing clients and rounds keep their scope semantics.
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ShortReviewError('请选择有效的一级与二级分类。');
+  const { main, sub } = value as Record<string, unknown>;
+  if (typeof main !== 'string' || typeof sub !== 'string' || main.length > 200 || sub.length > 200 || main !== main.trim() || sub !== sub.trim() || !main && !!sub) throw new ShortReviewError('请选择有效的一级与二级分类。');
+  return { main, sub };
+}
 function cueText(v: unknown) {
   if (typeof v !== 'string' || v.length > 900 || v.trim() && (!/[\u3400-\u9fff]/.test(v) || /[A-Za-z]/.test(v))) throw new ShortReviewError('提示请用中文描述，不放入英文或英文缩写；每项最多900字。');
   return v.trim();
@@ -46,14 +62,14 @@ async function sources() {
     const scenario = current ? config.scenario : bound ? cleanChinese(bound.scenario) : defaults?.[1] ?? (item.kind === 'word' ? WORD_SCENARIOS[item.term.toLowerCase()] ?? '' : '');
     const accepted = [...new Set([...answers, ...(current ? config.answers : [])])];
     entries.push({ key, title: item.kind === 'word' ? item.term : item.title, text, kind: item.kind, sourceSignature, meaning, scenario, answers: current ? config.answers : [], revision: config?.revision ?? 0, stale: !!config && !current });
-    pool.push({ key, title: item.kind === 'word' ? item.meaning : item.title, text, kind: item.kind, answers: accepted, meaning, scenario, signature: sourceSignature });
+    pool.push({ key, title: item.kind === 'word' ? item.meaning : item.title, text, kind: item.kind, answers: accepted, meaning, scenario, signature: sourceSignature, category: categoryOf(item) });
   }
   return { entries, pool, signature: signature({ revision: library.revision, pool }) };
 }
-function questions(pool: QuizSource[], mode: QuizMode, scope: QuizScope): QuizQuestion[] {
+function questions(pool: QuizSource[], mode: QuizMode, scope: QuizScope, range?: QuizRange): QuizQuestion[] {
   const grouped = new Map<string, QuizQuestion>();
   for (const source of pool) {
-    if (scope !== 'all' && source.kind !== scope) continue;
+    if (scope !== 'all' && source.kind !== scope || !inRange(source, range)) continue;
     const prompt = source[mode]; if (!prompt) continue;
     const slots = slotCount(source.text), key = `${source.kind}:${slots}:${prompt.replace(/\s+/g, '')}`;
     const previous = grouped.get(key);
@@ -96,7 +112,7 @@ async function publicProgress(value: Awaited<ReturnType<typeof state>>): Promise
     await once(interactionId('lab-quiz-report', canonical(snapshot)), REPORT, { ...snapshot, createdAt: new Date().toISOString() });
   }
   return {
-    session: { id: s.id, createdAt: s.createdAt, mode: s.mode, scope: s.scope, retryOf: s.retryOf },
+    session: { id: s.id, createdAt: s.createdAt, mode: s.mode, scope: s.scope, retryOf: s.retryOf, ...(s.range ? { range: s.range } : {}) },
     questions: s.questions.map((q, index) => ({ index, prompt: q.prompt, kind: q.kind, slots: q.slots })),
     results: answers.sort((a, b) => a.index - b.index).map(a => ({ ...a, references: s.questions[a.index].sources.map(e => ({ key: e.key, title: e.title, text: e.text, answers: e.answers })), pending: reviews.some(r => r.index === a.index) && !corrections.some(c => c.index === a.index), correction: corrections.find(c => c.index === a.index) })),
     practices, score,
@@ -109,19 +125,27 @@ export async function quizOverview(offset = 0): Promise<QuizOverview> {
   for (const mode of ['meaning', 'scenario'] as const) counts[mode] = { all: questions(source.pool, mode, 'all').length, word: questions(source.pool, mode, 'word').length, sentence: questions(source.pool, mode, 'sentence').length };
   const totals = (pool: QuizSource[]) => ({ all: pool.length, word: pool.filter(e => e.kind === 'word').length, sentence: pool.filter(e => e.kind === 'sentence').length });
   const coverage: QuizOverview['coverage'] = { enabled: totals(source.pool), covered: { meaning: totals(source.pool.filter(e => !!e.meaning)), scenario: totals(source.pool.filter(e => !!e.scenario)) } };
-  const sessions = await Promise.all(rows.rows.map(async row => { const s = decode<QuizSession>(row), v = await state(s.id); return { id: s.id, createdAt: s.createdAt, mode: s.mode, scope: s.scope, score: quizScore(s.questions.length, v.answers, v.reviews, v.corrections) }; }));
-  return { signature: source.signature, counts, coverage, excluded: source.pool.filter(e => !e.meaning || !e.scenario).length, sessions: sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt)), totalSessions: rows.total, offset, hasNext: rows.hasNext };
+  const selections = new Map<string, QuizRange>();
+  for (const range of [{ main: '', sub: '' }, ...source.pool.flatMap(s => s.category ? [{ main: s.category.main, sub: '' }, s.category] : [])]) selections.set(JSON.stringify(range), range);
+  const ranges = [...selections.values()].map(range => {
+    const pool = source.pool.filter(s => inRange(s, range));
+    return { ...range, enabled: pool.length, covered: { meaning: pool.filter(s => !!s.meaning).length, scenario: pool.filter(s => !!s.scenario).length }, counts: { meaning: questions(pool, 'meaning', 'all').length, scenario: questions(pool, 'scenario', 'all').length } };
+  });
+  const sessions = await Promise.all(rows.rows.map(async row => { const s = decode<QuizSession>(row), v = await state(s.id); return { id: s.id, createdAt: s.createdAt, mode: s.mode, scope: s.scope, ...(s.range ? { range: s.range } : {}), score: quizScore(s.questions.length, v.answers, v.reviews, v.corrections) }; }));
+  return { signature: source.signature, counts, coverage, ranges, excluded: source.pool.filter(e => !e.meaning || !e.scenario).length, sessions: sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt)), totalSessions: rows.total, offset, hasNext: rows.hasNext };
 }
 export async function startQuiz(body: Record<string, unknown>) {
   const id = uuid(body.id, 'lab-quiz');
   if (!['meaning', 'scenario'].includes(String(body.mode)) || !['all', 'word', 'sentence'].includes(String(body.scope)) || !Number.isInteger(body.count) || Number(body.count) < 1 || Number(body.count) > 50) throw new ShortReviewError('每轮抽查1至50题，请选择提示方式与范围。');
   const retryOf = body.retryOf == null ? null : identifier(body.retryOf);
-  const requestKey = canonical({ mode: body.mode, scope: body.scope, count: body.count, signature: body.signature, retryOf });
+  const range = readRange(body.range);
+  const requestKey = canonical({ mode: body.mode, scope: body.scope, count: body.count, signature: body.signature, retryOf, ...(range ? { range } : {}) });
   const previous = await find(id);
   if (previous) { const v = await state(id); if (v.session.requestKey !== requestKey) throw new ShortReviewError('本轮编号已被使用，请重新开始。', 409); return publicProgress(v); }
   const source = await sources();
   if (source.signature !== body.signature) throw new ShortReviewError('表达库或提示已更新，请重新读取后开始。', 409);
-  let pool = questions(source.pool, body.mode as QuizMode, body.scope as QuizScope);
+  if (range?.main && !source.pool.some(s => inRange(s, range))) throw new ShortReviewError('该分类已不存在，请重新读取并选择抽查范围。', 409);
+  let pool = questions(source.pool, body.mode as QuizMode, body.scope as QuizScope, range);
   if (retryOf) {
     const old = await state(retryOf);
     if (old.session.mode !== body.mode) throw new ShortReviewError('重练请保留原轮的提示方式。');
@@ -131,7 +155,7 @@ export async function startQuiz(body: Record<string, unknown>) {
   if (Number(body.count) > pool.length) throw new ShortReviewError(`当前范围可抽${pool.length}题，请减少数量，或在“调整抽背提示”中补充提示。`);
   // Fisher–Yates with server randomness; a retry reopens the durable snapshot.
   for (let i = pool.length - 1; i > 0; i--) { const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  const session: QuizSession = { id, version: 1, createdAt: new Date().toISOString(), mode: body.mode as QuizMode, scope: body.scope as QuizScope, librarySignature: source.signature, requestKey, retryOf, questions: pool.slice(0, Number(body.count)) };
+  const session: QuizSession = { id, version: 1, createdAt: new Date().toISOString(), mode: body.mode as QuizMode, scope: body.scope as QuizScope, librarySignature: source.signature, requestKey, retryOf, questions: pool.slice(0, Number(body.count)), ...(range ? { range } : {}) };
   if (new TextEncoder().encode(JSON.stringify(session)).length > 350000) throw new ShortReviewError('本轮长句或答案变体较多，请减少抽查数量后开始。');
   // Random selection is fixed by the first successful insert. Concurrent retries
   // can return that snapshot, but cannot replace it with a second random draw.
