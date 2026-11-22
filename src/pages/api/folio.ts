@@ -1,3 +1,5 @@
+import {collectQuizAchievements,earnedQuizMilestones} from '../../server/quiz-achievements';
+import type {QuizSession,QuizAnswer,QuizReview,QuizCorrection} from '../../lib/expression-quiz';
 import {prepareCompletionMessage,readCompletionMessage} from '../../server/completion-encouragement';
 import {attachIssueDecisions,classifyIssues} from '../../server/issue-classification';
 import {AlignmentError} from '../../server/annotation-config';
@@ -44,10 +46,10 @@ export const POST:APIRoute=async({request})=>{
       const guide:CurationGuidePreference={version:CURATION_GUIDE_VERSION,status:body.status,updatedAt:new Date().toISOString()};await put(key,'preference',guide,row);return json({guide});
     }
     if(action==='practiceProgress') {
-      const [writings,reviews]=await Promise.all([all('writing'),all('review')]);
+      const [writings,reviews,quizSessions,quizAnswers,quizReviews,quizCorrections]=await Promise.all([all('writing'),all('review'),all('labQuizSession'),all('labQuizAnswer'),all('labQuizReview'),all('labQuizCorrection')]);
       const writingData=writings.map(r=>decode<Writing>(r)),reviewData=reviews.map(r=>decode<Review>(r));
       const progress=collectPracticeProgress(practiceQuestions,writingData,reviewData);
-      return json({...progress,milestones:earnedMilestoneRules(practiceQuestions,progress,personalNoteCounts(practiceQuestions,writingData,reviewData))});
+      return json({...progress,milestones:[...earnedMilestoneRules(practiceQuestions,progress,personalNoteCounts(practiceQuestions,writingData,reviewData)),...earnedQuizMilestones(collectQuizAchievements(quizSessions.map(r=>decode<QuizSession>(r)),quizAnswers.map(r=>decode<QuizAnswer>(r)),quizReviews.map(r=>decode<QuizReview>(r)),quizCorrections.map(r=>decode<QuizCorrection>(r))))]});
     }
     if(action==='list') {const p=await list('writing',{offset:Math.max(0,Number(body.offset)||0),limit:30,questionId:body.questionId?str(body.questionId,100):'',status:body.status?str(body.status,20):''});return json({items:p.rows.map(r=>decode<Writing>(r)),total:p.total,hasNext:p.hasNext});}
     if(action==='get') {

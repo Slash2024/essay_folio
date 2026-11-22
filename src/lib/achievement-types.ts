@@ -1,4 +1,4 @@
-export type MilestoneId = 'A01'|'A02'|'A03'|'A04'|'A05'|'A06'|'A07'|'B01'|'B02'|'B03'|'B04'|'B05'|'B06'|'B07'|'B08'|'C01'|'C02'|'C03'|'C04'|'C05'|'D01'|'D02'|'D03'|'D04'|'D05'|'D06';
+export type MilestoneId = 'A01'|'A02'|'A03'|'A04'|'A05'|'A06'|'A07'|'B01'|'B02'|'B03'|'B04'|'B05'|'B06'|'B07'|'B08'|'C01'|'C02'|'C03'|'C04'|'C05'|'D01'|'D02'|'D03'|'D04'|'D05'|'D06'|'E01'|'E02'|'E03'|'E04'|'E05'|'E06'|'E07'|'E08'|'E09'|'E10'|'E11'|'E12';
 export interface EarnedMilestone { id: MilestoneId; title: string; detail: string; group: string; family: string; rank: number }
 // Presentation only: thresholds and unearned definitions stay on the server.
 export function milestoneDisplay(earned: EarnedMilestone[]) {

@@ -14,6 +14,13 @@ try{await build({stdin:{contents:"export {POST} from './src/pages/api/folio'; ex
  r=await call('edit',{id,text:'This is my corrected essay. Another sentence.',baseUpdatedAt:w.updatedAt});assert.equal(r.versions.length,2);assert.equal(r.versions[0].text,text);w=r.writing;
  r=await call('review',{id:'qa-review',writingId:id,baseUpdatedAt:'stale',markdown:'8. 评分\n预估分数：14/20分。',filename:'review.md'});assert.equal(r.status,409);
  r=await call('review',{id:'qa-review',writingId:id,baseUpdatedAt:w.updatedAt,markdown:'5. 最值得记住的错误\n- 主谓一致错误。\n8. 评分\n预估分数：14/20分。',filename:'review.md'});assert.equal(r.status,200);assert.equal(r.review.revisionId,id+'-v2');assert.equal(r.review.analysis.score.point,14);w=r.writing;
+ // Initial answer history unlocks quiz badges without exposing English answers.
+ const quizSource={key:'word:achievement-test',kind:'word',text:'private quiz answer',answers:['private quiz answer']};
+ const quizRound={id:'achievement-quiz',createdAt:'2026-11-20T00:00:00Z',mode:'meaning',questions:Array.from({length:10},()=>({sources:[quizSource],slots:0,kind:'word'}))};
+ db.set('achievement-quiz',{kind:'labQuizSession',payload:JSON.stringify(quizRound)});
+ for(let i=0;i<10;i++)db.set('achievement-answer-'+i,{kind:'labQuizAnswer',payload:JSON.stringify({writingId:quizRound.id,index:i,answer:'private quiz answer',skipped:false,verdict:'correct',matchedKey:quizSource.key,createdAt:'2026-11-20T01:00:00Z'})});
+ const quizProgress=await call('practiceProgress');assert(quizProgress.milestones.some(m=>m.id==='E01'));assert(!quizProgress.milestones.some(m=>m.id==='E05'));assert(!JSON.stringify(quizProgress).includes('private quiz answer'));
+ db.delete('achievement-quiz');for(let i=0;i<10;i++)db.delete('achievement-answer-'+i);
  const practicedProgress=await call('practiceProgress');const progressEntry=practicedProgress.questions.find(q=>q.questionId==='2024-large');assert.equal(progressEntry.submittedCount,1);assert.equal(progressEntry.reviewedCount,1);assert(practicedProgress.milestones.some(m=>m.id==='A01'));assert(practicedProgress.milestones.every(m=>!m.id.startsWith('D')));assert(!JSON.stringify(practicedProgress).includes('This is my corrected essay.'));assert(!JSON.stringify(practicedProgress).includes('private prompt'));
  assert.equal((await call('edit',{id,text:'Disallowed change.',baseUpdatedAt:w.updatedAt})).status,409);
  // A stale status cannot bypass the authoritative review check.
