@@ -7,7 +7,7 @@
 .lab-pathway-heading p { margin: 0; font-size: 12px; color: var(--color-muted-foreground); line-height: 1.7; }
 .lab-tool-list { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 10px; }
 .lab-tool-entry { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; text-align: left; padding: 13px 10px; border: 1px solid var(--color-border); border-radius: 9px; background: #fff; transition: border-color .15s, background .15s; }
-.lab-tool-entry:hover { border-color: #a8cbc6; background: #f6faf9; }
+.lab-tool-entry:hover { border-color: #a8cbc6; }
 .lab-tool-featured { background: #f1f8f7; border-color: #c7dedb; }
 .lab-tool-number { flex-shrink: 0; display: grid; place-items: center; width: 25px; height: 25px; border-radius: 50%; border: 1px solid #d4e2e1; font-size: 11px; color: var(--color-primary); background: #fff; }
 .lab-tool-copy { flex: 1; min-width: 0; display: grid; gap: 5px; }
@@ -59,6 +59,6 @@
 
 .lab-help-entry { display: inline-flex; align-items: center; gap: 5px; color: var(--color-primary); font-size: 12px; padding: 6px 0; white-space: nowrap; }
 .lab-help-entry:hover, .lab-help-card-link:hover { text-decoration: underline; }
-.lab-help-card-link { display: flex; align-items: center; justify-content: flex-end; gap: 5px; color: var(--color-primary); font-size: 11px; padding: 5px 3px 0; }
+.lab-help-card-link { min-height: 24px; display: flex; align-items: center; justify-content: flex-end; gap: 5px; color: var(--color-primary); font-size: 11px; padding: 5px 3px 0; }
 .lab-nav-top { flex-wrap: wrap; }
 @media(max-width:650px) { .lab-nav-top .lab-help-entry { margin-left: auto; } }
