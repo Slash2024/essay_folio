@@ -53,6 +53,11 @@ test('appeals reject foreign, duplicated, malformed-table and score-changing pat
  assert.throws(()=>applySentenceReviewChanges(md,r,46,[{id:body.id,markdown:body.source},{id:body.id,markdown:body.source}]),/格式/);
 });
 test('uncategorized text remains available and uncertain or out-of-range scores are not invented',()=>{
- for(const text of ['一段没有题号的批阅。','## 1. 总分与整体评价\n总分：12/10','## 1. 总分与整体评价\n总分：7—8分','## 1. 总分与整体评价\n总分：7.3/10'])assert.equal(parseTranslationReview(text,q,answers).total,null);
+ for(const text of ['一段没有题号的批阅。','### 第46题\n评分：1.5分','## 1. 总分与整体评价\n总分：12/10','## 1. 总分与整体评价\n总分：7—8分','## 1. 总分与整体评价\n总分：7.3/10'])assert.equal(parseTranslationReview(text,q,answers).total,null);
  const r=parseTranslationReview('一段没有题号的批阅。',q,answers);assert.equal(r.sentences.filter(s=>s.fragments.length).length,0);assert(renderReviewFragments(r.global).includes('没有题号'));
+});
+
+test('a bold grammar subheading retains the current question and a total-only table is recognized',()=>{
+ const text='## 4. 语法理解与纠正\n\n### 第46题\n\n**语法知识点**\n\n保留第46题的讲解。\n\n## 1. 总分与整体评价\n\n|题号|得分|\n|---|---|\n|合计|8/10|';
+ const r=parseTranslationReview(text,q,answers);assert.equal(r.total,8);assert(renderReviewFragments(r.sentences[0].fragments).includes('保留第46题的讲解'));
 });

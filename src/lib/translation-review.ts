@@ -26,7 +26,9 @@ function sectionNumber(title:string):number|null {
 const numberPattern='(?:10(?:\\.0)?|[0-9](?:\\.[05])?)';
 export function extractTranslationTotal(markdown:string):number|null {
  const text=plain(markdown).replaceAll('／','/');
- const match=text.match(new RegExp('(?:本次(?:得分|总分)|总分|预估分数|评分)\\s*[：:]?\\s*('+numberPattern+')\\s*(?:分\\s*/\\s*10|/\\s*10|分(?!\\s*/))'));
+ const match=text.match(new RegExp('(?:本次(?:得分|总分)|总分|整体得分)\\s*[：:]?\\s*('+numberPattern+')\\s*(?:分\\s*/\\s*10|/\\s*10|分(?!\\s*/))'))
+  ||text.match(new RegExp('(?:预估分数|得分|评分)\\s*[：:]?\\s*('+numberPattern+')\\s*(?:分\\s*)?/\\s*10'))
+  ||text.match(new RegExp('\\|\\s*(?:合计|总计)\\s*\\|\\s*('+numberPattern+')\\s*/\\s*10'));
  if(!match)return null;const value=Number(match[1]);return value>=0&&value<=10?value:null;
 }
 function sentenceScore(markdown:string):number|null {
@@ -87,7 +89,11 @@ export function parseTranslationReview(source:string,q:TranslationQuestion,answe
   if(prefix!==null){current=prefix;add(start,end,[current]);continue;}
   if(heading&&(block.type!=='heading'||(block.depth??0)<=2)){
    const next=sectionNumber(block.text||block.raw);
-   if(next!==null){section=next;current=null;continue;}
+   if(next!==null){
+    const numbered=/^(?:[一二三四五六七八九十\d]+[、.．:：]|新增部分)/.test(plain(block.text||block.raw));
+    if(block.type==='paragraph'&&current!==null&&next===section&&!numbered){add(start,end,[current]);continue;}
+    section=next;current=null;continue;
+   }
    if(block.type==='heading'){current=null;section=0;}
   }
   if(/^以后批阅(?:时|中)?[，,]/.test(plain(block.raw))){current=null;section=0;}
