@@ -6,12 +6,15 @@ import {analyzeGroup,latestReviews,type AnalyticsWriting} from '../../lib/analyt
 import {buildInsights} from '../../lib/analytics-insights';
 import IssueClassification from './IssueClassification';
 import AnalyticsInsights from './AnalyticsInsights';
+import TemplateErrorReview from './TemplateErrorReview';
+import type {ExpressionLibrary} from '../../lib/expressions';
 import '../../styles/analytics.css';
 import {plain} from '../../lib/review-analysis';
 export default function AnalyticsPanel({questions,onOpen}:{questions:Question[];onOpen:(id:string,reviewId?:string,noteId?:string)=>void}){
+ const [library,setLibrary]=useState<ExpressionLibrary|null>(null),[currentTexts,setCurrentTexts]=useState<Record<string,string>>({});
  const [reviews,setReviews]=useState<Review[]>([]),[writings,setWritings]=useState<AnalyticsWriting[]>([]),[texts,setTexts]=useState<Record<string,string>>({}),[key,setKey]=useState<TemplateKey>('large'),[loading,setLoading]=useState(true),[error,setError]=useState('');
  const count=writings.length;
- async function load(){setLoading(true);setError('');try{const d=await api('analytics');setReviews(d.reviews);setWritings(d.writings);setTexts(d.texts||{});}catch(e){setError((e as Error).message);}finally{setLoading(false);}}
+ async function load(){setLoading(true);setError('');try{const d=await api('analytics');setReviews(d.reviews);setWritings(d.writings);setTexts(d.texts||{});setLibrary(d.library||null);setCurrentTexts(d.currentTexts||{});}catch(e){setError((e as Error).message);}finally{setLoading(false);}}
  useEffect(()=>{load();},[]);const a=useMemo(()=>analyzeGroup(reviews,questions,key),[reviews,questions,key]);
  const insights=useMemo(()=>buildInsights(reviews,questions,key,writings,texts),[reviews,questions,key,writings,texts]);
  return <div className="analytics-page"><section className="panel analytics-intro"><div><h2>批阅统计</h2><p className="muted">已保存 {count} 稿 · 已批阅 {latestReviews(reviews).length} 稿 · 共 {reviews.length} 份批阅。每稿仅使用最新批阅统计。</p></div><button className="text-button" disabled={loading} onClick={load}><RefreshCw size={16}/>刷新数据</button></section>
@@ -23,6 +26,7 @@ export default function AnalyticsPanel({questions,onOpen}:{questions:Question[];
  <div className="stats-table-wrap"><table className="stats-table"><thead><tr><th>分数范围</th><th>稿件数</th></tr></thead>
  <tbody>{a.bands.map((band,i)=><tr key={band.low}><td>{band.low}–{i===a.bands.length-1?band.high:`＜${band.high}`}</td><td>{band.count}</td></tr>)}</tbody></table></div>
  </section>
+ <TemplateErrorReview key={key} reviews={reviews} questions={questions} templateKey={key} library={library} texts={texts} currentTexts={currentTexts} onOpen={onOpen}/>
  <section className="panel stats-section"><h2>问题分布</h2>
  <div className="stats-table-wrap"><table className="stats-table"><thead><tr><th>类别</th><th>涉及稿件</th><th>题目数</th><th>问题条数</th></tr></thead>
  <tbody>{a.categories.map(([category,rows])=><tr key={category}><td>{category}</td><td>{rows.length} / {a.rows.length}</td>
@@ -47,3 +51,4 @@ export default function AnalyticsPanel({questions,onOpen}:{questions:Question[];
  </details></>}
  </div>;
 }
+

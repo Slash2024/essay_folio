@@ -338,14 +338,16 @@ export const POST:APIRoute=async({request})=>{
       return json(await classifyIssues(action,body.items,questionMap));
     }
     if(action==='analytics') {
-      const [ws,rs,vs]=await Promise.all([all('writing'),all('review'),all('revision')]);
+      const [ws,rs,vs,expressionRow]=await Promise.all([all('writing'),all('review'),all('revision'),find('expression-library')]);
       const writings=ws.map(r=>{const w=decode<Writing>(r);return {id:w.id,questionId:w.questionId,status:w.status,createdAt:w.createdAt,submittedAt:w.submittedAt,parentId:w.parentId,revision:w.revision};});
       const writingIds=new Set(writings.map(w=>w.id));
       const reviews=await attachIssueDecisions(rs.map(r=>analyzedReview(decode<Review>(r))).filter(r=>writingIds.has(r.writingId)),questionMap);
       const versionsById=new Map(vs.map(row=>{const v=decode<{id:string;writingId:string;text:string}>(row);return [v.id,v] as const;}));
       const texts:Record<string,string>={};
       for(const r of reviews){const v=r.revisionId?versionsById.get(r.revisionId):undefined;if(v?.writingId===r.writingId)texts[r.id]=v.text;}
-      return json({writings,reviews,texts});
+      const currentTexts=Object.fromEntries(ws.map(row=>{const w=decode<Writing>(row);return [w.id,w.text];}));
+      const library=expressionRow?decode<ExpressionLibrary>(expressionRow):DEFAULT_EXPRESSIONS;
+      return json({writings,reviews,texts,currentTexts,library});
     }
     if(action==='export') {
       await migrateHistory();
@@ -360,3 +362,4 @@ export const POST:APIRoute=async({request})=>{
     return json({error:'不支持的操作'},400);
   } catch(e) { if(e instanceof AlignmentError)return json({error:e.message},e.status); console.error('Folio request failed:',e instanceof Error?e.name:'Error');return json({error:e instanceof Error&&/^(输入|记录|请选择|请先|已提交|找不到|提醒|文件|批阅|两份|所有|单条|表达库)/.test(e.message)?e.message:'云端操作未成功，请稍后重试；尚未确认保存的内容请保留。'},500); }
 };
+
