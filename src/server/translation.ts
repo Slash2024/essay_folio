@@ -184,7 +184,7 @@ export async function requestTranslationModel(body:Record<string,unknown>){
  if(sentenceNumber===undefined){if(typeof response.replacement!=='string'||response.replacement.length>25000)throw new TranslationError('模型输出不符合约定，未修改批阅，请手动重试。',502);replacement=body.mode==='appeal'?response.replacement.trim():'';}
  else {
   if(!Array.isArray(response.changes)||response.changes.length>100||JSON.stringify(response.changes).length>25000)throw new TranslationError('本题申诉输出不符合约定，未修改批阅。',502);
-  if(body.mode==='appeal'&&response.changes.length){changes=response.changes;let updated:string;try{updated=applySentenceReviewChanges(p.review.markdown,parsed!,sentenceNumber,changes);}catch(error){throw new TranslationError((error as Error).message,502);}const preview=parseTranslationReview(updated,q,p.answers).sentences.find(s=>s.number===sentenceNumber)!;replacement=preview.groups.map(g=>`### ${g.title}\n\n${g.markdown}`).join('\n\n');}
+  if(body.mode==='appeal'&&response.changes.length){changes=response.changes;let updated:string;try{updated=applySentenceReviewChanges(p.review.markdown,parsed!,sentenceNumber,changes,q,p.answers);}catch(error){throw new TranslationError((error as Error).message,502);}const preview=parseTranslationReview(updated,q,p.answers).sentences.find(s=>s.number===sentenceNumber)!;replacement=preview.groups.map(g=>`### ${g.title}\n\n${g.markdown}`).join('\n\n');}
  }
  // Requests are immutable. A separate result row makes retry checks idempotent.
  const ready={...pending,state:'ready',reply:response.reply,replacement,changes,model:config.model};
@@ -199,7 +199,7 @@ export async function acceptAppeal(body:Record<string,unknown>){
  let markdown:string;
  if(result.sentenceNumber!==undefined){
   const q=questionById.get(p.questionId)!;
-  try{markdown=applySentenceReviewChanges(p.review.markdown,parseTranslationReview(p.review.markdown,q,p.answers),result.sentenceNumber,result.changes);}catch(error){throw new TranslationError((error as Error).message);}
+  try{markdown=applySentenceReviewChanges(p.review.markdown,parseTranslationReview(p.review.markdown,q,p.answers),result.sentenceNumber,result.changes,q,p.answers);}catch(error){throw new TranslationError((error as Error).message);}
  }else{
   markdown=replaceReviewSection(p.review.markdown,result.section,result.replacement);
   if(result.section===0&&reviewScore(markdown)===null)throw new TranslationError('总分部分缺少有效的10分制单一分数，未采纳。');

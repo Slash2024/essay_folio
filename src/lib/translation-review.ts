@@ -134,7 +134,7 @@ export function parseTranslationReview(source:string,q:TranslationQuestion,answe
  })};
 }
 export interface SentenceReviewChange {id:string;markdown:string}
-export function applySentenceReviewChanges(source:string,review:TranslationReview,number:number,changes:SentenceReviewChange[]):string {
+export function applySentenceReviewChanges(source:string,review:TranslationReview,number:number,changes:SentenceReviewChange[],question:TranslationQuestion,answers:string[]):string {
  if(!changes.length||changes.length>100)throw new Error('没有有效的本题修改内容。');
  const ids=new Set<string>(),patches:{start:number;end:number;value:string}[]=[];
  for(const change of changes){
@@ -159,5 +159,11 @@ export function applySentenceReviewChanges(source:string,review:TranslationRevie
   patches.push({start:fragment.start,end:fragment.end,value:replacement+suffix});
  }
  let output=source;for(const patch of patches.sort((a,b)=>b.start-a.start))output=output.slice(0,patch.start)+patch.value+output.slice(patch.end);
+ const after=parseTranslationReview(output,question,answers);
+ if(after.total!==review.total||renderReviewFragments(after.global)!==renderReviewFragments(review.global))throw new Error('申诉修改影响了全篇评分或说明，未采纳。');
+ for(const other of review.sentences.filter(s=>s.number!==number)){
+  if(renderReviewFragments(other.fragments)!==renderReviewFragments(after.sentences.find(s=>s.number===other.number)!.fragments))throw new Error('申诉修改影响了其他题目的内容归属，未采纳。');
+ }
+ if(!after.sentences.find(s=>s.number===number)?.fragments.length)throw new Error('本题修改后的内容未能可靠识别，未采纳。');
  return output;
 }

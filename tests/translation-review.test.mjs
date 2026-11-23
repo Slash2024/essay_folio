@@ -6,9 +6,10 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const dir=await mkdtemp(join(tmpdir(),'folio-sentence-review-'));
 await build({stdin:{contents:"export * from './src/lib/translation-review';export {translationQuestions,reviewScore} from './src/lib/translation';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'review.mjs')});
-const {parseTranslationReview,renderReviewFragments,applySentenceReviewChanges,translationQuestions,reviewScore}=await import(join(dir,'review.mjs'));
+const {parseTranslationReview,renderReviewFragments,applySentenceReviewChanges:applyChanges,translationQuestions,reviewScore}=await import(join(dir,'review.mjs'));
 after(()=>rm(dir,{recursive:true,force:true}));
 const q=translationQuestions.find(q=>q.year===2020),numbers=[46,47,48,49,50],answers=['独有译词甲','独有译词乙','独有译词丙','独有译词丁','独有译词戊'];
+const applySentenceReviewChanges=(source,review,number,changes)=>applyChanges(source,review,number,changes,q,answers);
 const rows=numbers.map((n,i)=>`|${n}|${n===47?'2':'1.5'}／2|评分依据${n}专属|失分说明${n}专属|`).join('\n');
 const grammar=numbers.map(n=>`**${n}题：知识点${n}**\n\n语法讲解${n}专属。\n\n> 独立例句${n}专属。\n> 中文例句${n}专属。`).join('\n\n---\n\n');
 const differences=numbers.map(n=>`**${n}题**\n\n|你的表达|参考答案的表达|判定及原因|\n|---|---|---|\n|表达${n}|参考${n}|可接受，差异说明${n}专属|`).join('\n\n');
@@ -60,4 +61,9 @@ test('uncategorized text remains available and uncertain or out-of-range scores 
 test('a bold grammar subheading retains the current question and a total-only table is recognized',()=>{
  const text='## 4. 语法理解与纠正\n\n### 第46题\n\n**语法知识点**\n\n保留第46题的讲解。\n\n## 1. 总分与整体评价\n\n|题号|得分|\n|---|---|\n|合计|8/10|';
  const r=parseTranslationReview(text,q,answers);assert.equal(r.total,8);assert(renderReviewFragments(r.sentences[0].fragments).includes('保留第46题的讲解'));
+});
+
+test('a malformed Markdown replacement cannot absorb another question or the global explanation',()=>{
+ const r=parseTranslationReview(md,q,answers),body=r.sentences[0].fragments.find(f=>f.section===3&&f.source.includes('语法讲解'));
+ assert.throws(()=>applySentenceReviewChanges(md,r,46,[{id:body.id,markdown:'```text\n未闭合的代码段'}]),/全篇|其他题目/);
 });
