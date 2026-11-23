@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-23",
+  "feature": "Independent ninth navigation: English I translation",
+  "githubSourceCommit": "946076d198cd228ffe8d4ade4daee11e98f69976",
+  "wixDeployment": "f4d721ba-2510-48db-8036-38ebb9a59ffc",
+  "wixRevision": "3541854b1925c3dc9685ee96cb5d80451d0ec747",
+  "liveUrl": "https://headless-dvpmxjtmvvv-y97m7z9bm2-140a.wix-site-host.com",
+  "collection": "TranslationArchive",
+  "permissions": "ADMIN-only",
+  "verification": {
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "translationApiTests": 7,
+    "desktopViewport": "1440x1000",
+    "mobileViewport": "390x844",
+    "browserFlowChecks": 8,
+    "browserErrors": 0,
+    "browserRun": "https://github.com/Slash2024/essay_folio/actions/runs/45099561796",
+    "dataMode": "isolated synthetic storage and model; no production learning records changed"
+  },
+  "existingTestFailure": {
+    "file": "tests/archive-consistency.test.mjs",
+    "name": "analytics returns bound reviewed texts and rewrite links without writing data",
+    "cause": "existing analytics currentTexts response disagrees with a previous test assertion; original analytics code unchanged",
+    "baselineRun": "https://github.com/Slash2024/essay_folio/actions/runs/45091848316"
+  },
+  "boundaries": [
+    "Reference answers are supplied per practice by the user, never sourced or auto-generated.",
+    "Reference images are private, compressed on upload, frozen with submission, and included in the external review package.",
+    "Shared text-model configuration is read only; images are not sent to the text-model conversation.",
+    "Chat has no automatic write-back; appeals require explicit adoption and support undo.",
+    "Real production-model billing and private production draft creation were not exercised by automated QA."
+  ]
+}
