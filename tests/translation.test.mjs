@@ -20,7 +20,7 @@ await build({stdin:{contents:"export {GET,POST} from './src/pages/api/translatio
 const m=await import(join(dir,'api.mjs'));
 after(()=>rm(dir,{recursive:true,force:true}));beforeEach(()=>{m.db.clear();m.calls.length=0;});
 const id='tr-2026',imageId='tri-00000000-0000-4000-8000-000000000001',requestId='trm-00000000-0000-4000-8000-000000000001';
-const input={id,questionId:'translation-2026',baseRevision:0,answers:['译文46','译文47','译文48','译文49','译文50'],referenceText:'用户指定的参考答案',referenceIds:[]};
+const input={id,questionId:'translation-2026',baseRevision:0,answers:['译文46','译文47','译文48','译文49','译文50'],answerInput:'46. 译文46\n47. 译文47\n48. 译文48\n49. 译文49\n50. 译文50',answersConfirmed:true,referenceText:'用户指定的参考答案',referenceIds:[]};
 const md='## 1. 总分与整体评价\n\n总分：7.5/10\n理解基本准确。\n\n## 2. 逐句批阅\n\n### 第46题\n得分：1.5/2。\n\n## 3. 与参考答案的差异判定\n\n不同但正确，不扣分。\n\n## 4. 语法理解与纠正\n\n先讲知识点，再给例句。\n\n## 5. 词汇与中文表达建议\n\n保留正确表达。\n\n## 6. 完善后的完整译文\n\n46. 完整译文。';
 async function call(action,data={},headers={}){const r=await m.POST({request:new Request('https://test.invalid/api/translation',{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify({action,...data})})});return {status:r.status,...await r.json()};}
 async function submitted(){return (await call('submit',input)).practice;}
@@ -110,4 +110,34 @@ test('chat is read-only, rewrite clears old conversation, and auth and origin st
  assert.equal((await call('save',input,{origin:'https://evil.invalid'})).status,403);
  const saved=await call('save',{...input,baseRevision:p.revision,answers:['新的译文','47','48','49','50']});
  assert.equal(saved.status,200);assert.equal([...m.db.values()].filter(r=>r.kind==='conversation').length,0);
+});
+
+test('backend parses numbered bulk input without splitting punctuation or wrapped paragraphs',async()=>{
+ const raw='  46. 第一题有两个句号。仍属于46题。\r\n续行包含3.14和文中47.这个数字。\r\n\r\n47．第二题。\r\n48. 第三题。\r\n49. 第四题。\r\n50. 第五题。  ';
+ const result=await call('parseAnswers',{answerInput:raw});assert.equal(result.status,200);
+ assert.deepEqual(result.answers,['第一题有两个句号。仍属于46题。\n续行包含3.14和文中47.这个数字。','第二题。','第三题。','第四题。','第五题。']);
+ assert.equal(m.db.size,0);assert.equal(m.calls.length,0);
+});
+test('bulk parse rejects missing, repeated, out-of-order, unknown and empty answers without writes',async()=>{
+ for(const [raw,message] of [
+  [input.answerInput.replace('50. 译文50',''),'缺少第50题'],
+  [input.answerInput+'\n50. 又一题','第50题重复'],
+  [input.answerInput.replace('46. 译文46\n47. 译文47','47. 译文47\n46. 译文46'),'题号顺序'],
+  [input.answerInput.replace('50. 译文50','51. 错误题号'),'题号51'],
+  [input.answerInput.replace('48. 译文48','48.'),'第48题译文为空'],
+  ['未归属内容\n'+input.answerInput,'46.之前'],
+  [input.answerInput.replace('译文46','文'.repeat(4001)),'第46题译文超过4000字']
+ ]){const r=await call('parseAnswers',{answerInput:raw});assert.equal(r.status,400);assert(r.error.includes(message),r.error);}
+ assert.equal((await call('parseAnswers',{answerInput:input.answerInput},{'x-test-auth':'no'})).status,401);
+ assert.equal(m.db.size,0);assert.equal(m.calls.length,0);
+});
+test('raw drafts survive incomplete numbering and submission requires an unchanged confirmed preview',async()=>{
+ const raw='46. 还没写完\n47.';
+ let r=await call('save',{...input,answerInput:raw,answers:['','','','','']});assert.equal(r.status,200);
+ const response=await m.GET({request:new Request('https://test.invalid/api/translation?id='+id)});assert.equal((await response.json()).practice.answerInput,raw);
+ const before=JSON.stringify([...m.db]);
+ r=await call('submit',{...input,baseRevision:1,answersConfirmed:false});assert.equal(r.status,400);assert(r.error.includes('确认'));
+ r=await call('submit',{...input,baseRevision:1,answerInput:input.answerInput.replace('译文46','未重新确认的新译文')});assert.equal(r.status,409);
+ assert.equal(JSON.stringify([...m.db]),before);
+ r=await call('submit',{...input,baseRevision:1});assert.equal(r.status,200);assert.equal(r.practice.answerInput,input.answerInput);assert.deepEqual(r.practice.answers,input.answers);
 });

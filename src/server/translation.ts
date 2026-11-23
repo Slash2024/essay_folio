@@ -1,5 +1,5 @@
 import {rows,findRow,unpack,addRow,removeRow} from './translation-store';
-import {questionById,translationPacket,validateAnswers,reviewSections,replaceReviewSection,reviewScore,type TranslationPractice,type ReferenceImage} from '../lib/translation';
+import {questionById,translationPacket,validateAnswers,parseTranslationInput,MAX_TRANSLATION_INPUT_LENGTH,reviewSections,replaceReviewSection,reviewScore,type TranslationPractice,type ReferenceImage} from '../lib/translation';
 import {getAnnotationConfig,AlignmentError} from './annotation-config';
 import {requestModelJSON} from './annotation-provider';
 export class TranslationError extends Error {constructor(message:string,public status=400){super(message);}}
@@ -34,7 +34,7 @@ export async function pruneVersions(p:TranslationPractice){
 }
 export async function openQuestion(questionId:string){const value=await questionPractice(questionId);if(value)await pruneVersions(value);return value;}
 async function signature(p:TranslationPractice){
- const value=JSON.stringify([p.questionId,p.status,p.answers,p.referenceText,p.references,p.packet,p.review?[p.review.original,p.review.markdown,p.review.filename,p.review.undoMarkdown]:null]);
+ const value=JSON.stringify([p.questionId,p.status,p.answers,p.answerInput,p.referenceText,p.references,p.packet,p.review?[p.review.original,p.review.markdown,p.review.filename,p.review.undoMarkdown]:null]);
  const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
  return Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
 }
@@ -65,6 +65,13 @@ export async function savePractice(body:Record<string,unknown>){
  const old=await optionalPractice(id),existing=await questionPractice(q.id);
  if((old&&old.questionId!==q.id)||(existing&&existing.id!==id)||(!existing&&id!=='tr-'+q.year))throw new TranslationError('每年只保留一份记录，请重新选择年份。',409);
  let answers:string[];try{answers=validateAnswers(body.answers);}catch(error){throw new TranslationError((error as Error).message);}
+ const answerInput=body.answerInput===undefined?undefined:text(body.answerInput,MAX_TRANSLATION_INPUT_LENGTH);
+ if(body.action==='submit'){
+  if(body.answersConfirmed!==true)throw new TranslationError('请先解析并确认46—50题分句准确，再提交。');
+  const parsed=parseAnswers(answerInput);
+  if(parsed.some((answer,i)=>answer!==answers[i]))throw new TranslationError('译文与分句预览不一致，请重新解析并确认。',409);
+  answers=parsed;
+ }
  const referenceText=text(body.referenceText??'',20000),references:ReferenceImage[]=[];
  if(!Array.isArray(body.referenceIds)||new Set(body.referenceIds).size!==body.referenceIds.length)throw new TranslationError('附件列表不正确或含重复项。');
  for(const value of body.referenceIds){
@@ -75,7 +82,7 @@ export async function savePractice(body:Record<string,unknown>){
  }
  if(body.action==='submit'&&(answers.some(value=>!value.trim())||(!referenceText.trim()&&!references.length)))throw new TranslationError('提交前请填写五句译文，并上传或填写指定参考答案。');
  const now=new Date().toISOString();
- const p:TranslationPractice={id,questionId:q.id,revision:old?.revision??0,status:body.action==='submit'?'submitted':'draft',createdAt:old?.createdAt??now,updatedAt:now,answers,referenceText,references,...(old?.submittedAt?{submittedAt:old.submittedAt}:{})};
+ const p:TranslationPractice={id,questionId:q.id,revision:old?.revision??0,status:body.action==='submit'?'submitted':'draft',createdAt:old?.createdAt??now,updatedAt:now,answers,...(answerInput===undefined?{}:{answerInput}),referenceText,references,...(old?.submittedAt?{submittedAt:old.submittedAt}:{})};
  p.lastSubmittedReferences=old?.lastSubmittedReferences||(old&&old.status!=='draft'?old.references:[]);
  p.retiredReferences=Array.from(new Map([...(old?.retiredReferences||[]),...(p.lastSubmittedReferences||[])].filter(ref=>!references.some(current=>current.id===ref.id)).map(ref=>[ref.id,ref])).values());
  if(p.status==='submitted'){p.submittedAt=now;p.lastSubmittedReferences=references;p.packet=translationPacket(q,p);}
@@ -83,6 +90,9 @@ export async function savePractice(body:Record<string,unknown>){
  const saved=await commit(p,Number(body.baseRevision??0));
  if(old?.review){for(const kind of ['conversation','modelFailure']){while(true){const page=await rows(kind,id,0,100);if(!page.rows.length)break;for(const row of page.rows)await removeRow(row._id);}}}
  return saved;
+}
+export function parseAnswers(value:unknown):string[]{
+ try{return parseTranslationInput(value);}catch(error){throw new TranslationError((error as Error).message);}
 }
 export async function uploadReferenceChunk(body:Record<string,unknown>){
  const id=identifier(body.id),imageId=imageIdentifier(body.imageId),index=Number(body.index);

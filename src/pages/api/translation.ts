@@ -1,6 +1,6 @@
 import type {APIRoute} from 'astro';
 import {authorized,sameOrigin} from '../../server/session';
-import {TranslationError,identifier,practice,questionPractice,openQuestion,savePractice,uploadReferenceChunk,uploadReference,readImage,importReview,retiredReferences,archiveReference,conversation,requestTranslationModel,modelResult,acceptAppeal,undoAppeal} from '../../server/translation';
+import {TranslationError,identifier,practice,questionPractice,openQuestion,savePractice,parseAnswers,uploadReferenceChunk,uploadReference,readImage,importReview,retiredReferences,archiveReference,conversation,requestTranslationModel,modelResult,acceptAppeal,undoAppeal} from '../../server/translation';
 import {AlignmentError} from '../../server/annotation-config';
 export const prerender=false;
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
@@ -22,6 +22,7 @@ export const POST:APIRoute=async({request})=>{try{
  const raw=await request.text();if(new TextEncoder().encode(raw).length>390000)return json({error:'本次内容过大。'},413);
  let b;try{b=JSON.parse(raw);}catch{throw new TranslationError('请求不是有效JSON。');}if(!b||typeof b!=='object'||Array.isArray(b))throw new TranslationError('请求格式不正确。');
  if(b.action==='open')return json({practice:await openQuestion(String(b.questionId))});
+ if(b.action==='parseAnswers')return json({answers:parseAnswers(b.answerInput)});
  if(b.action==='uploadReferenceChunk')return json(await uploadReferenceChunk(b));
  if(b.action==='archiveReference')return json(await archiveReference(b));
  if(['save','submit'].includes(b.action))return json({practice:await savePractice(b)});

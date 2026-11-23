@@ -5,7 +5,33 @@ export const questionById = new Map(translationQuestions.map(q=>[q.id,q]));
 export interface ReferenceImage {id:string;name:string;type:string;width?:number;height?:number;size?:number;archived?:boolean}
 export interface TranslationPractice {
  id:string;questionId:string;revision:number;status:'draft'|'submitted'|'reviewed';createdAt:string;updatedAt:string;submittedAt?:string;lastSubmittedReferences?:ReferenceImage[];retiredReferences?:ReferenceImage[];
- answers:string[];referenceText:string;references:ReferenceImage[];packet?:string;review?:{original:string;markdown:string;filename:string;importedAt:string;undoMarkdown?:string};
+ answers:string[];answerInput?:string;referenceText:string;references:ReferenceImage[];packet?:string;review?:{original:string;markdown:string;filename:string;importedAt:string;undoMarkdown?:string};
+}
+export const MAX_TRANSLATION_INPUT_LENGTH=21000;
+export function formatTranslationInput(answers:string[]):string {
+ return answers.some(answer=>answer.trim())?answers.map((answer,i)=>`${46+i}. ${answer}`).join('\n\n'):'';
+}
+export function parseTranslationInput(value:unknown):string[] {
+ if(typeof value!=='string'||value.length>MAX_TRANSLATION_INPUT_LENGTH)throw new Error('请输入五句译文，整段不超过21000字。');
+ const source=value.replace(/\r\n?/g,'\n'),markers=[...source.matchAll(/^[\t ]*(\d{2})[.．][\t ]*/gm)];
+ if(!markers.length)throw new Error('未识别到题号。请让五句分别从新的一行开始，以46.、47.、48.、49.、50.开头。');
+ if(source.slice(0,markers[0].index).trim())throw new Error('46.之前有未归属的文字，请删除说明文字，或将译文放到对应题号之后。');
+ const seen=new Set<number>();
+ for(const marker of markers){
+  const n=Number(marker[1]);
+  if(n<46||n>50)throw new Error(`识别到题号${n}，本题只接受46—50题。`);
+  if(seen.has(n))throw new Error(`第${n}题重复，请每个题号只保留一次。`);
+  seen.add(n);
+ }
+ const missing=[46,47,48,49,50].filter(n=>!seen.has(n));
+ if(missing.length)throw new Error(`缺少第${missing.join('、')}题，请补齐五个题号及译文。`);
+ if(markers.some((marker,i)=>Number(marker[1])!==46+i))throw new Error('题号顺序不正确，请按46.至50.的顺序排列。');
+ return markers.map((marker,i)=>{
+  const answer=source.slice(marker.index!+marker[0].length,markers[i+1]?.index??source.length).trim();
+  if(!answer)throw new Error(`第${46+i}题译文为空，请补充后重新解析。`);
+  if(answer.length>4000)throw new Error(`第${46+i}题译文超过4000字，请缩短后重新解析。`);
+  return answer;
+ });
 }
 export const practiceIdForQuestion=(questionId:string)=>'tr-'+questionId.replace('translation-','');
 export const REVIEW_TITLES=['总分与整体评价','逐句批阅','与参考答案的差异判定','语法理解与纠正','词汇与中文表达建议','完善后的完整译文'];
