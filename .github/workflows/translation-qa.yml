@@ -1,0 +1,44 @@
+name: Translation feature verification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/translation-qa.yml
+      - src/components/translation/**
+      - src/lib/translation*.ts
+      - src/server/translation*.ts
+      - src/pages/api/translation.ts
+      - src/data/translation-questions.json
+      - tests/translation*.mjs
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: node --test tests/translation.test.mjs
+      - name: Install isolated browser
+        run: |
+          npm install --prefix "$RUNNER_TEMP/translation-browser" --no-save playwright
+          "$RUNNER_TEMP/translation-browser/node_modules/.bin/playwright" install --with-deps chromium
+          ln -s "$RUNNER_TEMP/translation-browser/node_modules/playwright" node_modules/playwright
+      - name: Verify actual translation UI and original navigation
+        env:
+          TRANSLATION_QA_DIR: ${{ runner.temp }}/translation-evidence
+        run: node tests/translation-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: translation-qa-evidence
+          path: ${{ runner.temp }}/translation-evidence/
+          if-no-files-found: ignore
+          retention-days: 7
