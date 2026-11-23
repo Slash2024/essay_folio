@@ -35,6 +35,37 @@ jobs:
         env:
           TRANSLATION_QA_DIR: ${{ runner.temp }}/translation-evidence
         run: node tests/translation-browser.mjs
+      - name: Build verified Wix release
+        env:
+          WIX_CLIENT_ID: faf8e5aa-5dec-40eb-a4a3-17ca626abfcd
+          WIX_CLOUD_PROVIDER: KUBERNETES
+          WIX_CLIENT_INSTANCE_ID: set-at-release
+          WIX_CLIENT_PUBLIC_KEY: set-at-release
+          WIX_CLIENT_SECRET: set-at-release
+        run: node --input-type=module -e "import {build} from 'astro';await build({root:process.cwd()});process.exit(0);"
+      - name: Package verified source and build
+        run: |
+          python3 - <<'PY'
+          import pathlib, shutil, subprocess, os
+          root=pathlib.Path.cwd()
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'translation-release'
+          out.mkdir()
+          for name in subprocess.check_output(['git','ls-files','-z']).decode().split('\0'):
+              if not name: continue
+              assert not name.startswith('.env')
+              target=out/name
+              target.parent.mkdir(parents=True,exist_ok=True)
+              shutil.copy2(root/name,target)
+          for name in ['dist','.wix']:
+              shutil.copytree(root/name,out/name,ignore=shutil.ignore_patterns('.cache','.prerender'))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: translation-verified-release
+          path: ${{ runner.temp }}/translation-release/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         if: always()
         with:
