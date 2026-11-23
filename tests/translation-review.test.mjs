@@ -5,8 +5,8 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const dir=await mkdtemp(join(tmpdir(),'folio-sentence-review-'));
-await build({stdin:{contents:"export * from './src/lib/translation-review';export {translationQuestions,reviewScore} from './src/lib/translation';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'review.mjs')});
-const {parseTranslationReview,renderReviewFragments,applySentenceReviewChanges:applyChanges,translationQuestions,reviewScore}=await import(join(dir,'review.mjs'));
+await build({stdin:{contents:"export * from './src/lib/translation-review';export * from './src/lib/translation-corrections';export {translationQuestions,reviewScore} from './src/lib/translation';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'review.mjs')});
+const {parseTranslationReview,renderReviewFragments,applySentenceReviewChanges:applyChanges,translationQuestions,reviewScore,translationAnswerCorrections:corrections}=await import(join(dir,'review.mjs'));
 after(()=>rm(dir,{recursive:true,force:true}));
 const q=translationQuestions.find(q=>q.year===2020),numbers=[46,47,48,49,50],answers=['独有译词甲','独有译词乙','独有译词丙','独有译词丁','独有译词戊'];
 const applySentenceReviewChanges=(source,review,number,changes)=>applyChanges(source,review,number,changes,q,answers);
@@ -66,4 +66,44 @@ test('a bold grammar subheading retains the current question and a total-only ta
 test('a malformed Markdown replacement cannot absorb another question or the global explanation',()=>{
  const r=parseTranslationReview(md,q,answers),body=r.sentences[0].fragments.find(f=>f.section===3&&f.source.includes('语法讲解'));
  assert.throws(()=>applySentenceReviewChanges(md,r,46,[{id:body.id,markdown:'```text\n未闭合的代码段'}]),/全篇|其他题目/);
+});
+
+const differenceTable=(rows,header='我的表达|参考表达|判定|原因与评分影响')=>`## 3. 与参考答案的差异判定\n\n### 第46题\n\n|${header}|\n|${header.split('|').map(()=>'---').join('|')}|\n${rows}`;
+const edits=(answer,markdown)=>corrections(answer,parseTranslationReview(markdown,q,[answer,...answers.slice(1)]).sentences[0]);
+test('inline corrections follow required verdicts and keep correct, acceptable and optional expressions intact',()=>{
+ const answer='教义和思考方法，甲和乙。';
+ const markdown=differenceTable('|教义|教会|**需修改，词义错误。**|建筑与组织不同|\n|思考方法|思维模式|正确|不要修改|\n|甲|丙|可接受，建议优化|需修改的只是其他表达|\n|乙|丁|可接受|不够准确时可优化|');
+ assert.deepEqual(edits(answer,markdown),[{start:0,end:2,replacement:'教会'}]);
+ assert.equal(answer,'教义和思考方法，甲和乙。');
+ assert.deepEqual(edits('教义',differenceTable('|教义|教会|无需修改|表达准确|')),[]);
+ assert.deepEqual(edits('教义',differenceTable('|教义|教会|不能仅因措辞不同判为错误|无需修改|')),[]);
+ assert.deepEqual(edits('拉丁谚语',differenceTable('|拉丁谚语|拉丁语短语|不够准确，建议修改|原文只表示短语|')),[{start:0,end:4,replacement:'拉丁语短语'}]);
+ assert.deepEqual(edits('带到世界',differenceTable('|带到世界|融入大千世界|需要修改|“融入现实世界”即可。')),[{start:0,end:4,replacement:'融入现实世界'}]);
+});
+test('legacy three-column differences prefer explicit corrected wording and fill omissions using quoted context',()=>{
+ const markdown=differenceTable('|**文化领域**|知识领域|**不够准确，需要调整。** 宜改为“思想领域”。|\n|无法忽视|再也无法忽视|存在轻微漏译，需要补足。|','你的表达|参考答案的表达|判定及原因');
+ const answer='文化领域无法忽视';
+ assert.deepEqual(edits(answer,markdown),[{start:0,end:4,replacement:'思想领域'},{start:4,end:8,replacement:'再也无法忽视'}]);
+});
+test('abbreviated legacy expressions retain wildcard text and allow independent corrections within it',()=>{
+ const markdown=differenceTable('|引领人们向……领域|进而通向……领域|需修改表达|可改成“引领人们走向……”。|\n|文化领域|知识领域|需要调整|宜改为“知识领域”。|\n|将……行动称为……|概括了……行为|需修改|谓语不准确|');
+ const answer='引领人们向新的文化领域，将这些行动称为某事。';
+ const result=edits(answer,markdown);
+ assert.deepEqual(result.map(e=>[answer.slice(e.start,e.end),e.replacement]),[['引领人们向','引领人们走向'],['文化领域','知识领域'],['将','概括了'],['行动称为','行为']]);
+ let updated=answer;for(const e of [...result].reverse())updated=updated.slice(0,e.start)+e.replacement+updated.slice(e.end);
+ assert(updated.includes('新的'));assert(updated.includes('这些'));assert(updated.includes('某事'));
+});
+test('overlapping or conflicting corrections never duplicate text, and unrelated question verdicts stay isolated',()=>{
+ const markdown=differenceTable('|甲乙|丙丁|需修改|必须纠正|\n|甲|戊|需修改|必须纠正|\n|甲乙|丙丁|需修改|重复条目|')+'\n\n### 第47题\n\n|我的表达|参考表达|判定|\n|---|---|---|\n|甲乙|错误题目|需修改|';
+ assert.deepEqual(edits('甲乙',markdown),[{start:0,end:2,replacement:'丙丁'}]);
+ assert.deepEqual(edits('甲乙',differenceTable('|甲乙|丙|需修改|明确纠正|\n|甲乙|丁|需修改|冲突纠正|')),[]);
+ assert.deepEqual(edits('不存在的表达',markdown),[]);
+});
+test('escaped pipes, multiline text and review reversals preserve the original answer and require no model output',()=>{
+ const answer='甲|乙\n教义。';
+ const markdown=differenceTable('|甲\\|乙|甲和乙|需修改|标点不当|\n|教义|教会|需修改|词义不当|');
+ assert.deepEqual(edits(answer,markdown),[{start:0,end:3,replacement:'甲和乙'},{start:4,end:6,replacement:'教会'}]);
+ assert.deepEqual(edits(answer,markdown.replaceAll('需修改','不同但正确')),[]);
+ assert.deepEqual(edits(answer,markdown),[{start:0,end:3,replacement:'甲和乙'},{start:4,end:6,replacement:'教会'}]);
+ assert.deepEqual(edits('甲',differenceTable('|甲|—|需修改|未提供可用纠正|')),[]);
 });

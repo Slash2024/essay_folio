@@ -20,3 +20,4 @@
 @media(max-width:850px){.tr-review-overview{flex-direction:column;gap:12px}.tr-overall-comment{border-left:0;border-top:1px solid #d7e8f2;padding:12px 0 0;width:100%}.tr-sentence-review-grid{grid-template-columns:1fr;gap:22px}.tr-question-column{position:static}.tr-question-list{max-height:400px;overscroll-behavior-y:contain}.tr-current-question-heading h2{font-size:18px}.tr-sentence-review-body .markdown table{display:block;table-layout:auto;overflow:auto}.tr-current-question-heading{scroll-margin-top:12px}.tr-sentence-group{padding:18px 0}}
 
 .tr-copy-translation{margin:10px 0 0 auto;display:flex;font-size:13px}
+.tr-question-answer .tr-answer-deletion{color:#a22f3c;text-decoration:line-through;text-decoration-thickness:1px}.tr-question-answer .tr-answer-insertion{color:#12658e;text-decoration:none;font-weight:600;margin-left:.2em}
