@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-23",
+  "feature": "Single numbered translation input with backend parsing and explicit sentence confirmation",
+  "githubSourceCommit": "f6ed5d75f5681b3093fc6299ee7169b5616b8cc9",
+  "wixDeployment": "1269eb2a-f6e5-4be5-a5f0-19a22ac5421b",
+  "wixRevision": "00010001afec0f53d204d5544df33b5a2e5b71a5",
+  "liveUrl": "https://headless-dvpmxjtmvvv-y97m7z9bm2-140a.wix-site-host.com",
+  "behavior": [
+    "One textarea accepts all five translations with line-leading labels 46., 47., 48., 49., and 50.; sentence-internal punctuation and wrapped lines are retained.",
+    "A session-gated backend action parses the input, rejects missing/repeated/unknown/out-of-order labels and empty or overlong answers, and returns five preview segments without storing data or calling a model.",
+    "Submission requires explicit confirmation and re-parses the raw input to verify that it still matches the preview.",
+    "Incomplete raw input can be saved as a draft. Existing five-answer records are formatted as numbered input on display without a data migration.",
+    "Sidebar collapse, original-image handling and one-current-record-per-year behavior are retained."
+  ],
+  "verification": {
+    "typecheck": "passed",
+    "apiTests": {
+      "passed": 12,
+      "failed": 0
+    },
+    "productionBuild": "passed",
+    "browser": {
+      "run": "https://github.com/Slash2024/essay_folio/actions/runs/45137332170",
+      "sourceCommit": "f6ed5d75f5681b3093fc6299ee7169b5616b8cc9",
+      "checks": 12,
+      "unexpectedErrors": 0,
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "dataMode": "isolated synthetic records and model"
+    },
+    "production": {
+      "pageStatus": 200,
+      "app": "FolioApp.TKFenzcK.js",
+      "translation": "TranslationPanel.C5H8Ebst.js",
+      "combinedInput": true,
+      "backendParsing": true,
+      "explicitConfirmation": true,
+      "returnToEdit": true,
+      "separateInputsRemoved": true,
+      "navigationCollapseRetained": true,
+      "existing2020Record": {
+        "status": "reviewed",
+        "revision": 2,
+        "referenceImages": 2
+      },
+      "productionPracticeWrites": 0
+    }
+  }
+}
