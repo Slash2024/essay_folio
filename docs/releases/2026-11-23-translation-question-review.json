@@ -1,0 +1,62 @@
+{
+  "date": "2026-11-23",
+  "feature": "Sentence-centric translation review with five vertically stacked question cards",
+  "githubSourceCommit": "a8c88c2623b1854145a6edb6b1fc6f2a41e1c41d",
+  "wixDeployment": "3cb34cfd-c5ae-48a2-8d7e-4bc8cadad2a0",
+  "wixRevision": "09b6307a9bea335858a711b86bbc6a9998d30835",
+  "liveUrl": "https://headless-dvpmxjtmvvv-y97m7z9bm2-140a.wix-site-host.com",
+  "behavior": [
+    "Five full English-and-answer cards for questions 46–50 replace the six review-section navigation tabs.",
+    "The selected question presents score/review, reference differences, grammar, vocabulary and complete corrected translation in one continuous panel.",
+    "A compact overall score and summary remain above the workspace; global or ambiguous material remains accessible without dropping original Markdown.",
+    "Existing bold numbered headings, mixed score/difference/vocabulary tables and final translations are parsed locally without model calls or data migration.",
+    "Appeals are scoped to the selected question, previewed before adoption and reversible; exact source offsets, score preservation and reparsing checks prevent changes to other questions or global content.",
+    "Raw Markdown, copying, downloading, numbered bulk input and explicit sentence confirmation remain available.",
+    "Original eight writing navigation entries, writing theme, translation sidebar collapse and current practice/reference records are preserved."
+  ],
+  "verification": {
+    "typecheck": "passed",
+    "focusedTests": {
+      "passed": 22,
+      "failed": 0
+    },
+    "productionBuild": "passed",
+    "browser": {
+      "run": "https://github.com/Slash2024/essay_folio/actions/runs/45142545721",
+      "sourceCommit": "a8c88c2623b1854145a6edb6b1fc6f2a41e1c41d",
+      "checks": 13,
+      "unexpectedErrors": 0,
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "dataMode": "isolated synthetic records and model"
+    },
+    "legacyReview": "Read-only validation of the existing legacy 2020 Markdown mapped all five categories to every question; private review text was not committed.",
+    "production": {
+      "pageStatus": 200,
+      "app": "FolioApp.dhlhkOaL.js",
+      "translation": "TranslationPanel.B5Do2iil.js",
+      "perQuestionReview": true,
+      "questionSelector": true,
+      "completeReview": true,
+      "sentenceAppeal": true,
+      "scopedDialog": true,
+      "oldSectionNavRemoved": true,
+      "oldSectionAppealRemoved": true,
+      "existing2020Record": {
+        "status": "reviewed",
+        "revision": 4,
+        "referenceImages": 2
+      },
+      "productionPracticeWrites": 0,
+      "previewRefreshed": true
+    },
+    "fullSuite": {
+      "run": "https://github.com/Slash2024/essay_folio/actions/runs/45142545686",
+      "status": "one pre-existing unrelated failure",
+      "test": "tests/archive-consistency.test.mjs:127 analytics returns bound reviewed texts and rewrite links without writing data",
+      "note": "The translation changes do not modify the writing analytics module. Focused translation checks, typecheck, browser checks and build passed."
+    }
+  }
+}
