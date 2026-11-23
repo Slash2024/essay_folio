@@ -15,7 +15,7 @@ export async function removeRow(id){db.delete(id);}
 `;
 await build({stdin:{contents:"export {GET,POST} from './src/pages/api/translation';export {db} from './src/server/translation-store';export {calls} from './src/server/annotation-provider';export {reviewSections,reviewScore,translationQuestions,replaceReviewSection} from './src/lib/translation';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'api.mjs'),plugins:[{name:'isolated-translation',setup(b){
  b.onResolve({filter:/translation-store$/},()=>({path:'store',namespace:'test'}));b.onResolve({filter:/server\/session$/},()=>({path:'session',namespace:'test'}));b.onResolve({filter:/annotation-config$/},()=>({path:'config',namespace:'test'}));b.onResolve({filter:/annotation-provider$/},()=>({path:'model',namespace:'test'}));
- b.onLoad({filter:/.*/,namespace:'test'},({path})=>({loader:'js',contents:path==='store'?syntheticStore:path==='session'?`export const authorized=async r=>r.headers.get('x-test-auth')!=='no';export const sameOrigin=r=>r.headers.get('origin')!=='https://evil.invalid';`:path==='config'?`export class AlignmentError extends Error{constructor(m,status=400){super(m);this.status=status;}}export const getAnnotationConfig=async()=>({enabled:true,apiKey:'synthetic-secret',model:'synthetic-model'});`:`export const calls=[];export async function requestModelJSON(config,prompt,body){calls.push(body);return {reply:'这是测试解答，不更改正式批阅。',replacement:body.mode==='appeal'?body.target+'\\n\\n补充：这一表达可接受，不扣分。':''};}`}));
+ b.onLoad({filter:/.*/,namespace:'test'},({path})=>({loader:'js',contents:path==='store'?syntheticStore:path==='session'?`export const authorized=async r=>r.headers.get('x-test-auth')!=='no';export const sameOrigin=r=>r.headers.get('origin')!=='https://evil.invalid';`:path==='config'?`export class AlignmentError extends Error{constructor(m,status=400){super(m);this.status=status;}}export const getAnnotationConfig=async()=>({enabled:true,apiKey:'synthetic-secret',model:'synthetic-model'});`:`export const calls=[];export async function requestModelJSON(config,prompt,body){calls.push(body);if(body.sentenceNumber!==undefined){const f=body.editableFragments.find(f=>!f.tableColumns&&!/^(?:#{1,6} |[*]{2})/.test(f.markdown.trim()));return {reply:'这是测试解答，不更改正式批阅。',changes:body.mode==='appeal'&&f?[{id:f.id,markdown:f.markdown.trim()+'\\n\\n补充：这一表达可接受，不扣分。'}]:[]};}return {reply:'这是测试解答，不更改正式批阅。',replacement:body.mode==='appeal'?body.target+'\\n\\n补充：这一表达可接受，不扣分。':''};}`}));
 }}]});
 const m=await import(join(dir,'api.mjs'));
 after(()=>rm(dir,{recursive:true,force:true}));beforeEach(()=>{m.db.clear();m.calls.length=0;});
@@ -140,4 +140,22 @@ test('raw drafts survive incomplete numbering and submission requires an unchang
  r=await call('submit',{...input,baseRevision:1,answerInput:input.answerInput.replace('译文46','未重新确认的新译文')});assert.equal(r.status,409);
  assert.equal(JSON.stringify([...m.db]),before);
  r=await call('submit',{...input,baseRevision:1});assert.equal(r.status,200);assert.equal(r.practice.answerInput,input.answerInput);assert.deepEqual(r.practice.answers,input.answers);
+});
+
+test('sentence-scoped model context and explicit appeal adoption keep other questions and global review unchanged',async()=>{
+ const p=await reviewed();
+ const r=await call('ask',{id,requestId,sentenceNumber:46,mode:'appeal',message:'请复核本题。',includeContext:false});assert.equal(r.status,200,r.error);
+ assert.equal(m.calls[0].sentenceNumber,46);assert.equal(m.calls[0].sentences.length,1);assert.equal(m.calls[0].answers.length,1);assert.equal(m.calls[0].review,undefined);assert.equal(m.calls[0].passage,undefined);
+ assert(r.result.changes.length>0);assert(r.result.replacement.includes('补充'));assert.equal(r.result.sentenceNumber,46);
+ const before=await m.GET({request:new Request('https://test.invalid/api/translation?id='+id)});assert.equal((await before.json()).practice.review.markdown,md);
+ assert.equal((await call('ask',{id,requestId,sentenceNumber:47,mode:'appeal',message:'请复核本题。',includeContext:false})).status,409);
+ const accepted=await call('acceptAppeal',{id,requestId});assert.equal(accepted.status,200,accepted.error);assert.equal(accepted.practice.review.original,md);assert(accepted.practice.review.markdown.includes('补充'));
+ for(const marker of ['不同但正确，不扣分。','先讲知识点，再给例句。','保留正确表达。','46. 完整译文。'])assert(accepted.practice.review.markdown.includes(marker));
+ const undone=await call('undoAppeal',{id,baseRevision:accepted.practice.revision});assert.equal(undone.status,200);assert.equal(undone.practice.review.markdown,md);
+ assert.equal((await call('acceptAppeal',{id,requestId})).status,409);
+});
+test('sentence-scoped chat stays read-only and rejects invalid question numbers',async()=>{
+ const p=await reviewed();const r=await call('ask',{id,requestId,sentenceNumber:46,mode:'chat',message:'讲解本题。',includeContext:true});assert.equal(r.status,200,r.error);assert.equal(r.result.replacement,'');assert.deepEqual(r.result.changes,[]);assert(m.calls[0].passage);
+ assert.equal((await call('ask',{id,requestId:'trm-00000000-0000-4000-8000-000000000002',sentenceNumber:51,mode:'chat',message:'讲解。'})).status,400);
+ const latest=await m.GET({request:new Request('https://test.invalid/api/translation?id='+id)});assert.equal((await latest.json()).practice.revision,p.revision);
 });

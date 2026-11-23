@@ -1,4 +1,5 @@
 import questionData from '../data/translation-questions.json';
+import {extractTranslationTotal} from './translation-review';
 export interface TranslationQuestion {id:string;year:number;exam:string;title:string;directions:string;paragraphs:string[];sentences:{number:number;text:string}[];sources:{label:string;url:string}[];checkedAt:string}
 export const translationQuestions = questionData as TranslationQuestion[];
 export const questionById = new Map(translationQuestions.map(q=>[q.id,q]));
@@ -45,9 +46,9 @@ export const REVIEW_PROMPT=`你是一位严格、专业的考研英语（一）�
 ## 3. 与参考答案的差异判定
 逐题逐项对比考生译文与用户提供的参考答案。表格列为：题号｜我的表达｜参考表达｜判定｜原因与评分影响。判定明确区分“不同但正确”“可接受，建议优化”“确实错误或漏译”。着重解答看似不同究竟对不对；注明哪些不扣分。参考答案有疑点时以英文原意和上下文为准。
 ## 4. 语法理解与纠正
-每个问题依次：先讲知识点→给独立、简短例句及中文译文→回到本题定位误解→纠正。不要只报术语。
+按题号使用“### 第46题”至“### 第50题”分组。每个问题依次：先讲知识点→给独立、简短例句及中文译文→回到本题定位误解→纠正。不要只报术语。
 ## 5. 词汇与中文表达建议
-按题号说明词义、搭配、语气和中文表达，区分必要纠正与可选润色。
+按题号使用“### 第46题”至“### 第50题”分组，说明词义、搭配、语气和中文表达，区分必要纠正与可选润色。
 ## 6. 完善后的完整译文
 分别列出46—50的完整修订译文。`;
 export function translationPacket(q:TranslationQuestion,p:Pick<TranslationPractice,'answers'|'referenceText'|'references'>){
@@ -62,9 +63,7 @@ export function reviewSections(markdown:string):ReviewSection[]{
  return REVIEW_TITLES.map((title,index)=>{const h=headings.find(x=>x.index===index);if(!h)return {index,title,body:'',start:-1,end:-1,bodyStart:-1};const next=headings.find(x=>x.start>h.start);const end=next?.start??markdown.length;return {index,title,body:markdown.slice(h.bodyStart,end).trim(),start:h.start,end,bodyStart:h.bodyStart};});
 }
 export function reviewScore(markdown:string):number|null{
- const body=reviewSections(markdown)[0].body;if(!body)return null;
- const m=body.match(/(?:总分|得分|评分|预估分数)\s*[：:]?\s*\*{0,2}(10(?:\.0)?|[0-9](?:\.[05])?)\s*(?:\/\s*10|分)/);
- if(!m)return null;const n=Number(m[1]);return n>=0&&n<=10?n:null;
+ return extractTranslationTotal(markdown);
 }
 export function replaceReviewSection(markdown:string,index:number,body:string){const s=reviewSections(markdown)[index];if(!s||s.start<0)throw new Error('该部分未被识别，请先重新导入符合结构的批阅。');return markdown.slice(0,s.bodyStart)+'\n\n'+body.trim()+'\n\n'+markdown.slice(s.end);}
 export function validScore(value:unknown):value is number{return typeof value==='number'&&Number.isFinite(value)&&value>=0&&value<=10&&Number.isInteger(value*2);}
