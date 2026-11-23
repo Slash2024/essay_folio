@@ -14,8 +14,8 @@ const TemplateTraining = lazy(() => import('./TemplateTraining'));
 const ExpressionQuiz = lazy(() => import('./ExpressionQuiz'));
 const ExperienceSurvey = lazy(() => import('./ExperienceSurvey'));
 const TOOL_ICONS = { short: NotebookPen, materials: BookOpen, transfer: ArrowRightLeft, recall: Layers, template: BookOpenCheck, quiz: ClipboardCheck };
-export default function LaboratoryPanel({ onOpenRecord, initialView }: { initialView?: LabRoute['view']; onOpenRecord: (writingId: string, reviewId: string, noteId: string) => void }) {
-  const [route, setRoute] = useState<LabRoute>({ view: initialView ?? 'home' });
+export default function LaboratoryPanel({ onOpenRecord, initialView, initialSessionId }: { initialSessionId?: string; initialView?: LabRoute['view']; onOpenRecord: (writingId: string, reviewId: string, noteId: string) => void }) {
+  const [route, setRoute] = useState<LabRoute>(initialView==='quiz'?{view:'quiz',sessionId:initialSessionId}:{view:initialView??'home'});
   const [trail, setTrail] = useState<LabRoute[]>([]);
   const [queue, setQueue] = useState<LabQueueItem[]>(), [queueError, setQueueError] = useState('');
   const [retry, setRetry] = useState(0), [expanded, setExpanded] = useState(false);
