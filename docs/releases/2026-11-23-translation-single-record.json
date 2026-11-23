@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-23",
+  "feature": "Translation original uploads, single yearly record and collapsible navigation",
+  "githubSourceCommit": "7b9eba4e91bda046bff23243c48ab926381e932c",
+  "wixDeployment": "f513a5da-4da8-4dd6-886d-2760517b02df",
+  "wixRevision": "10112801744b508cac2f2a07687b3d88c7bd1926",
+  "liveUrl": "https://headless-dvpmxjtmvvv-y97m7z9bm2-140a.wix-site-host.com",
+  "supersedes": "2026-11-23-translation-workspace.json",
+  "behavior": [
+    "New uploads retain every original byte; no image-content, dimension or clarity inspection, resizing or re-encoding.",
+    "Only the most recent submission across translation practices retains original images. Older submitted images are compacted; failed compaction retries when a submitted practice is opened.",
+    "Year selection resumes one current practice. Rewriting overwrites its translation and review; new-practice and history UI/API paths are removed.",
+    "The toolbar contains collapse/expand navigation. The original eight navigation items and writing theme are preserved."
+  ],
+  "verification": {
+    "localTypecheck": "passed",
+    "localTranslationApiTests": {
+      "passed": 9,
+      "failed": 0
+    },
+    "localProductionBuild": "passed",
+    "browserQa": {
+      "run": "https://github.com/Slash2024/essay_folio/actions/runs/45124208023",
+      "sourceCommit": "7b9eba4e91bda046bff23243c48ab926381e932c",
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "checks": 10,
+      "errors": 0,
+      "mode": "isolated synthetic store and model"
+    },
+    "productionAssets": {
+      "app": "FolioApp.VpjGMSrw.js",
+      "translation": "TranslationPanel.BO1UKVZU.js",
+      "newAndHistoryRemoved": true,
+      "collapsePresent": true,
+      "originalUploadPresent": true,
+      "singleRecordPresent": true
+    },
+    "productionMigration": {
+      "year": 2020,
+      "supersededVersionsRemoved": 1,
+      "currentVersions": 1,
+      "referenceImages": 2,
+      "currentTranslationReviewAndReferencesUnchanged": true
+    }
+  },
+  "boundaries": [
+    "Previously compressed legacy uploads cannot be reconstructed as originals; new uploads are preserved byte-for-byte.",
+    "Production model billing was not exercised.",
+    "Existing 2020 practice was retained with its current reviewed body and both images; no test translations were written to production."
+  ]
+}
