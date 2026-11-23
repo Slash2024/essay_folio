@@ -56,9 +56,9 @@ try{
  assert.equal([...m.translationDB.values()].filter(row=>row.kind==='practiceVersion').length,1);
  const record=JSON.parse([...m.translationDB.values()].find(row=>row.kind==='practiceVersion').payload);
  assert.equal(record.id,id);assert.equal(record.review,undefined);assert.equal(record.answers[0],'这是重写后覆盖保存的唯一译文。');
- await page.getByRole('combobox',{name:'翻译真题年份'}).selectOption('translation-2025');await page.getByRole('textbox',{name:'第46题中文译文',exact:true}).waitFor();assert.equal(await page.getByRole('textbox',{name:'第46题中文译文',exact:true}).inputValue(),'');
+ await page.getByRole('combobox',{name:'翻译真题年份'}).selectOption('translation-2025');await page.locator('.tr-context strong').filter({hasText:'2025 年英语一'}).waitFor();await page.locator('.translation-workspace[aria-busy=false]').waitFor();assert.equal(await page.getByRole('textbox',{name:'第46题中文译文',exact:true}).inputValue(),'');
  await page.getByRole('combobox',{name:'翻译真题年份'}).selectOption('translation-2026');
- await page.getByRole('textbox',{name:'第46题中文译文',exact:true}).waitFor();assert.equal(await page.getByRole('textbox',{name:'第46题中文译文',exact:true}).inputValue(),'这是重写后覆盖保存的唯一译文。');
+ await page.locator('.tr-context strong').filter({hasText:'2026 年英语一'}).waitFor();await page.locator('.translation-workspace[aria-busy=false]').waitFor();assert.equal(await page.getByRole('textbox',{name:'第46题中文译文',exact:true}).inputValue(),'这是重写后覆盖保存的唯一译文。');
  checks.push('rewrite replaces the same yearly record, clears obsolete review/chat, compacts replaced originals, and year selection resumes the sole record');
 
  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>window.scrollTo(0,0));assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:join(out,'translation-mobile.png'),fullPage:false});checks.push('390px translation page retains content without horizontal overflow');
