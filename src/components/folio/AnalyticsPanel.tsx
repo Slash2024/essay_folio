@@ -17,14 +17,21 @@ export default function AnalyticsPanel({questions,onOpen}:{questions:Question[];
  async function load(){setLoading(true);setError('');try{const d=await api('analytics');setReviews(d.reviews);setWritings(d.writings);setTexts(d.texts||{});setLibrary(d.library||null);setCurrentTexts(d.currentTexts||{});}catch(e){setError((e as Error).message);}finally{setLoading(false);}}
  useEffect(()=>{load();},[]);const a=useMemo(()=>analyzeGroup(reviews,questions,key),[reviews,questions,key]);
  const insights=useMemo(()=>buildInsights(reviews,questions,key,writings,texts),[reviews,questions,key,writings,texts]);
+ const bandPeak=Math.max(1,...a.bands.map(b=>b.count));
  return <div className="analytics-page"><section className="panel analytics-intro"><div><h2>批阅统计</h2><p className="muted">已保存 {count} 稿 · 已批阅 {latestReviews(reviews).length} 稿 · 共 {reviews.length} 份批阅。每稿仅使用最新批阅统计。</p></div><button className="text-button" disabled={loading} onClick={load}><RefreshCw size={16}/>刷新数据</button></section>
  <div className="segmented stats-tabs" aria-label="统计卷别与题型">{templateKeys.map(k=><button key={k} className={key===k?'selected':''} onClick={()=>setKey(k)}>{templateName(k)}</button>)}</div>{error&&<p className="error" role="alert">{error}</p>}
  {loading?<div className="panel empty-state">正在读取批阅统计…</div>:<><div className="stats-cards"><article className="panel"><span>已批阅稿件</span><strong>{a.rows.length}<small> 稿</small></strong></article><article className="panel"><span>原始作文平均估分</span><strong>{a.average===null?'not given':a.average.toFixed(1)}<small> / {a.max}</small></strong></article><article className="panel"><span>纳入均分的有效评分</span><strong>{a.scored.length}<small> / {a.rows.length}</small></strong></article></div>
  {key==='englishTwoLarge'&&<p className="practice-standard-note">{ENGLISH_TWO_PRACTICE_NOTE} 历史 15 分制批阅保留原始分数，不换算、不计入当前均分。</p>}
  <section className="panel stats-section"><h2>评分分布</h2>
  <p className="caption">中位数 {a.median??'—'} · 最低 {a.minimum??'—'} · 最高 {a.maximum??'—'}</p>
- <div className="stats-table-wrap"><table className="stats-table"><thead><tr><th>分数范围</th><th>稿件数</th></tr></thead>
- <tbody>{a.bands.map((band,i)=><tr key={band.low}><td>{band.low}–{i===a.bands.length-1?band.high:`＜${band.high}`}</td><td>{band.count}</td></tr>)}</tbody></table></div>
+ <svg className="score-chart" viewBox="0 0 700 210" role="img" aria-label={`${templateName(key)}评分分布：${a.bands.map((b,i)=>`${b.low}至${i===a.bands.length-1?'':'不足'}${b.high}分，${b.count}稿`).join('；')}`}>
+ <text x="40" y="20" fontSize="12" fill="#64748b">稿件数</text><line x1="40" y1="165" x2="660" y2="165" stroke="#dfe7ef"/>
+ {a.bands.map((band,i)=>{const x=55+i*100,h=band.count/bandPeak*115;return <g key={band.low}>
+ <rect x={x} y={165-h} width="80" height={h} fill="#087c77"/>
+ <text x={x+40} y={155-h} textAnchor="middle" fontSize="14" fill="#075e5b">{band.count}</text>
+ <text x={x+40} y="187" textAnchor="middle" fontSize="12" fill="#64748b">{band.low}–{i===a.bands.length-1?band.high:`＜${band.high}`}</text>
+ </g>;})}<text x="660" y="207" textAnchor="end" fontSize="11" fill="#64748b">分数区间</text>
+ </svg>
  </section>
  <TemplateErrorReview key={key} reviews={reviews} questions={questions} templateKey={key} library={library} texts={texts} currentTexts={currentTexts} onOpen={onOpen}/>
  <section className="panel stats-section"><h2>问题分布</h2>
