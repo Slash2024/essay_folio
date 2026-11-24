@@ -124,7 +124,7 @@ test('malformed JSON and non-object bodies are client errors', async () => {
   }
 });
 
-test('analytics returns bound reviewed texts and rewrite links without writing data',async()=>{
+test('analytics keeps bound reviewed texts separate from current drafts and preserves rewrite links without writing data',async()=>{
  const seed=(id,kind,data)=>db.set(id,{_id:id,kind,writingId:data.writingId||'',payload:JSON.stringify(data)});
  seed('w1','writing',{id:'w1',questionId:'2024-large',status:'reviewed',createdAt:'2026-01-01',parentId:'w0',revision:2,text:'CURRENT UNREVIEWED TEXT'});
  seed('v1','revision',{id:'v1',writingId:'w1',text:'BOUND REVIEWED TEXT'});
@@ -136,7 +136,11 @@ test('analytics returns bound reviewed texts and rewrite links without writing d
  const before=JSON.stringify([...db]);const result=await call('analytics');
  assert.equal(result.status,200);assert.equal(result.writings[0].parentId,'w0');
  assert.deepEqual(result.texts,{r1:'BOUND REVIEWED TEXT'});assert.equal(result.reviews.length,3);
- assert(!JSON.stringify(result).includes('CURRENT UNREVIEWED TEXT'));assert(!JSON.stringify(result).includes('UNRELATED TEXT'));
+ // Template-error review also needs the current draft to exclude corrections
+ // already applied since review. It must never replace the bound review text.
+ assert.deepEqual(result.currentTexts,{w1:'CURRENT UNREVIEWED TEXT'});
+ assert(!JSON.stringify({writings:result.writings,reviews:result.reviews,texts:result.texts}).includes('CURRENT UNREVIEWED TEXT'));
+ assert(!JSON.stringify(result).includes('UNRELATED TEXT'));
  assert.equal(JSON.stringify([...db]),before);
 });
 
