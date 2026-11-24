@@ -20,12 +20,12 @@ export const POST:APIRoute=async({request})=>{
    const requestId=identifier(body.requestId);
    return body.stream===true?adviceStream(progress=>repairSavedAdviceCues(requestId,progress)):json(await repairSavedAdviceCues(requestId));
   }
-  const id=identifier(body.questionId);
-  if(body.action==='read')return json(await adviceView(id,body.taskId?identifier(body.taskId):undefined));
+  const id=identifier(body.questionId),writingId=body.writingId!==undefined?identifier(body.writingId):undefined;
+  if(body.action==='read')return json(await adviceView(id,body.taskId?identifier(body.taskId):undefined,writingId));
   const requestId=identifier(body.requestId);
-  if(body.stream===true&&(body.action==='prepare'||body.action==='generate'))return adviceStream(progress=>body.action==='prepare'?prepareAdviceContext(id,requestId,body.refresh===true,progress):generateExpressionAdvice(id,requestId,body.regenerate===true,progress));
-  if(body.action==='prepare')return json(await prepareAdviceContext(id,requestId,body.refresh===true));
-  if(body.action==='generate')return json(await generateExpressionAdvice(id,requestId,body.regenerate===true));
+  if(body.stream===true&&(body.action==='prepare'||body.action==='generate'))return adviceStream(progress=>body.action==='prepare'?prepareAdviceContext(id,requestId,body.refresh===true,progress,writingId):generateExpressionAdvice(id,requestId,body.regenerate===true,progress,writingId));
+  if(body.action==='prepare')return json(await prepareAdviceContext(id,requestId,body.refresh===true,undefined,writingId));
+  if(body.action==='generate')return json(await generateExpressionAdvice(id,requestId,body.regenerate===true,undefined,writingId));
   return json({error:'未知操作'},400);
  }catch(e){return json({error:e instanceof Error?e.message:'生成暂不可用，请手动重试'},e instanceof AlignmentError?e.status:502);}
 };

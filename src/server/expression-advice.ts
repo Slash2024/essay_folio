@@ -1,3 +1,4 @@
+import {comparisonWriting,collectAdviceWritingUsage} from '../lib/expression-advice-usage';
 import {CUE_GUIDANCE} from './expression-advice-cue-rules';
 import questionsJSON from '../data/questions.json';
 import {practiceQuestion,reviewIsOutdated,type Question,type Writing,type Review} from '../lib/folio';
@@ -34,7 +35,7 @@ async function rows(kind:string,questionId:string) {
   const result:Row[]=[];for(let offset=0;;offset+=100){const page=await list(kind,{questionId,offset,limit:100});result.push(...page.rows);if(page.rows.length<100)break;}return result;
 }
 async function eligible(id:string) {
-  const writings=(await rows('writing',id)).map(r=>decode<Writing>(r)).filter(w=>(w.status==='submitted'||w.status==='reviewed')&&w.text.trim());
+  const writings=(await rows('writing',id)).map(r=>decode<Writing>(r)).filter(w=>w.questionId===id&&(w.status==='submitted'||w.status==='reviewed')&&w.text.trim());
   if(!writings.length)throw new AlignmentError('请先为这道题提交一篇作文，再生成表达调用卡',403);
   return writings;
 }
@@ -59,8 +60,10 @@ export async function adviceIndex() {
   for(let offset=0;;offset+=100){const p=await list('writing',{offset,limit:100});for(const row of p.rows){const w=decode<Writing>(row);if((w.status==='submitted'||w.status==='reviewed')&&w.text.trim()&&questionMap.has(w.questionId))seen.add(w.questionId);}if(p.rows.length<100)break;}
   return {questionIds:[...seen]};
 }
-export async function adviceView(id:string,taskId?:string):Promise<AdviceView> {
-  const q=question(id);await eligible(id);
+export async function adviceView(id:string,taskId?:string,writingId?:string):Promise<AdviceView> {
+  const q=question(id),writings=await eligible(id);
+  const writing=comparisonWriting(writings,writingId);
+  if(!writing)throw new AlignmentError('对照稿件不存在、未提交或不属于这道题，请重新打开调用卡',404);
   const [contexts,runs,c,fp]=await Promise.all([tasks(CONTEXT,id),tasks(RUN,id),catalog(),questionFingerprint(q)]);
   const matching=contexts.find(t=>t.status==='ready'&&t.context?.questionFingerprint===fp)?.context;
   const context=matching||contexts.find(t=>t.status==='ready'&&t.context)?.context||null;
@@ -76,7 +79,7 @@ export async function adviceView(id:string,taskId?:string):Promise<AdviceView> {
   }
   const lastContext=contexts.find(t=>t.fingerprint===fp),lastRun=runs[0];
   const last=taskId?[...contexts,...runs].find(t=>t.id===taskId):newest([lastContext,lastRun].filter((t):t is AdviceTask=>!!t))[0];
-  return {context:context?{...context,evidence:undefined,sourceFingerprints:undefined}:null,result,task:publicTask(last),stale:!!result&&(!current||recordsChanged),contextStale:!!context&&(context.questionFingerprint!==fp||recordsChanged),candidateCount:c.entries.length};
+  return {context:context?{...context,evidence:undefined,sourceFingerprints:undefined}:null,result,task:publicTask(last),stale:!!result&&(!current||recordsChanged),contextStale:!!context&&(context.questionFingerprint!==fp||recordsChanged),candidateCount:c.entries.length,writingUsage:collectAdviceWritingUsage(result,writing,c.library,writingId?'current':'latest')};
 }
 async function claim(task:AdviceTask,kind:string) {
   const old=await find(task.id);if(old){if(old.kind!==kind)throw new AlignmentError('生成记录类型不正确',409);return decode<AdviceTask>(old);}
@@ -118,15 +121,17 @@ async function fetchDescription(q:Question) {
     const description=publicDescription(html);return description?{description,sourceURL:url.href}:null;
   }catch{return null;}finally{clearTimeout(timer);}
 }
-export async function prepareAdviceContext(id:string,requestId:string,refresh=false,onProgress?:ProgressListener) {
-  const q=question(id),writings=await eligible(id),fp=await questionFingerprint(q);
+export async function prepareAdviceContext(id:string,requestId:string,refresh=false,onProgress?:ProgressListener,writingId?:string) {
+  const q=question(id),writings=await eligible(id);
+  if(writingId&&!comparisonWriting(writings,writingId))throw new AlignmentError('对照稿件不存在、未提交或不属于这道题，请重新打开调用卡',404);
+  const fp=await questionFingerprint(q);
   const previous=await tasks(CONTEXT,id),cached=previous.find(t=>t.status==='ready'&&t.context?.questionFingerprint===fp);
-  if(cached&&!refresh){const view=await adviceView(id);if(!view.contextStale)return view;}
+  if(cached&&!refresh){const view=await adviceView(id,undefined,writingId);if(!view.contextStale)return view;}
   const pending=previous.find(t=>t.fingerprint===fp&&t.status==='pending'&&Date.now()-Date.parse(t.createdAt)<lifetime);
-  if(pending)return adviceView(id);
+  if(pending)return adviceView(id,undefined,writingId);
   const retry=previous.some(t=>t.fingerprint===fp);
   const task:AdviceTask={id:'advice-context-'+await hash([fp,refresh||retry?requestId:'initial']),questionId:id,fingerprint:fp,status:'pending',phase:'context',createdAt:new Date().toISOString()};
-  const old=await claim(task,CONTEXT);if(old)return adviceView(id);
+  const old=await claim(task,CONTEXT);if(old)return adviceView(id,undefined,writingId);
   const monitor=track(task,CONTEXT,onProgress);
   try {
     monitor.report('context','正在准备客观题面',{},true);
@@ -156,22 +161,22 @@ export async function prepareAdviceContext(id:string,requestId:string,refresh=fa
     const context:QuestionContext={...data,id:task.id,questionId:id,questionFingerprint:fp,fingerprint:await hash([fp,data.description]),createdAt:task.createdAt};
     monitor.report('context','客观题面已准备完成',{},true);await monitor.flush();
     await saveTask({...task,status:'ready',context},CONTEXT);
-    return adviceView(id);
+    return adviceView(id,undefined,writingId);
   }catch(e){await monitor.flush();await failTask(task,CONTEXT,e);throw e;}
 }
-export async function generateExpressionAdvice(id:string,requestId:string,regenerate=false,onProgress?:ProgressListener) {
+export async function generateExpressionAdvice(id:string,requestId:string,regenerate=false,onProgress?:ProgressListener,writingId?:string) {
   const q=question(id);await eligible(id);
-  const state=await adviceView(id),context=state.context;
+  const state=await adviceView(id,undefined,writingId),context=state.context;
   if(!context||state.contextStale)throw new AlignmentError('请先准备当前题面的客观描述',409);
   const c=await catalog();if(!c.entries.length)throw new AlignmentError('表达库没有启用的条目，请先添加或启用表达',400);
   const fp=await hash([context.fingerprint,c.fingerprint,ADVICE_VERSION]);
   const runs=await tasks(RUN,id);
-  if(!regenerate&&runs.some(t=>t.status==='ready'&&t.fingerprint===fp))return adviceView(id);
-  if(runs.some(t=>t.fingerprint===fp&&t.status==='pending'&&Date.now()-Date.parse(t.createdAt)<lifetime))return adviceView(id);
+  if(!regenerate&&runs.some(t=>t.status==='ready'&&t.fingerprint===fp))return adviceView(id,undefined,writingId);
+  if(runs.some(t=>t.fingerprint===fp&&t.status==='pending'&&Date.now()-Date.parse(t.createdAt)<lifetime))return adviceView(id,undefined,writingId);
   const cfg=await config();
   const retry=runs.some(t=>t.fingerprint===fp);
   const task:AdviceTask={id:'advice-run-'+await hash([fp,regenerate||retry?requestId:'initial']),questionId:id,fingerprint:fp,status:'pending',phase:'advice',createdAt:new Date().toISOString()};
-  const old=await claim(task,RUN);if(old)return adviceView(id);
+  const old=await claim(task,RUN);if(old)return adviceView(id,undefined,writingId);
   const monitor=track(task,RUN,onProgress);
   try {
     monitor.report('candidates','正在整理表达候选及使用记录',{candidateCount:c.entries.length},true);
@@ -190,6 +195,6 @@ export async function generateExpressionAdvice(id:string,requestId:string,regene
     monitor.report('saving','正在保存调用卡',{},true);await monitor.flush();
     const completed={...task.progress!,stage:'done' as const,message:'调用卡已保存',updatedAt:new Date().toISOString()};
     await saveTask({...task,progress:completed,status:'ready',result},RUN);onProgress?.(completed);
-    return adviceView(id);
+    return adviceView(id,undefined,writingId);
   }catch(e){await monitor.flush();await failTask(task,RUN,e);throw e;}
 }

@@ -31,6 +31,21 @@ try {
  await post({action:'generate',...req});assert.equal(m.calls.length,1,'saved result must be reused');
  m.setFail(true);const failed=await post({action:'generate',questionId:'2019-large',requestId:'request-2',regenerate:true});assert.equal(failed.status,502);view=await post({action:'read',questionId:'2019-large'});assert.equal(view.result.items.length,10,'failed refresh preserves last ready result');m.setFail(false);
  const oldReady=view.result.id;await post({action:'generate',questionId:'2019-large',requestId:'request-3',regenerate:true});view=await post({action:'read',questionId:'2019-large'});assert.notEqual(view.result.id,oldReady);
+ // Usage joins only the selected submitted body, without model calls or storage changes.
+ const usedWriting={...writing,text:'Perseverance matters. At its heart lies courage.',submittedAt:'2026-11-10T00:00:00Z',updatedAt:'2026-11-24T00:00:00Z'};
+ await m.put('w1','writing',usedWriting,m.db.get('w1'));
+ await m.put('w-latest','writing',{...writing,id:'w-latest',text:'No matching expressions here.',submittedAt:'2026-11-20T00:00:00Z'});
+ await m.put('w-draft','writing',{...writing,id:'w-draft',status:'draft',submittedAt:'2026-11-24T00:00:00Z'});
+ await m.put('w-other','writing',{...writing,id:'w-other',questionId:'2017-small'});
+ const paidBefore=m.calls.length,dbBefore=JSON.stringify([...m.db]);
+ view=await post({action:'read',questionId:'2019-large'});assert.equal(view.writingUsage.writing.id,'w-latest');assert.equal(view.writingUsage.writing.selection,'latest');assert.equal(view.writingUsage.usedCount,0);
+ view=await post({action:'read',questionId:'2019-large',writingId:'w1'});assert.equal(view.writingUsage.writing.selection,'current');assert.equal(view.writingUsage.usedCount,3);
+ for(const action of ['read','prepare','generate'])for(const writingId of ['w-draft','w-other','w-deleted'])assert.equal((await post({action,questionId:'2019-large',writingId,requestId:'invalid-selection',refresh:true,regenerate:true})).status,404);
+ for(const action of ['prepare','generate'])assert.equal((await post({action,questionId:'2019-large',writingId:'w1',requestId:'cached-selection'})).writingUsage.writing.id,'w1');
+ assert.equal(m.calls.length,paidBefore);assert.equal(JSON.stringify([...m.db]),dbBefore,'joins and cached reads do not persist usage flags');
+ await m.put('w1','writing',{...usedWriting,text:'Nothing matched.',revision:2},m.db.get('w1'));
+ view=await post({action:'read',questionId:'2019-large',writingId:'w1'});assert.equal(view.writingUsage.usedCount,0);assert.equal(view.writingUsage.writing.revision,2);
+ m.db.delete('w-latest');m.db.delete('w-draft');m.db.delete('w-other');await m.put('w1','writing',writing,m.db.get('w1'));
  // Existing cards are repaired in one bounded request, with all non-cue fields preserved.
  const card1=structuredClone(view.result);delete card1.cueVersion;delete card1.cueUpdatedAt;delete card1.cueModel;
  const ready=m.db.get(card1.id),task1=JSON.parse(ready.payload);task1.result=card1;ready.payload=JSON.stringify(task1);

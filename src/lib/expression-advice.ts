@@ -1,3 +1,4 @@
+import type {AdviceWritingUsage} from './expression-advice-usage';
 import type {ExpressionLibrary} from './expressions';
 import {matchExpressions} from './expression-matcher';
 
@@ -34,7 +35,7 @@ export interface AdviceTask {
 }
 export interface AdviceView {
   context:QuestionContext|null; result:ExpressionAdvice|null; task:Pick<AdviceTask,'id'|'status'|'phase'|'createdAt'|'error'|'progress'>|null;
-  stale:boolean; contextStale:boolean; candidateCount:number;
+  stale:boolean; contextStale:boolean; candidateCount:number; writingUsage?:AdviceWritingUsage;
 }
 export function adviceEntries(library:ExpressionLibrary):AdviceEntry[] {
   return [
