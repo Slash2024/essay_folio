@@ -1,0 +1,43 @@
+import {build} from 'esbuild';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import assert from 'node:assert/strict';
+const dir=await mkdtemp(join(tmpdir(),'folio-advice-stream-'));
+const originalFetch=globalThis.fetch;
+try {
+ await build({stdin:{contents:"export * from './src/server/expression-advice-provider';export * from './src/server/expression-advice-stream';export * from './src/lib/expression-advice-client';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'stream.mjs'),plugins:[{name:'config-without-secrets',setup(b){b.onResolve({filter:/annotation-config$/},()=>({path:'config',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:"export class AlignmentError extends Error{constructor(m,status=400){super(m);this.status=status}}export const endpoint=v=>v;",loader:'js'}));}}]});
+ const m=await import(join(dir,'stream.mjs'));
+ const obj={angle:'中文题意',items:[{entryKey:'sentence:a',example:'At its heart lies {{an idea}}.'},{entryKey:'word:b',example:'He said \\"go\\".'}]},answer=JSON.stringify(obj);
+ assert.equal(m.completedAdviceItems(answer),2);assert.equal(m.completedAdviceItems(answer.slice(0,-4)),1);assert.equal(m.completedAdviceItems('{"angle":"text { }"'),0);
+ const cfg={baseURL:'https://provider.test/chat/completions',model:'mock',apiKey:'not-a-real-key',jsonMode:true};
+ const encode=data=>'data: '+JSON.stringify(data)+'\r\n\r\n';
+ const body=encode({choices:[{delta:{reasoning_content:'private provider reasoning'}}]})+[...answer].map(ch=>encode({choices:[{delta:{content:ch}}]})).join('')+'data: [DONE]\n\n';
+ let requested,updates=[];
+ globalThis.fetch=async(url,options)=>{requested=JSON.parse(options.body);const bytes=new TextEncoder().encode(body);return new Response(new ReadableStream({start(c){for(let i=0;i<bytes.length;i+=7)c.enqueue(bytes.slice(i,i+7));c.close();}}),{headers:{'Content-Type':'text/event-stream'}});};
+ assert.deepEqual(await m.requestAdviceJSON(cfg,'system',{question:'data'},p=>updates.push(p)),obj);
+ assert.equal(requested.stream,true);assert.equal(updates.at(-1).receivedItems,2);assert.equal(updates.at(-1).receivedCharacters,answer.length);assert(!JSON.stringify(updates).includes('private provider reasoning'));
+ // Transport envelopes/reasoning can exceed 2MB while the final answer is small.
+ const verbose=encode({choices:[{delta:{reasoning_content:'x'.repeat(1800)}}]}).repeat(1300)+encode({choices:[{delta:{content:answer}}]})+'data: [DONE]\n\n';
+ globalThis.fetch=async()=>new Response(verbose,{headers:{'Content-Type':'text/event-stream'}});
+ assert.deepEqual(await m.requestAdviceJSON(cfg,'system',{}),obj);
+ globalThis.fetch=async()=>new Response(JSON.stringify({choices:[{message:{content:answer},finish_reason:'stop'}]}),{headers:{'Content-Type':'application/json'}});
+ assert.deepEqual(await m.requestAdviceJSON(cfg,'system',{}),obj);
+ globalThis.fetch=async()=>new Response(encode({choices:[{finish_reason:'length'}]}),{headers:{'Content-Type':'text/event-stream'}});
+ await assert.rejects(()=>m.requestAdviceJSON(cfg,'system',{}),/截断/);
+ globalThis.fetch=async(url,{signal})=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(Error('aborted'))));
+ await assert.rejects(()=>m.requestAdviceJSON(cfg,'system',{},()=>{},20),/超过5分钟/);
+ const progress={stage:'model',message:'接收中',startedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),taskId:'task-123',receivedCharacters:120,receivedItems:1};
+ let release;const completion=new Promise(resolve=>release=resolve);
+ const response=m.adviceStream(async emit=>{emit(progress);await completion;return {context:null,result:null,task:null,stale:false,contextStale:false,candidateCount:10};});
+ assert(response.headers.get('content-type').includes('text/event-stream'));
+ const reader=response.body.getReader();const first=await reader.read();assert(first.value.length>2000,'headers and padding are readable before model completion');release();let output='';while(true){const r=await reader.read();if(r.done)break;output+=new TextDecoder().decode(r.value);}assert(output.includes('event: progress'));assert(output.includes('event: result'));
+ const view={context:null,result:null,task:null,stale:false,contextStale:false,candidateCount:10};let events=0;
+ globalThis.fetch=async()=>m.adviceStream(async emit=>{emit(progress);return view;});
+ assert.deepEqual(await m.streamAdvice('generate',{},()=>events++,()=>{}),view);assert.equal(events,1);
+ globalThis.fetch=async()=>new Response('event: progress\ndata: '+JSON.stringify(progress)+'\n\n',{headers:{'Content-Type':'text/event-stream'}});
+ await assert.rejects(()=>m.streamAdvice('generate',{},()=>{},()=>{}),e=>e instanceof m.AdviceConnectionError&&e.taskId==='task-123');
+ globalThis.fetch=async()=>m.adviceStream(async()=>{throw Error('provider failed');});
+ await assert.rejects(()=>m.streamAdvice('generate',{},()=>{},()=>{}),e=>!(e instanceof m.AdviceConnectionError)&&e.message==='provider failed');
+ console.log('Streaming: fragmented SSE/UTF-8, complete-item counts, private reasoning exclusion, timeouts, early flush, result delivery and reconnect classification passed');
+} finally {globalThis.fetch=originalFetch;await rm(dir,{recursive:true,force:true});}

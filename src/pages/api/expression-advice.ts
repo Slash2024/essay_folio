@@ -1,3 +1,4 @@
+import {adviceStream} from '../../server/expression-advice-stream';
 import type {APIRoute} from 'astro';
 import {authorized,sameOrigin} from '../../server/session';
 import {AlignmentError} from '../../server/annotation-config';
@@ -15,8 +16,9 @@ export const POST:APIRoute=async({request})=>{
   if(!body||typeof body!=='object'||Array.isArray(body))return json({error:'请求格式不正确'},400);
   if(body.action==='index')return json(await adviceIndex());
   const id=identifier(body.questionId);
-  if(body.action==='read')return json(await adviceView(id));
+  if(body.action==='read')return json(await adviceView(id,body.taskId?identifier(body.taskId):undefined));
   const requestId=identifier(body.requestId);
+  if(body.stream===true&&(body.action==='prepare'||body.action==='generate'))return adviceStream(progress=>body.action==='prepare'?prepareAdviceContext(id,requestId,body.refresh===true,progress):generateExpressionAdvice(id,requestId,body.regenerate===true,progress));
   if(body.action==='prepare')return json(await prepareAdviceContext(id,requestId,body.refresh===true));
   if(body.action==='generate')return json(await generateExpressionAdvice(id,requestId,body.regenerate===true));
   return json({error:'未知操作'},400);

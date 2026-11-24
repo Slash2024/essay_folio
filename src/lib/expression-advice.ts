@@ -20,13 +20,18 @@ export interface ExpressionAdvice {
   entriesFingerprint:string; promptVersion:string; model:string; createdAt:string;
   angle:string; items:AdviceItem[]; shortfall:string;
 }
+export interface AdviceProgress {
+  stage:'context'|'candidates'|'model'|'validation'|'saving'|'done';
+  message:string;startedAt:string;updatedAt:string;taskId?:string;
+  candidateCount?:number;receivedCharacters?:number;receivedItems?:number;
+}
 export interface AdviceTask {
   id:string; questionId:string; fingerprint:string; createdAt:string;
-  status:'pending'|'ready'|'failed'; phase:'context'|'advice'; error?:string;
+  status:'pending'|'ready'|'failed'; phase:'context'|'advice'; error?:string; progress?:AdviceProgress;
   context?:QuestionContext; result?:ExpressionAdvice;
 }
 export interface AdviceView {
-  context:QuestionContext|null; result:ExpressionAdvice|null; task:Pick<AdviceTask,'id'|'status'|'phase'|'createdAt'|'error'>|null;
+  context:QuestionContext|null; result:ExpressionAdvice|null; task:Pick<AdviceTask,'id'|'status'|'phase'|'createdAt'|'error'|'progress'>|null;
   stale:boolean; contextStale:boolean; candidateCount:number;
 }
 export function adviceEntries(library:ExpressionLibrary):AdviceEntry[] {
