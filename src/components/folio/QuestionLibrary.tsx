@@ -1,5 +1,6 @@
-import type { Dispatch, SetStateAction } from 'react';
+import {useEffect,useState,type Dispatch,type SetStateAction} from 'react';
 import { ArrowUpRight, RefreshCw, Search, X } from 'lucide-react';
+import './question-advice-entry.css';
 import { ENGLISH_TWO_PRACTICE_NOTE, scoreTarget, LARGE_ESSAY_CATEGORIES, SMALL_ESSAY_CATEGORIES, questionYearLabel, examName, questionCategories, typeName, type Question } from '../../lib/folio';
 
 const scopes = [
@@ -12,7 +13,9 @@ const englishTwoCategories = ['柱状图','条形图','饼图','曲线图','表�
 const matchesScope = (q: Question, scope: string) => !scope || `${q.exam || 'one'}-${q.type}` === scope;
 
 export interface LibraryFilters { scope: string; category: string; year: string; search: string }
-export function QuestionLibrary({ questions, busy, onStart, filters, setFilters }: { questions: Question[]; busy: boolean; onStart: (question: Question) => unknown; filters: LibraryFilters; setFilters: Dispatch<SetStateAction<LibraryFilters>> }) {
+export function QuestionLibrary({ questions, busy, onStart, onAdvice, filters, setFilters }: { questions: Question[]; busy: boolean; onStart: (question: Question) => unknown; onAdvice:(question:Question)=>void; filters: LibraryFilters; setFilters: Dispatch<SetStateAction<LibraryFilters>> }) {
+  const [practiced,setPracticed]=useState<Set<string>>(()=>new Set());
+  useEffect(()=>{const abort=new AbortController();fetch('/api/expression-advice',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'index'}),signal:abort.signal}).then(async r=>{if(!r.ok)throw Error('进度读取失败');return r.json();}).then(r=>{if(!abort.signal.aborted)setPracticed(new Set(r.questionIds));}).catch(()=>{});return()=>abort.abort();},[]);
   const { scope, category, year, search } = filters;
   const setCategory = (category: string) => setFilters(old => ({...old, category}));
   const setYear = (year: string) => setFilters(old => ({...old, year}));
@@ -62,7 +65,7 @@ export function QuestionLibrary({ questions, busy, onStart, filters, setFilters 
     <div className="panel question-list">{results.map(item => <div className="question-row" key={item.id}>
       <div className="year-stamp">{questionYearLabel(item)}<span>{examName(item)}<br/>{item.chartType || typeName(item.type)}</span></div>
       <div className="question-row-body"><h3>{item.title}</h3><p className="caption">{scoreTarget(item)}{item.exam==='two'?' · 英语一评分标准':''}</p><div className="question-category-tags">{questionCategories(item).map(value => <button key={value} onClick={() => { changeScope(`${item.exam || 'one'}-${item.type}`); setCategory(value); }}>{value}</button>)}</div><p>{item.directions.replace(/^Directions:\s*/,'')}</p>{item.source ? <a href={item.source} target="_blank" rel="noreferrer">查看来源<ArrowUpRight size={12}/></a> : <span className="caption">{item.sourceLabel} · 未标年份</span>}</div>
-      <button className="button outline small" disabled={busy} onClick={() => onStart(item)}>开始写作<ArrowUpRight size={15}/></button>
+      <div className="question-row-actions"><button className="button outline small" disabled={busy} onClick={() => onStart(item)}>开始写作<ArrowUpRight size={15}/></button>{practiced.has(item.id)&&<button className="text-button question-advice-entry" onClick={()=>onAdvice(item)}>表达调用卡</button>}</div>
     </div>)}{!results.length && <div className="empty-state"><Search/><p>没有找到符合条件的题目</p><span>可移除上方单个条件，或重置筛选重新查找。</span><button className="text-button" onClick={reset}>重置筛选</button></div>}</div>
   </>;
 }
