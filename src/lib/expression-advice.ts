@@ -2,6 +2,7 @@ import type {ExpressionLibrary} from './expressions';
 import {matchExpressions} from './expression-matcher';
 
 export const ADVICE_VERSION = 'recall-card-v1';
+export const CUE_VERSION = 'transferable-cue-v2';
 export const CONTEXT_VERSION = 'objective-context-v1';
 export interface AdviceEntry {
   key:string; kind:'sentence'|'word'; title:string; expression:string; meaning:string;
@@ -19,6 +20,7 @@ export interface ExpressionAdvice {
   id:string; questionId:string; fingerprint:string; contextId:string; contextFingerprint:string;
   entriesFingerprint:string; promptVersion:string; model:string; createdAt:string;
   angle:string; items:AdviceItem[]; shortfall:string;
+  cueVersion?:string; cueUpdatedAt?:string; cueModel?:string;
 }
 export interface AdviceProgress {
   stage:'context'|'candidates'|'model'|'validation'|'saving'|'done';
@@ -44,6 +46,24 @@ function field(value:unknown,max:number,label:string) {
   if(typeof value!=='string'||!value.trim()||value.length>max)throw new Error(`模型返回的${label}不完整或过长`);
   return value.trim();
 }
+export function validateRecallCue(value:unknown) {
+  const cue=field(value,80,'调用线索');
+  if(!/[\u3400-\u9fff]/.test(cue)||/[\r\n]|\{\{|\}\}|_{2,}/.test(cue))throw new Error('调用线索须为简洁完整的中文句子');
+  return cue;
+}
+export function validateCueUpdates(value:unknown,ids:string[]) {
+  if(!value||typeof value!=='object'||!Array.isArray((value as Record<string,unknown>).items))throw new Error('线索修正结果格式不正确');
+  const items=(value as {items:unknown[]}).items;
+  if(items.length!==ids.length)throw new Error('线索修正数量不完整，旧结果保持不变');
+  const allowed=new Set(ids),updates=new Map<string,string>();
+  for(const raw of items){
+    if(!raw||typeof raw!=='object')throw new Error('线索修正条目格式不正确');
+    const item=raw as Record<string,unknown>,id=String(item.id);
+    if(!allowed.has(id)||updates.has(id))throw new Error('线索修正引用无效或重复，旧结果保持不变');
+    updates.set(id,validateRecallCue(item.cue));
+  }
+  return updates;
+}
 export function validateAdvice(value:unknown,entries:AdviceEntry[]) {
   if(!value||typeof value!=='object')throw new Error('模型未返回有效调用卡');
   const v=value as Record<string,unknown>,angle=field(v.angle,650,'审题思路');
@@ -60,7 +80,7 @@ export function validateAdvice(value:unknown,entries:AdviceEntry[]) {
       if(!/[a-z]/i.test(example)||/[\u3400-\u9fff]/.test(example)||/\{\{|\}\}|_{2,}|\[[^\]]+\]|…|\.{3}/.test(example))throw new Error('示例尚有未填空位');
       const lib:ExpressionLibrary={revision:0,updatedAt:null,tolerance:'strict',sourceText:'',sentences:entry.kind==='sentence'?[{id:'chosen',category:entry.category,title:entry.title,template:entry.expression,notes:'',substitutions:entry.substitutions,enabled:true}]:[],words:entry.kind==='word'?[{id:'chosen',term:entry.expression,meaning:'',forms:entry.forms,enabled:true}]:[]};
       if(!matchExpressions(example,lib).length)throw new Error('示例无法核对到表达固定部分');
-      items.push({entry,example,stage:field(e.stage,50,'应用位置'),cue:field(e.cue,180,'调用线索'),why:field(e.why,260,'应用理由'),translation:field(e.translation,650,'中文释义'),adaptation:field(e.adaptation,350,'迁移方法'),avoid:field(e.avoid,220,'使用边界')});
+      items.push({entry,example,stage:field(e.stage,50,'应用位置'),cue:validateRecallCue(e.cue),why:field(e.why,260,'应用理由'),translation:field(e.translation,650,'中文释义'),adaptation:field(e.adaptation,350,'迁移方法'),avoid:field(e.avoid,220,'使用边界')});
       seen.add(entry.key);surfaces.add(canonical);
     }catch {removed++;}
   }

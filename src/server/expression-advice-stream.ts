@@ -2,7 +2,7 @@ import type {AdviceProgress,AdviceView} from '../lib/expression-advice';
 
 // The work stays attached to an open streaming HTTP response; it is not an
 // untracked fire-and-forget background job. Durable metadata supports reconnects.
-export function adviceStream(run:(progress:(value:AdviceProgress)=>void)=>Promise<AdviceView>) {
+export function adviceStream<T=AdviceView>(run:(progress:(value:AdviceProgress)=>void)=>Promise<T>) {
  const encoder=new TextEncoder();let connected=true;
  const body=new ReadableStream<Uint8Array>({
   start(controller) {

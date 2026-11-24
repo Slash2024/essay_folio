@@ -1,3 +1,4 @@
+import {repairSavedAdviceCues} from '../../server/expression-advice-cues';
 import {adviceStream} from '../../server/expression-advice-stream';
 import type {APIRoute} from 'astro';
 import {authorized,sameOrigin} from '../../server/session';
@@ -15,6 +16,10 @@ export const POST:APIRoute=async({request})=>{
   let body;try{body=JSON.parse(text);}catch{return json({error:'请求格式不正确'},400);}
   if(!body||typeof body!=='object'||Array.isArray(body))return json({error:'请求格式不正确'},400);
   if(body.action==='index')return json(await adviceIndex());
+  if(body.action==='repairCues'){
+   const requestId=identifier(body.requestId);
+   return body.stream===true?adviceStream(progress=>repairSavedAdviceCues(requestId,progress)):json(await repairSavedAdviceCues(requestId));
+  }
   const id=identifier(body.questionId);
   if(body.action==='read')return json(await adviceView(id,body.taskId?identifier(body.taskId):undefined));
   const requestId=identifier(body.requestId);
