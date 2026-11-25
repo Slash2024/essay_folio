@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-23",
+  "archiveCompletedOn": "2026-11-25",
+  "feature": "Inline deletion and replacement corrections in translation answers",
+  "githubSourceCommit": "7a8db6007718121b8f02b1a5e756f5c202c6d1c4",
+  "wixDeployment": "183e555f-bf06-492c-94a3-7a18bd2ec317",
+  "wixRevision": "1ed55f101fc16f238af570b2e24c1cbe3f050c55",
+  "liveUrl": "https://headless-dvpmxjtmvvv-y97m7z9bm2-140a.wix-site-host.com",
+  "behavior": [
+    "Required reference-difference corrections appear in the left answer as deleted original text followed by the corrected expression.",
+    "Correct, acceptable and optional wording remains unchanged; no extra links or locating actions.",
+    "Supports standard numbered and legacy three-column difference tables, explicit replacement suggestions and abbreviated legacy phrases.",
+    "Original submitted answers and stored learning data remain unchanged; rendering calls no model.",
+    "Adopting a changed verdict removes the corresponding annotation, and undo restores it."
+  ],
+  "verification": {
+    "typecheck": "passed",
+    "focusedTranslationTests": {
+      "passed": 27,
+      "failed": 0
+    },
+    "productionBuild": "passed",
+    "browser": {
+      "run": "https://github.com/Slash2024/essay_folio/actions/runs/45145377355",
+      "checks": 15,
+      "unexpectedErrors": 0,
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "dataMode": "isolated synthetic records and model"
+    },
+    "legacyReview": "Existing 2020 review checked read-only; private review contents not committed.",
+    "productionPracticeWrites": 0,
+    "resumeCheck": {
+      "date": "2026-11-25",
+      "pageStatus": 200,
+      "app": "FolioApp.DGGzNUvP.js",
+      "translation": "TranslationPanel.BH61hJ33.js",
+      "deletionMarkup": true,
+      "insertionMarkup": true,
+      "sentenceReviewRetained": true
+    }
+  }
+}
