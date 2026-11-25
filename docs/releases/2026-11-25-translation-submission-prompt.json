@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-25",
+  "feature": "Replace translation submission prompt with the exact user-supplied rubric and Darwin scoring examples",
+  "githubSourceCommit": "a73fc4f2f6a2346d2bcc48cd0ec1c0afdcc2d9a8",
+  "wixDeployment": "37495ddd-0e28-4dfb-9477-c3085c1c7983",
+  "wixRevision": "aaafc482b5209e04232375da93dc2e802d479a6a",
+  "liveUrl": "https://headless-dvpmxjtmvvv-y97m7z9bm2-140a.wix-site-host.com",
+  "behavior": [
+    "REVIEW_PROMPT is replaced by the user's complete text, including the grading rules, score bands and all five Darwin examples.",
+    "Previous six-section formatting instructions are removed from the submission prompt.",
+    "Submission preview, plain-text copy, image-and-text copy, generated image and exported submission Markdown use the current prompt for both new and existing records.",
+    "Stored packet snapshots remain unchanged in historical record JSON; submitted answers, references and existing reviews are preserved."
+  ],
+  "verification": {
+    "typecheck": "passed",
+    "focusedTests": {
+      "passed": 28,
+      "failed": 0
+    },
+    "productionBuild": "passed",
+    "browser": {
+      "run": "https://github.com/Slash2024/essay_folio/actions/runs/45609118732",
+      "status": "passed",
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "dataMode": "isolated synthetic records and model",
+      "legacyPacketCheck": "Current prompt and fifth example appear in the submission dialog while the stored old packet remains unchanged"
+    },
+    "exportAndImage": "Generated image content and exported submission Markdown use the current prompt; original answers and reviews stay unchanged.",
+    "production": {
+      "pageStatus": 200,
+      "app": "FolioApp.C48ofa6X.js",
+      "translation": "TranslationPanel.B2kFQIpA.js",
+      "newPrompt": true,
+      "allFiveExamples": true,
+      "scoringRule": true,
+      "oldPromptRemoved": true,
+      "productionPracticeWrites": 0,
+      "modelCalls": 0,
+      "previewRefreshed": true
+    }
+  }
+}
