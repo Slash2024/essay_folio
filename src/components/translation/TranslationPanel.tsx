@@ -69,11 +69,11 @@ export default function TranslationPanel({active,navigationCollapsed,onNavigatio
   });
  }
  useEffect(()=>{if(modal!=='packet')return;let current=true;setBlob(null);setPacketError('');packetImage(q,p).then(value=>{if(current)setBlob(value);}).catch(e=>{if(current)setPacketError((e as Error).message);});return()=>{current=false;};},[modal,p.revision,p.questionId]);
- async function copyAll(){if(!fixed)throw new Error('请先确认提交本次送审材料。');if(!blob)throw new Error('送审长图尚未就绪，可先下载送审包。');if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw new Error('当前浏览器不支持图文剪贴板，请下载送审包。');await navigator.clipboard.write([new ClipboardItem({'image/png':blob,'text/plain':new Blob([p.packet||translationPacket(q,p)],{type:'text/plain'})})]);setNotice('图文已复制。粘贴后请确认参考答案图片或送审长图已随附。');}
+ async function copyAll(){if(!fixed)throw new Error('请先确认提交本次送审材料。');if(!blob)throw new Error('送审长图尚未就绪，可先下载送审包。');if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw new Error('当前浏览器不支持图文剪贴板，请下载送审包。');await navigator.clipboard.write([new ClipboardItem({'image/png':blob,'text/plain':new Blob([translationPacket(q,p)],{type:'text/plain'})})]);setNotice('图文已复制。粘贴后请确认参考答案图片或送审长图已随附。');}
  async function showDrawer(mode:'chat'|'appeal'='chat'){setDrawer(true);setChatMode(mode);if(p.review)await run(async()=>{const result=await translationGet({conversation:p.id});setChat(result.items);});}
  async function ask(){const requestId='trm-'+crypto.randomUUID();setPendingRequest(requestId);await run(async()=>{const result=await translationApi('ask',{id:p.id,requestId,mode:chatMode,sentenceNumber:sentence,message:chatText,includeContext});setCandidate(result.result);setChat(old=>[...old,result.result]);setChatText('');setPendingRequest('');});}
 
- const currentPacket=p.packet||translationPacket(q,p);
+ const currentPacket=translationPacket(q,p);
  const currentChat=chat.filter(item=>item.sentenceNumber===undefined||item.sentenceNumber===sentence);
  const visibleCandidate=candidate?.sentenceNumber===undefined||candidate?.sentenceNumber===sentence?candidate:null;
  return <div className="translation-workspace" aria-busy={busy}>

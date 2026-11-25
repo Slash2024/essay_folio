@@ -25,7 +25,7 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm run typecheck
-      - run: node --test tests/translation.test.mjs tests/translation-review.test.mjs
+      - run: node --test tests/translation.test.mjs tests/translation-review.test.mjs tests/translation-packet.test.mjs
       - name: Install isolated browser
         run: |
           npm install --prefix "$RUNNER_TEMP/translation-browser" --no-save playwright
