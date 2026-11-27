@@ -2,17 +2,21 @@ export type QuizMode = 'meaning' | 'scenario';
 export type QuizScope = 'all' | 'word' | 'sentence';
 export type QuizVerdict = 'correct' | 'incorrect';
 export interface QuizRange { main: string; sub: string }
-export interface QuizRangeOption extends QuizRange { enabled: number; covered: Record<QuizMode, number>; counts: Record<QuizMode, number> }
+export type QuizPromptType = 'advice' | 'original' | 'custom';
+export type QuizPromptCounts = Record<QuizPromptType, number>;
+export type QuizPromptOrigin = { type: 'original' | 'custom' } | { type: 'advice'; recordId: string; resultId: string; questionId: string; itemIndex: number; mode: 'normal' | 'strong'; cueVersion: string; updatedAt: string; fingerprint: string };
+export interface QuizRangeOption extends QuizRange { enabled: number; covered: Record<QuizMode, number>; counts: Record<QuizMode, number>; scenarioPrompts?: QuizPromptCounts }
 export interface QuizSource {
   key: string; kind: 'word' | 'sentence'; title: string; text: string;
   answers: string[]; meaning: string; scenario: string; signature: string; category?: QuizRange;
+  scenarioOrigin?: QuizPromptOrigin; scenarioVariants?: { prompt: string; origin: QuizPromptOrigin }[];
 }
 export interface QuizQuestion {
-  prompt: string; kind: 'word' | 'sentence'; slots: number; sources: QuizSource[];
+  prompt: string; kind: 'word' | 'sentence'; slots: number; sources: QuizSource[]; promptOrigin?: QuizPromptOrigin;
 }
 export interface QuizSession {
   id: string; version: 1; createdAt: string; mode: QuizMode; scope: QuizScope;
-  requestKey: string; librarySignature: string; retryOf: string | null; questions: QuizQuestion[]; range?: QuizRange;
+  requestKey: string; librarySignature: string; retryOf: string | null; questions: QuizQuestion[]; range?: QuizRange; prompts?: QuizPromptCounts;
 }
 export interface QuizAnswer {
   writingId: string; index: number; answer: string; skipped: boolean; verdict: QuizVerdict;
@@ -26,20 +30,25 @@ export interface QuizScore {
   pending: number; graded: number; accuracy: number | null; corrected: number; complete: boolean;
 }
 export interface QuizProgress {
-  session: Pick<QuizSession, 'id' | 'createdAt' | 'mode' | 'scope' | 'retryOf' | 'range'>;
-  questions: { index: number; prompt: string; kind: 'word' | 'sentence'; slots: number }[];
+  session: Pick<QuizSession, 'id' | 'createdAt' | 'mode' | 'scope' | 'retryOf' | 'range' | 'prompts'>;
+  questions: { index: number; prompt: string; kind: 'word' | 'sentence'; slots: number; promptSource?: QuizPromptType }[];
   results: (QuizAnswer & { references: { key: string; title: string; text: string; answers: string[] }[]; pending: boolean; correction?: QuizCorrection })[];
   practices: QuizPractice[]; score: QuizScore;
 }
-export interface QuizHistory { id: string; createdAt: string; mode: QuizMode; scope: QuizScope; range?: QuizRange; score: QuizScore }
+export interface QuizHistory { id: string; createdAt: string; mode: QuizMode; scope: QuizScope; range?: QuizRange; score: QuizScore; prompts?: QuizPromptCounts }
 export interface QuizCoverage { enabled: Record<QuizScope, number>; covered: Record<QuizMode, Record<QuizScope, number>> }
-export interface QuizOverview { signature: string; counts: Record<QuizMode, Record<QuizScope, number>>; coverage: QuizCoverage; ranges: QuizRangeOption[]; excluded: number; sessions: QuizHistory[]; totalSessions: number; offset: number; hasNext: boolean }
+export interface QuizOverview { signature: string; counts: Record<QuizMode, Record<QuizScope, number>>; coverage: QuizCoverage; ranges: QuizRangeOption[]; excluded: number; sessions: QuizHistory[]; totalSessions: number; offset: number; hasNext: boolean; adviceReadFailed?: boolean }
 // Reviewed cues stay in the private archive, never in a public source bundle.
 export interface QuizCuePack { version: 1; sourceRevision: number; entries: { key: string; text: string; sourceMeaning?: string; meaning: string; scenario: string }[] }
 export interface QuizCueConfig { key: string; sourceSignature: string; meaning: string; scenario: string; answers: string[]; revision: number; operationId: string }
-export interface QuizCueEditor { key: string; title: string; text: string; kind: 'word' | 'sentence'; sourceSignature: string; meaning: string; scenario: string; answers: string[]; revision: number; stale: boolean }
+export interface QuizCueEditor { key: string; title: string; text: string; kind: 'word' | 'sentence'; sourceSignature: string; meaning: string; scenario: string; answers: string[]; revision: number; stale: boolean; scenarioSource?: QuizPromptType }
 export const QUIZ_MODES = { meaning: '中文释义', scenario: '情景描述' } as const;
 export const QUIZ_SCOPES = { all: '全部', word: '单词／短语', sentence: '句式' } as const;
+export const QUIZ_PROMPT_LABELS = { advice: '调用卡线索', original: '原情景提示', custom: '自定义情景提示' } as const;
+export function quizPromptSummary(value: { mode: QuizMode; prompts?: QuizPromptCounts }) {
+  if (value.mode !== 'scenario') return '';
+  return value.prompts ? (Object.entries(value.prompts) as [QuizPromptType, number][]).filter(([, n]) => n).map(([type, n]) => `${QUIZ_PROMPT_LABELS[type]} ${n}题`).join(' · ') : '原情景提示（历史轮）';
+}
 export function quizRangeLabel(session: { range?: QuizRange; scope: QuizScope }) {
   return session.range ? session.range.main ? `${session.range.main} / ${session.range.sub || '全部子类'}` : '全部类别' : QUIZ_SCOPES[session.scope];
 }

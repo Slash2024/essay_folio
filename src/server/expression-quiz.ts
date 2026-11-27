@@ -3,6 +3,8 @@ import { DEFAULT_EXPRESSIONS, type ExpressionLibrary } from '../lib/expressions'
 import { SENTENCE_QUIZ_CUES, WORD_SCENARIOS } from '../lib/expression-quiz-cues';
 import { gradeQuiz, quizScore, slotCount, QUIZ_REVIEW_REASONS, type QuizSource, type QuizQuestion, type QuizSession, type QuizAnswer, type QuizReview, type QuizCorrection, type QuizPractice, type QuizProgress, type QuizOverview, type QuizCueConfig, type QuizCueEditor, type QuizMode, type QuizScope, type QuizCuePack, type QuizRange } from '../lib/expression-quiz';
 import { interactionId } from '../lib/review-interactions';
+import { readQuizAdviceCues } from './quiz-advice-reader';
+import type { QuizPromptCounts } from '../lib/expression-quiz';
 import { all, decode, find, list, put } from './archive';
 import { ShortReviewError, identifier } from './short-review';
 export const QUIZ_KIND = 'labQuizSession';
@@ -43,12 +45,13 @@ async function sources() {
   const pack = packRow ? decode<QuizCuePack>(packRow) : null;
   const reviewed = new Map((pack?.version === 1 ? pack.entries : []).map(entry => [entry.key, entry]));
   const configs = new Map(cueRows.map(row => { const c = decode<QuizCueConfig>(row); return [c.key, c]; }));
-  const entries: QuizCueEditor[] = [], pool: QuizSource[] = [];
+  const entries: QuizCueEditor[] = [], pool: QuizSource[] = [], customKeys = new Set<string>();
   for (const item of [...library.sentences.map(s => ({ ...s, kind: 'sentence' as const })), ...library.words.map(w => ({ ...w, kind: 'word' as const }))]) {
     if (!item.enabled) continue;
     const key = `${item.kind}:${item.id}`, text = item.kind === 'word' ? item.term : item.template;
     const answers = item.kind === 'word' ? [item.term, ...item.forms] : [item.template];
     const sourceSignature = signature(item), config = configs.get(key), current = config?.sourceSignature === sourceSignature;
+    if (current) customKeys.add(key);
     const defaults = item.kind === 'sentence' && seed.sentences.some(s => s.id === item.id && s.template === item.template) ? SENTENCE_QUIZ_CUES[item.id] : null;
     // A source filename is metadata, not a leaked English answer. Remove only
     // that trailing annotation; real English in a cue still needs review.
@@ -62,20 +65,32 @@ async function sources() {
     const scenario = current ? config.scenario : bound ? cleanChinese(bound.scenario) : defaults?.[1] ?? (item.kind === 'word' ? WORD_SCENARIOS[item.term.toLowerCase()] ?? '' : '');
     const accepted = [...new Set([...answers, ...(current ? config.answers : [])])];
     entries.push({ key, title: item.kind === 'word' ? item.term : item.title, text, kind: item.kind, sourceSignature, meaning, scenario, answers: current ? config.answers : [], revision: config?.revision ?? 0, stale: !!config && !current });
-    pool.push({ key, title: item.kind === 'word' ? item.meaning : item.title, text, kind: item.kind, answers: accepted, meaning, scenario, signature: sourceSignature, category: categoryOf(item) });
+    pool.push({ key, title: item.kind === 'word' ? item.meaning : item.title, text, kind: item.kind, answers: accepted, meaning, scenario, signature: sourceSignature, category: categoryOf(item), scenarioOrigin: { type: current ? 'custom' : 'original' } });
   }
-  return { entries, pool, signature: signature({ revision: library.revision, pool }) };
+  const advice = await readQuizAdviceCues(pool, customKeys);
+  const effective = new Map(advice.pool.map(source => [source.key, source]));
+  return { entries: entries.map(entry => ({ ...entry, scenario: effective.get(entry.key)!.scenario, scenarioSource: effective.get(entry.key)!.scenarioOrigin?.type })), pool: advice.pool, adviceReadFailed: advice.failed, signature: signature({ revision: library.revision, pool: advice.pool }) };
 }
-function questions(pool: QuizSource[], mode: QuizMode, scope: QuizScope, range?: QuizRange): QuizQuestion[] {
+function questions(pool: QuizSource[], mode: QuizMode, scope: QuizScope, range?: QuizRange, roundId?: string): QuizQuestion[] {
   const grouped = new Map<string, QuizQuestion>();
   for (const source of pool) {
     if (scope !== 'all' && source.kind !== scope || !inRange(source, range)) continue;
-    const prompt = source[mode]; if (!prompt) continue;
+    const variants = mode === 'scenario' ? source.scenarioVariants : undefined;
+    const selected = variants?.length ? variants[roundId ? (Number.parseInt(interactionId('quiz-cue-choice', `${roundId}:${source.key}`).split('-').at(-2)!, 36) >>> 8) % variants.length : 0] : undefined;
+    const prompt = selected?.prompt ?? source[mode]; if (!prompt) continue;
+    const { scenarioVariants: _, ...snapshot } = source;
+    if (mode === 'scenario' && selected) { snapshot.scenario = selected.prompt; snapshot.scenarioOrigin = selected.origin; }
+    const promptOrigin = mode === 'scenario' ? snapshot.scenarioOrigin : undefined;
     const slots = slotCount(source.text), key = `${source.kind}:${slots}:${prompt.replace(/\s+/g, '')}`;
     const previous = grouped.get(key);
-    if (previous) previous.sources.push(source); else grouped.set(key, { prompt, kind: source.kind, slots, sources: [source] });
+    if (previous) previous.sources.push(snapshot); else grouped.set(key, { prompt, kind: source.kind, slots, sources: [snapshot], ...(promptOrigin ? { promptOrigin } : {}) });
   }
   return [...grouped.values()];
+}
+function promptCounts(questions: QuizQuestion[]): QuizPromptCounts {
+  const counts = { advice: 0, original: 0, custom: 0 };
+  for (const question of questions) counts[question.promptOrigin?.type ?? 'original']++;
+  return counts;
 }
 export async function quizCues() { const value = await sources(); return { entries: value.entries }; }
 // Server-only source for oral/mental recall. Share reviewed Chinese cues, not
@@ -118,8 +133,8 @@ async function publicProgress(value: Awaited<ReturnType<typeof state>>): Promise
     await once(interactionId('lab-quiz-report', canonical(snapshot)), REPORT, { ...snapshot, createdAt: new Date().toISOString() });
   }
   return {
-    session: { id: s.id, createdAt: s.createdAt, mode: s.mode, scope: s.scope, retryOf: s.retryOf, ...(s.range ? { range: s.range } : {}) },
-    questions: s.questions.map((q, index) => ({ index, prompt: q.prompt, kind: q.kind, slots: q.slots })),
+    session: { id: s.id, createdAt: s.createdAt, mode: s.mode, scope: s.scope, retryOf: s.retryOf, ...(s.range ? { range: s.range } : {}), ...(s.prompts ? { prompts: s.prompts } : {}) },
+    questions: s.questions.map((q, index) => ({ index, prompt: q.prompt, kind: q.kind, slots: q.slots, ...(q.promptOrigin ? { promptSource: q.promptOrigin.type } : {}) })),
     results: answers.sort((a, b) => a.index - b.index).map(a => ({ ...a, references: s.questions[a.index].sources.map(e => ({ key: e.key, title: e.title, text: e.text, answers: e.answers })), pending: reviews.some(r => r.index === a.index) && !corrections.some(c => c.index === a.index), correction: corrections.find(c => c.index === a.index) })),
     practices, score,
   };
@@ -135,10 +150,10 @@ export async function quizOverview(offset = 0): Promise<QuizOverview> {
   for (const range of [{ main: '', sub: '' }, ...source.pool.flatMap(s => s.category ? [{ main: s.category.main, sub: '' }, s.category] : [])]) selections.set(JSON.stringify(range), range);
   const ranges = [...selections.values()].map(range => {
     const pool = source.pool.filter(s => inRange(s, range));
-    return { ...range, enabled: pool.length, covered: { meaning: pool.filter(s => !!s.meaning).length, scenario: pool.filter(s => !!s.scenario).length }, counts: { meaning: questions(pool, 'meaning', 'all').length, scenario: questions(pool, 'scenario', 'all').length } };
+    return { ...range, enabled: pool.length, covered: { meaning: pool.filter(s => !!s.meaning).length, scenario: pool.filter(s => !!s.scenario).length }, counts: { meaning: questions(pool, 'meaning', 'all').length, scenario: questions(pool, 'scenario', 'all').length }, scenarioPrompts: promptCounts(questions(pool, 'scenario', 'all')) };
   });
-  const sessions = await Promise.all(rows.rows.map(async row => { const s = decode<QuizSession>(row), v = await state(s.id); return { id: s.id, createdAt: s.createdAt, mode: s.mode, scope: s.scope, ...(s.range ? { range: s.range } : {}), score: quizScore(s.questions.length, v.answers, v.reviews, v.corrections) }; }));
-  return { signature: source.signature, counts, coverage, ranges, excluded: source.pool.filter(e => !e.meaning || !e.scenario).length, sessions: sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt)), totalSessions: rows.total, offset, hasNext: rows.hasNext };
+  const sessions = await Promise.all(rows.rows.map(async row => { const s = decode<QuizSession>(row), v = await state(s.id); return { id: s.id, createdAt: s.createdAt, mode: s.mode, scope: s.scope, ...(s.range ? { range: s.range } : {}), ...(s.prompts ? { prompts: s.prompts } : {}), score: quizScore(s.questions.length, v.answers, v.reviews, v.corrections) }; }));
+  return { signature: source.signature, counts, coverage, ranges, adviceReadFailed: source.adviceReadFailed, excluded: source.pool.filter(e => !e.meaning || !e.scenario).length, sessions: sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt)), totalSessions: rows.total, offset, hasNext: rows.hasNext };
 }
 export async function startQuiz(body: Record<string, unknown>) {
   const id = uuid(body.id, 'lab-quiz');
@@ -151,7 +166,7 @@ export async function startQuiz(body: Record<string, unknown>) {
   const source = await sources();
   if (source.signature !== body.signature) throw new ShortReviewError('表达库或提示已更新，请重新读取后开始。', 409);
   if (range?.main && !source.pool.some(s => inRange(s, range))) throw new ShortReviewError('该分类已不存在，请重新读取并选择抽查范围。', 409);
-  let pool = questions(source.pool, body.mode as QuizMode, body.scope as QuizScope, range);
+  let pool = questions(source.pool, body.mode as QuizMode, body.scope as QuizScope, range, id);
   if (retryOf) {
     const old = await state(retryOf);
     if (old.session.mode !== body.mode) throw new ShortReviewError('重练请保留原轮的提示方式。');
@@ -161,7 +176,8 @@ export async function startQuiz(body: Record<string, unknown>) {
   if (Number(body.count) > pool.length) throw new ShortReviewError(`当前范围可抽${pool.length}题，请减少数量，或在“调整抽背提示”中补充提示。`);
   // Fisher–Yates with server randomness; a retry reopens the durable snapshot.
   for (let i = pool.length - 1; i > 0; i--) { const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  const session: QuizSession = { id, version: 1, createdAt: new Date().toISOString(), mode: body.mode as QuizMode, scope: body.scope as QuizScope, librarySignature: source.signature, requestKey, retryOf, questions: pool.slice(0, Number(body.count)), ...(range ? { range } : {}) };
+  const selected = pool.slice(0, Number(body.count));
+  const session: QuizSession = { id, version: 1, createdAt: new Date().toISOString(), mode: body.mode as QuizMode, scope: body.scope as QuizScope, librarySignature: source.signature, requestKey, retryOf, questions: selected, ...(range ? { range } : {}), ...(body.mode === 'scenario' ? { prompts: promptCounts(selected) } : {}) };
   if (new TextEncoder().encode(JSON.stringify(session)).length > 350000) throw new ShortReviewError('本轮长句或答案变体较多，请减少抽查数量后开始。');
   // Random selection is fixed by the first successful insert. Concurrent retries
   // can return that snapshot, but cannot replace it with a second random draw.
