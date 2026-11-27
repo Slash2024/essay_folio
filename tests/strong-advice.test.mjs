@@ -22,6 +22,11 @@ try {
  assert(c.result.coverage.words>=160&&c.result.coverage.words<=200);
  const filled={...structuredClone(good),items:good.items.map(r=>{const {example,...rest}=r;return {...rest,fills:[example.slice('At its heart lies '.length,-1)]};})};
  const composed=m.checkStrongAdvice(filled,entries,{type:'large'});assert.deepEqual(composed.issues,[]);assert.equal(composed.result.essay,c.result.essay);
+ const ellipsisEntry={...entries[0],expression:'...naturally translates into...'};
+ const ellipsisRow={...good.items[0],fills:['Honest communication','greater mutual trust']};
+ const ellipsis=m.checkStrongAdvice({angle:'测试省略号',items:[ellipsisRow]},[ellipsisEntry],{type:'large'});
+ assert(!ellipsis.issues.some(i=>i.index===0),'adjacent ellipsis slots must preserve word boundaries');
+ assert.equal(ellipsis.result.items[0].example,'Honest communication naturally translates into greater mutual trust.');
  const invented={...structuredClone(filled),essay:'Invented extra sentence.'};invented.items[0].example='A model-invented sentence outside the library.';
  assert.equal(m.checkStrongAdvice(invented,entries,{type:'large'}).result.essay,c.result.essay,'model-generated fixed English is ignored when composing filled templates');
  const extra=structuredClone(filled);extra.items[0].fills=['persistence. An unrelated sentence.'];assert(m.checkStrongAdvice(extra,entries,{type:'large'}).issues.length);

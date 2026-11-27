@@ -31,7 +31,7 @@ function renderExample(row:Record<string,unknown>,entry:AdviceEntry){
  const slots=strongSlots(entry.expression);
  if(!Array.isArray(row.fills)||row.fills.length!==slots.length)throw Error('填空数量与原句式空位数量不一致');
  const fills=row.fills.map(v=>text(v,1800,'空位内容'));let i=0;
- let example=entry.expression.replace(slot,()=>fills[i++]).replace(/\s+/g,' ').trim();
+ let example=entry.expression.replace(slot,()=>' '+fills[i++]+' ').replace(/\s+/g,' ').replace(/\s+([,.;:!?])/g,'$1').trim();
  example=example.replace(/^[a-z]/,c=>c.toUpperCase());
  if(!/[.!?]["”’')]*$/.test(example))example+='.';
  return example;
