@@ -121,9 +121,14 @@ export async function saveQuizCue(body: Record<string, unknown>) {
 }
 async function state(id: string) {
   const row = await find(id); if (row?.kind !== QUIZ_KIND) throw new ShortReviewError('抽背记录不存在。', 404);
-  const session = decode<QuizSession>(row);
-  const values = await Promise.all([ANSWER, REVIEW, CORRECTION, PRACTICE].map(kind => list(kind, { writingId: id, limit: 100 })));
-  return { session, answers: values[0].rows.map(row => decode<QuizAnswer>(row)), reviews: values[1].rows.map(row => decode<QuizReview>(row)), corrections: values[2].rows.map(row => decode<QuizCorrection>(row)), practices: values[3].rows.map(row => decode<QuizPractice>(row)) };
+  return sessionState(decode<QuizSession>(row));
+}
+async function sessionState(session: QuizSession, includePractices = true) {
+  // Session snapshots are immutable. History already has them from its list,
+  // and supplementary practice never contributes to first-attempt scores.
+  const kinds = includePractices ? [ANSWER, REVIEW, CORRECTION, PRACTICE] : [ANSWER, REVIEW, CORRECTION];
+  const values = await Promise.all(kinds.map(kind => list(kind, { writingId: session.id, limit: 100 })));
+  return { session, answers: values[0].rows.map(row => decode<QuizAnswer>(row)), reviews: values[1].rows.map(row => decode<QuizReview>(row)), corrections: values[2].rows.map(row => decode<QuizCorrection>(row)), practices: (values[3]?.rows || []).map(row => decode<QuizPractice>(row)) };
 }
 async function publicProgress(value: Awaited<ReturnType<typeof state>>): Promise<QuizProgress> {
   const { session: s, answers, reviews, corrections, practices } = value;
@@ -152,7 +157,7 @@ export async function quizOverview(offset = 0): Promise<QuizOverview> {
     const pool = source.pool.filter(s => inRange(s, range));
     return { ...range, enabled: pool.length, covered: { meaning: pool.filter(s => !!s.meaning).length, scenario: pool.filter(s => !!s.scenario).length }, counts: { meaning: questions(pool, 'meaning', 'all').length, scenario: questions(pool, 'scenario', 'all').length }, scenarioPrompts: promptCounts(questions(pool, 'scenario', 'all')) };
   });
-  const sessions = await Promise.all(rows.rows.map(async row => { const s = decode<QuizSession>(row), v = await state(s.id); return { id: s.id, createdAt: s.createdAt, mode: s.mode, scope: s.scope, ...(s.range ? { range: s.range } : {}), ...(s.prompts ? { prompts: s.prompts } : {}), score: quizScore(s.questions.length, v.answers, v.reviews, v.corrections) }; }));
+  const sessions = await Promise.all(rows.rows.map(async row => { const s = decode<QuizSession>(row), v = await sessionState(s, false); return { id: s.id, createdAt: s.createdAt, mode: s.mode, scope: s.scope, ...(s.range ? { range: s.range } : {}), ...(s.prompts ? { prompts: s.prompts } : {}), score: quizScore(s.questions.length, v.answers, v.reviews, v.corrections) }; }));
   return { signature: source.signature, counts, coverage, ranges, adviceReadFailed: source.adviceReadFailed, excluded: source.pool.filter(e => !e.meaning || !e.scenario).length, sessions: sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt)), totalSessions: rows.total, offset, hasNext: rows.hasNext };
 }
 export async function startQuiz(body: Record<string, unknown>) {

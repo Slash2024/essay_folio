@@ -80,6 +80,9 @@ test('supplementary practice is separately persisted without changing the first 
  const body = { action: 'practice', id, index: 0, answer: target, skipped: false, operationId: 'lab-quiz-practice-12345678-1234-1234-1234-123456789abc' };
  const p = (await post(body)).progress; assert.equal(p.score.accuracy, 0); assert.equal(p.practices[0].verdict, 'correct');
  assert.equal((await post(body)).status, 200); assert.equal((await post({ ...body, answer: 'other' })).status, 409);
+ const saved = JSON.stringify([...m.db]); const history = await get();
+ assert.deepEqual(history.sessions.find(s => s.id === id).score, p.score, 'history uses first-attempt scores even when supplementary practice was correct');
+ assert.equal(JSON.stringify([...m.db]), saved, 'history remains read-only');
 });
 test('cue customization uses revision checks, rejects leaked English and leaves the source library intact', async () => {
  const before = snapshot(); const entries = (await get('?cues=1')).entries, e = entries.find(e => e.key === 'word:p');

@@ -33,7 +33,7 @@ export default function AnalyticsPanel({questions,onOpen}:{questions:Question[];
  </g>;})}<text x="660" y="207" textAnchor="end" fontSize="11" fill="#64748b">分数区间</text>
  </svg>
  </section>
- <TemplateErrorReview key={key} reviews={reviews} questions={questions} templateKey={key} library={library} texts={texts} currentTexts={currentTexts} onOpen={onOpen}/>
+ <TemplateErrorReview key={`templates-${key}`} reviews={reviews} questions={questions} templateKey={key} library={library} texts={texts} currentTexts={currentTexts} onOpen={onOpen}/>
  <section className="panel stats-section"><h2>问题分布</h2>
  <div className="stats-table-wrap"><table className="stats-table"><thead><tr><th>类别</th><th>涉及稿件</th><th>题目数</th><th>问题条数</th></tr></thead>
  <tbody>{a.categories.map(([category,rows])=><tr key={category}><td>{category}</td><td>{rows.length} / {a.rows.length}</td>
@@ -41,7 +41,7 @@ export default function AnalyticsPanel({questions,onOpen}:{questions:Question[];
  {!a.categories.length&&<p className="caption">暂无已分类问题。</p>}
  {a.unclassified>0&&<p className="caption">待分类 {a.unclassified} 条。</p>}
  </section>
- <IssueClassification key={key} items={a.rows.flatMap(row=>row.analysis.issues
+ <IssueClassification key={`classification-${key}`} items={a.rows.flatMap(row=>row.analysis.issues
   .filter(issue=>issue.remembered&&!issue.categories.length&&!issue.classificationSource)
   .map(issue=>({reviewId:row.review.id,writingId:row.review.writingId,question:row.question,issue})))}
   onOpen={onOpen} onSaved={load}/>
