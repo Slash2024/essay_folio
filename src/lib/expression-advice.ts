@@ -1,7 +1,9 @@
+import type {StrongCoverage} from './strong-advice';
 import type {AdviceWritingUsage} from './expression-advice-usage';
 import type {ExpressionLibrary} from './expressions';
 import {matchExpressions} from './expression-matcher';
 
+export type AdviceMode='normal'|'strong';
 export const ADVICE_VERSION = 'recall-card-v1';
 export const CUE_VERSION = 'transferable-cue-v2';
 export const CONTEXT_VERSION = 'objective-context-v1';
@@ -15,12 +17,13 @@ export interface QuestionContext {
 }
 export interface AdviceItem {
   entry:AdviceEntry; stage:string; cue:string; why:string; example:string;
-  translation:string; adaptation:string; avoid:string;
+  translation:string; adaptation:string; avoid:string; paragraph?:number; sentenceCount?:number;
 }
 export interface ExpressionAdvice {
   id:string; questionId:string; fingerprint:string; contextId:string; contextFingerprint:string;
   entriesFingerprint:string; promptVersion:string; model:string; createdAt:string;
   angle:string; items:AdviceItem[]; shortfall:string;
+  mode?:AdviceMode; essay?:string; coverage?:StrongCoverage;
   cueVersion?:string; cueUpdatedAt?:string; cueModel?:string;
 }
 export interface AdviceProgress {
@@ -31,7 +34,7 @@ export interface AdviceProgress {
 export interface AdviceTask {
   id:string; questionId:string; fingerprint:string; createdAt:string;
   status:'pending'|'ready'|'failed'; phase:'context'|'advice'; error?:string; progress?:AdviceProgress;
-  context?:QuestionContext; result?:ExpressionAdvice;
+  mode?:AdviceMode; context?:QuestionContext; result?:ExpressionAdvice;
 }
 export interface AdviceView {
   context:QuestionContext|null; result:ExpressionAdvice|null; task:Pick<AdviceTask,'id'|'status'|'phase'|'createdAt'|'error'|'progress'>|null;

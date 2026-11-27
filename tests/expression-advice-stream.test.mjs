@@ -9,7 +9,7 @@ try {
  await build({stdin:{contents:"export * from './src/server/expression-advice-provider';export * from './src/server/expression-advice-stream';export * from './src/lib/expression-advice-client';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'stream.mjs'),plugins:[{name:'config-without-secrets',setup(b){b.onResolve({filter:/annotation-config$/},()=>({path:'config',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:"export class AlignmentError extends Error{constructor(m,status=400){super(m);this.status=status}}export const endpoint=v=>v;",loader:'js'}));}}]});
  const m=await import(join(dir,'stream.mjs'));
  const obj={angle:'中文题意',items:[{entryKey:'sentence:a',example:'At its heart lies {{an idea}}.'},{entryKey:'word:b',example:'He said \\"go\\".'}]},answer=JSON.stringify(obj);
- assert.equal(m.completedAdviceItems(answer),2);assert.equal(m.completedAdviceItems(answer.slice(0,-4)),1);assert.equal(m.completedAdviceItems('{"angle":"text { }"'),0);
+ assert.equal(m.completedAdviceItems(JSON.stringify({items:Array.from({length:14},()=>obj.items[0])})),14);assert.equal(m.completedAdviceItems(answer),2);assert.equal(m.completedAdviceItems(answer.slice(0,-4)),1);assert.equal(m.completedAdviceItems('{"angle":"text { }"'),0);
  const cfg={baseURL:'https://provider.test/chat/completions',model:'mock',apiKey:'not-a-real-key',jsonMode:true};
  const encode=data=>'data: '+JSON.stringify(data)+'\r\n\r\n';
  const body=encode({choices:[{delta:{reasoning_content:'private provider reasoning'}}]})+[...answer].map(ch=>encode({choices:[{delta:{content:ch}}]})).join('')+'data: [DONE]\n\n';

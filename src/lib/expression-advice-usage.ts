@@ -26,13 +26,14 @@ function excerpt(text:string,match:ExpressionMatch):AdviceWritingExcerpt {
  return {text:text.slice(start,end),spans:match.spans.map(s=>({start:s.start-start,end:s.end-start})),leading:start>0,trailing:end<text.length,approximate:isApproximateMatch(match),reasons:match.reasons};
 }
 // A transient join, never part of saved model output. Reuse the reader's matcher
-// and approximation rules, but limit work to this card's (at most ten) entries.
+// and approximation rules, limited to the distinct entries on this card.
 export function collectAdviceWritingUsage(advice:ExpressionAdvice|null,writing:Writing,library:ExpressionLibrary,selection:'current'|'latest'):AdviceWritingUsage {
  const result:AdviceWritingUsage={writing:{id:writing.id,submittedAt:submitted(writing),updatedAt:writing.updatedAt,revision:writing.revision||1,selection},usedCount:0,approximateCount:0,changedCount:0,entries:Object.create(null)};
  if(!advice)return result;
  const sentences=new Map(library.sentences.map(e=>[e.id,e])),words=new Map(library.words.map(e=>[e.id,e]));
  const sentenceIds=new Set<string>(),wordIds=new Set<string>();
  for(const {entry} of advice.items) {
+  if(result.entries[entry.key])continue;
   const prefix=entry.kind+':',id=entry.key.startsWith(prefix)?entry.key.slice(prefix.length):'';
   const current=entry.kind==='sentence'?sentences.get(id):words.get(id);
   let status:AdviceEntryUsage['status']='unmatched',note:string|undefined;

@@ -14,7 +14,7 @@ export function completedAdviceItems(text:string) {
   else if(ch==='}'){depth--;if(depth===0&&start>=0){try{const value=JSON.parse(text.slice(start,i+1));if(typeof value.entryKey==='string')count++;}catch{}start=-1;}}
   else if(ch===']'&&depth===0)break;
  }
- return Math.min(10,count);
+ return count;
 }
 function parseResult(content:string) {
  try{return JSON.parse(content.replace(/^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$/,'$1'));}

@@ -1,15 +1,19 @@
+import {STRONG_ADVICE_VERSION,checkStrongAdvice,mergeStrongRepair,strongCandidate,strongSlots} from '../lib/strong-advice';
+import {STRONG_ADVICE_PROMPT,STRONG_REPAIR_PROMPT} from './strong-advice-prompt';
 import {comparisonWriting,collectAdviceWritingUsage} from '../lib/expression-advice-usage';
 import {CUE_GUIDANCE} from './expression-advice-cue-rules';
 import questionsJSON from '../data/questions.json';
 import {practiceQuestion,reviewIsOutdated,type Question,type Writing,type Review} from '../lib/folio';
 import {DEFAULT_EXPRESSIONS,type ExpressionLibrary} from '../lib/expressions';
 import {collectExpressionUsage} from '../lib/expression-usage';
-import {ADVICE_VERSION,CUE_VERSION,CONTEXT_VERSION,adviceEntries,publicDescription,validateAdvice,validateExtractedContext,type AdviceProgress,type AdviceEntry,type AdviceTask,type AdviceView,type QuestionContext,type ExpressionAdvice} from '../lib/expression-advice';
+import {ADVICE_VERSION,CUE_VERSION,CONTEXT_VERSION,adviceEntries,publicDescription,validateAdvice,validateExtractedContext,type AdviceMode,type AdviceProgress,type AdviceEntry,type AdviceTask,type AdviceView,type QuestionContext,type ExpressionAdvice} from '../lib/expression-advice';
 import {decode,find,list,put,type Row} from './archive';
 import {AlignmentError,getAnnotationConfig} from './annotation-config';
 import {requestAdviceJSON} from './expression-advice-provider';
 
-const CONTEXT='expressionAdviceContext',RUN='expressionAdviceRun';
+const CONTEXT='expressionAdviceContext',NORMAL_RUN='expressionAdviceRun';
+const runKind=(mode:AdviceMode)=>mode==='strong'?'expressionAdviceStrongRun':NORMAL_RUN;
+const promptVersion=(mode:AdviceMode)=>mode==='strong'?STRONG_ADVICE_VERSION:ADVICE_VERSION;
 const questionMap=new Map((questionsJSON as Question[]).map(q=>[q.id,practiceQuestion(q)]));
 const lifetime=15*60*1000;
 export const ADVICE_PROMPT=`你是考研英语考前表达调用教练。目的：帮助考生看到题目时主动提取、准确适配自己已经积累的表达，而不是背新范文或堆砌高级词。
@@ -60,15 +64,15 @@ export async function adviceIndex() {
   for(let offset=0;;offset+=100){const p=await list('writing',{offset,limit:100});for(const row of p.rows){const w=decode<Writing>(row);if((w.status==='submitted'||w.status==='reviewed')&&w.text.trim()&&questionMap.has(w.questionId))seen.add(w.questionId);}if(p.rows.length<100)break;}
   return {questionIds:[...seen]};
 }
-export async function adviceView(id:string,taskId?:string,writingId?:string):Promise<AdviceView> {
+export async function adviceView(id:string,taskId?:string,writingId?:string,mode:AdviceMode='normal'):Promise<AdviceView> {
   const q=question(id),writings=await eligible(id);
   const writing=comparisonWriting(writings,writingId);
   if(!writing)throw new AlignmentError('对照稿件不存在、未提交或不属于这道题，请重新打开调用卡',404);
-  const [contexts,runs,c,fp]=await Promise.all([tasks(CONTEXT,id),tasks(RUN,id),catalog(),questionFingerprint(q)]);
+  const [contexts,runs,c,fp]=await Promise.all([tasks(CONTEXT,id),tasks(runKind(mode),id),catalog(),questionFingerprint(q)]);
   const matching=contexts.find(t=>t.status==='ready'&&t.context?.questionFingerprint===fp)?.context;
   const context=matching||contexts.find(t=>t.status==='ready'&&t.context)?.context||null;
   const validResults=runs.filter(t=>t.status==='ready'&&t.result);
-  const current=validResults.find(t=>t.result?.entriesFingerprint===c.fingerprint&&t.result?.contextFingerprint===context?.fingerprint&&t.result?.promptVersion===ADVICE_VERSION&&context?.questionFingerprint===fp);
+  const current=validResults.find(t=>t.result?.entriesFingerprint===c.fingerprint&&t.result?.contextFingerprint===context?.fingerprint&&t.result?.promptVersion===promptVersion(mode)&&context?.questionFingerprint===fp);
   const result=(current||validResults[0])?.result||null;
   let recordsChanged=false;
   for(const source of context?.sourceFingerprints||[]) {
@@ -121,17 +125,17 @@ async function fetchDescription(q:Question) {
     const description=publicDescription(html);return description?{description,sourceURL:url.href}:null;
   }catch{return null;}finally{clearTimeout(timer);}
 }
-export async function prepareAdviceContext(id:string,requestId:string,refresh=false,onProgress?:ProgressListener,writingId?:string) {
+export async function prepareAdviceContext(id:string,requestId:string,refresh=false,onProgress?:ProgressListener,writingId?:string,mode:AdviceMode='normal') {
   const q=question(id),writings=await eligible(id);
   if(writingId&&!comparisonWriting(writings,writingId))throw new AlignmentError('对照稿件不存在、未提交或不属于这道题，请重新打开调用卡',404);
   const fp=await questionFingerprint(q);
   const previous=await tasks(CONTEXT,id),cached=previous.find(t=>t.status==='ready'&&t.context?.questionFingerprint===fp);
-  if(cached&&!refresh){const view=await adviceView(id,undefined,writingId);if(!view.contextStale)return view;}
+  if(cached&&!refresh){const view=await adviceView(id,undefined,writingId,mode);if(!view.contextStale)return view;}
   const pending=previous.find(t=>t.fingerprint===fp&&t.status==='pending'&&Date.now()-Date.parse(t.createdAt)<lifetime);
-  if(pending)return adviceView(id,undefined,writingId);
+  if(pending)return adviceView(id,undefined,writingId,mode);
   const retry=previous.some(t=>t.fingerprint===fp);
   const task:AdviceTask={id:'advice-context-'+await hash([fp,refresh||retry?requestId:'initial']),questionId:id,fingerprint:fp,status:'pending',phase:'context',createdAt:new Date().toISOString()};
-  const old=await claim(task,CONTEXT);if(old)return adviceView(id,undefined,writingId);
+  const old=await claim(task,CONTEXT);if(old)return adviceView(id,undefined,writingId,mode);
   const monitor=track(task,CONTEXT,onProgress);
   try {
     monitor.report('context','正在准备客观题面',{},true);
@@ -161,40 +165,54 @@ export async function prepareAdviceContext(id:string,requestId:string,refresh=fa
     const context:QuestionContext={...data,id:task.id,questionId:id,questionFingerprint:fp,fingerprint:await hash([fp,data.description]),createdAt:task.createdAt};
     monitor.report('context','客观题面已准备完成',{},true);await monitor.flush();
     await saveTask({...task,status:'ready',context},CONTEXT);
-    return adviceView(id,undefined,writingId);
+    return adviceView(id,undefined,writingId,mode);
   }catch(e){await monitor.flush();await failTask(task,CONTEXT,e);throw e;}
 }
-export async function generateExpressionAdvice(id:string,requestId:string,regenerate=false,onProgress?:ProgressListener,writingId?:string) {
+export async function generateExpressionAdvice(id:string,requestId:string,regenerate=false,onProgress?:ProgressListener,writingId?:string,mode:AdviceMode='normal') {
   const q=question(id);await eligible(id);
-  const state=await adviceView(id,undefined,writingId),context=state.context;
+  const state=await adviceView(id,undefined,writingId,mode),context=state.context;
   if(!context||state.contextStale)throw new AlignmentError('请先准备当前题面的客观描述',409);
   const c=await catalog();if(!c.entries.length)throw new AlignmentError('表达库没有启用的条目，请先添加或启用表达',400);
-  const fp=await hash([context.fingerprint,c.fingerprint,ADVICE_VERSION]);
+  if(mode==='strong'&&!c.entries.some(strongCandidate))throw new AlignmentError('表达库没有可逐句核验的启用句式，请先补充句式',400);
+  const RUN=runKind(mode),version=promptVersion(mode);
+  const fp=await hash([context.fingerprint,c.fingerprint,version]);
   const runs=await tasks(RUN,id);
-  if(!regenerate&&runs.some(t=>t.status==='ready'&&t.fingerprint===fp))return adviceView(id,undefined,writingId);
-  if(runs.some(t=>t.fingerprint===fp&&t.status==='pending'&&Date.now()-Date.parse(t.createdAt)<lifetime))return adviceView(id,undefined,writingId);
+  if(!regenerate&&runs.some(t=>t.status==='ready'&&t.fingerprint===fp))return adviceView(id,undefined,writingId,mode);
+  if(runs.some(t=>t.fingerprint===fp&&t.status==='pending'&&Date.now()-Date.parse(t.createdAt)<lifetime))return adviceView(id,undefined,writingId,mode);
   const cfg=await config();
   const retry=runs.some(t=>t.fingerprint===fp);
-  const task:AdviceTask={id:'advice-run-'+await hash([fp,regenerate||retry?requestId:'initial']),questionId:id,fingerprint:fp,status:'pending',phase:'advice',createdAt:new Date().toISOString()};
-  const old=await claim(task,RUN);if(old)return adviceView(id,undefined,writingId);
+  const task:AdviceTask={id:(mode==='strong'?'advice-strong-':'advice-run-')+await hash([fp,regenerate||retry?requestId:'initial']),questionId:id,fingerprint:fp,status:'pending',phase:'advice',mode,createdAt:new Date().toISOString()};
+  const old=await claim(task,RUN);if(old)return adviceView(id,undefined,writingId,mode);
   const monitor=track(task,RUN,onProgress);
   try {
     monitor.report('candidates','正在整理表达候选及使用记录',{candidateCount:c.entries.length},true);
     // Familiarity metadata only. No manuscript or review text enters this request.
     const allWritings:Writing[]=[];for(let offset=0;;offset+=100){const p=await list('writing',{offset,limit:100});allWritings.push(...p.rows.map(r=>decode<Writing>(r)));if(p.rows.length<100)break;}
     const usage=collectExpressionUsage(allWritings,c.library);
-    const entries=c.entries.map(e=>({...e,used:usage.entries[e.key.slice(e.key.indexOf(':')+1)]?.writings||0}));
-    const input={question:{id:q.id,title:q.title,type:q.type,exam:q.exam||'one',directions:q.directions,practiceRequirement:q.type==='small'?'约100词':'160—200词，按英语一标准练习'},objectiveContext:context.description,candidateEntries:entries.map(e=>({entryKey:e.key,kind:e.kind,title:e.title,expression:e.expression,meaning:e.meaning,category:e.category,forms:e.forms,notes:e.notes.slice(0,650),substitutions:e.substitutions.slice(0,500),usedWritings:e.used}))};
+    const entries=c.entries.filter(e=>mode!=='strong'||e.kind==='word'||strongCandidate(e)).map(e=>({...e,used:usage.entries[e.key.slice(e.key.indexOf(':')+1)]?.writings||0}));
+    const input={question:{id:q.id,title:q.title,type:q.type,exam:q.exam||'one',directions:q.directions,practiceRequirement:q.type==='small'?'约100词':'160—200词，按英语一标准练习'},objectiveContext:context.description,candidateEntries:entries.map(e=>({entryKey:e.key,kind:e.kind,title:e.title,expression:e.expression,...(mode==='strong'&&e.kind==='sentence'?{slotLabels:strongSlots(e.expression)}:{}),meaning:e.meaning,category:e.category,forms:e.forms,notes:e.notes.slice(0,650),substitutions:e.substitutions.slice(0,500),usedWritings:e.used}))};
     if(new TextEncoder().encode(JSON.stringify(input)).length>240000)throw new AlignmentError('当前表达库输入过大，请精简过长说明后重试',400);
     monitor.report('model','模型正在选择表达并编写示例',{receivedItems:0,receivedCharacters:0},true);
-    const output=await requestAdviceJSON(cfg,ADVICE_PROMPT,input,p=>monitor.report('model',p.receivedCharacters?'正在接收表达与示例':'模型正在组织答案',p));
+    const output=await requestAdviceJSON(cfg,mode==='strong'?STRONG_ADVICE_PROMPT:ADVICE_PROMPT,input,p=>monitor.report('model',p.receivedCharacters?'正在接收表达与示例':'模型正在组织答案',p));
     monitor.report('validation','正在核对表达引用、示例与重复项',{},true);
-    const result:ExpressionAdvice={...validateAdvice(output,entries),cueVersion:CUE_VERSION,cueUpdatedAt:new Date().toISOString(),cueModel:cfg.model,id:task.id,questionId:id,fingerprint:fp,contextId:context.id,contextFingerprint:context.fingerprint,entriesFingerprint:c.fingerprint,promptVersion:ADVICE_VERSION,model:cfg.model,createdAt:task.createdAt};
+    let parsed:ReturnType<typeof validateAdvice>&Partial<Pick<ExpressionAdvice,'essay'|'coverage'>>;
+    if(mode==='strong') {
+      let checked=checkStrongAdvice(output,entries,q);
+      if(checked.issues.length) {
+        monitor.report('validation','逐句核验未通过，正在进行唯一一次定向修复',{receivedItems:0,receivedCharacters:0},true);
+        const repairAll=checked.issues.some(i=>i.index===undefined);
+        const repair=await requestAdviceJSON(cfg,STRONG_REPAIR_PROMPT,{...input,original:output,issues:checked.issues,repairAll},p=>monitor.report('validation','正在接收句式修复结果（最多一次）',p));
+        checked=checkStrongAdvice(mergeStrongRepair(output,repair,checked.issues),entries,q,1);
+      }
+      if(checked.issues.length)throw new AlignmentError('加强模式未通过核验：'+checked.issues.slice(0,3).map(i=>(i.index===undefined?'全文':`第${i.index+1}条`)+'：'+i.message).join('；')+'。未保存本次结果，已有调用卡仍保留。',422);
+      parsed=checked.result;
+    }else parsed=validateAdvice(output,entries);
+    const result:ExpressionAdvice={...parsed,mode,cueVersion:CUE_VERSION,cueUpdatedAt:new Date().toISOString(),cueModel:cfg.model,id:task.id,questionId:id,fingerprint:fp,contextId:context.id,contextFingerprint:context.fingerprint,entriesFingerprint:c.fingerprint,promptVersion:version,model:cfg.model,createdAt:task.createdAt};
     await eligible(id);
     const latest=await catalog();if(latest.fingerprint!==c.fingerprint)throw new AlignmentError('生成期间表达库已更新，结果未保存，请重新生成',409);
     monitor.report('saving','正在保存调用卡',{},true);await monitor.flush();
     const completed={...task.progress!,stage:'done' as const,message:'调用卡已保存',updatedAt:new Date().toISOString()};
     await saveTask({...task,progress:completed,status:'ready',result},RUN);onProgress?.(completed);
-    return adviceView(id,undefined,writingId);
+    return adviceView(id,undefined,writingId,mode);
   }catch(e){await monitor.flush();await failTask(task,RUN,e);throw e;}
 }
