@@ -1,0 +1,66 @@
+{
+  "date": "2026-11-28",
+  "feature": "Restore complete numbered grammar explanations and color explicit translation verdict variants",
+  "githubSourceCommit": "7be596678c4d7512e6e7885277c210f60c3463f7",
+  "wixDeployment": "e52dde69-d8f6-4935-ba3b-a88c3d7963b7",
+  "wixRevision": "cbec96a631f1eff118f8776eb266cfa119d85bd0",
+  "liveUrl": "https://headless-dvpmxjtmvvv-y97m7z9bm2-140a.wix-site-host.com",
+  "rootCauses": [
+    "Bold grammar headings such as 1．第46题 carried both a chapter ordinal and a question number; the parser did not recognize them as question boundaries and left most explanation blocks in global content.",
+    "The verdict decorator recognized only a narrow set of phrases, leaving explicit variants such as 意思正确, 基本正确, 错误，影响得分 and 存在遗漏 uncolored."
+  ],
+  "changes": [
+    "Recognize numbered question headings without treating ordinary numbered prose as a question boundary; keep all grammar knowledge, English examples, Chinese examples and corrections together.",
+    "Use a dedicated verdict classifier for correct, acceptable and error variants; unknown verdicts remain neutral and stale decoration is cleared.",
+    "Reparse the existing saved Markdown without rewriting learning data or calling a model."
+  ],
+  "verification": {
+    "typecheck": "passed",
+    "focusedTranslationTests": {
+      "passed": 30,
+      "failed": 0
+    },
+    "productionBuild": "passed",
+    "browser": {
+      "run": "https://github.com/Slash2024/essay_folio/actions/runs/46158032901",
+      "checks": 17,
+      "unexpectedErrors": 0,
+      "viewports": [
+        "1440x1000",
+        "390x844"
+      ],
+      "dataMode": "isolated synthetic records and model"
+    },
+    "actual2024Review": {
+      "completeGrammarQuestions": [
+        46,
+        47,
+        48,
+        49,
+        50
+      ],
+      "verdictCells": {
+        "correct": 12,
+        "optional": 7,
+        "error": 4,
+        "uncolored": 0
+      },
+      "total": 8,
+      "sourceOffsetsRetained": true,
+      "privateReviewNotCommitted": true
+    },
+    "production": {
+      "pageStatus": 200,
+      "app": "FolioApp.eucL3AQu.js",
+      "translation": "TranslationPanel.Duv1uObf.js",
+      "verifiedBuildLoaded": true,
+      "recordRevision": 2,
+      "answersUnchanged": true,
+      "reviewUnchanged": true,
+      "revisionUnchanged": true,
+      "productionPracticeWrites": 0,
+      "automaticModelCalls": 0,
+      "previewRefreshed": true
+    }
+  }
+}
