@@ -5,8 +5,8 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const dir=await mkdtemp(join(tmpdir(),'folio-sentence-review-'));
-await build({stdin:{contents:"export * from './src/lib/translation-review';export * from './src/lib/translation-corrections';export {translationQuestions,reviewScore} from './src/lib/translation';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'review.mjs')});
-const {parseTranslationReview,renderReviewFragments,applySentenceReviewChanges:applyChanges,translationQuestions,reviewScore,translationAnswerCorrections:corrections}=await import(join(dir,'review.mjs'));
+await build({stdin:{contents:"export * from './src/lib/translation-review';export * from './src/lib/translation-corrections';export * from './src/lib/translation-verdict';export {translationQuestions,reviewScore} from './src/lib/translation';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:join(dir,'review.mjs')});
+const {parseTranslationReview,renderReviewFragments,applySentenceReviewChanges:applyChanges,translationQuestions,reviewScore,translationAnswerCorrections:corrections,translationVerdict}=await import(join(dir,'review.mjs'));
 after(()=>rm(dir,{recursive:true,force:true}));
 const q=translationQuestions.find(q=>q.year===2020),numbers=[46,47,48,49,50],answers=['独有译词甲','独有译词乙','独有译词丙','独有译词丁','独有译词戊'];
 const applySentenceReviewChanges=(source,review,number,changes)=>applyChanges(source,review,number,changes,q,answers);
@@ -66,6 +66,29 @@ test('a bold grammar subheading retains the current question and a total-only ta
 test('a malformed Markdown replacement cannot absorb another question or the global explanation',()=>{
  const r=parseTranslationReview(md,q,answers),body=r.sentences[0].fragments.find(f=>f.section===3&&f.source.includes('语法讲解'));
  assert.throws(()=>applySentenceReviewChanges(md,r,46,[{id:body.id,markdown:'```text\n未闭合的代码段'}]),/全篇|其他题目/);
+});
+
+test('numbered question headings retain all grammar paragraphs, examples and corrections within the right sentence',()=>{
+ const labels=['1．第46题','2. 第47题','（3）第48题','四、第49题','5) 第50题'];
+ const source='**三、语法知识点、示例与纠正**\n\n'+numbers.map((n,i)=>`**${labels[i]}：知识点**\n\n知识点${n}专属。\n\n> Example ${n}.\n> 中文例句${n}专属。\n\n本题纠正${n}专属。`).join('\n\n')+'\n\n**四、词汇与表达**\n\n未分题词汇说明。';
+ const review=parseTranslationReview(source,q,answers);
+ for(const s of review.sentences){
+  const grammar=s.groups.find(g=>g.section===3)?.markdown||'';
+  for(const body of [`知识点${s.number}专属`,`Example ${s.number}`,`中文例句${s.number}专属`,`本题纠正${s.number}专属`])assert(grammar.includes(body),body);
+  for(const other of numbers.filter(n=>n!==s.number))assert(!grammar.includes(`Example ${other}`));
+  for(const f of s.fragments)assert.equal(source.slice(f.start,f.end),f.source);
+ }
+ assert(!review.global.some(f=>f.section===3));assert(renderReviewFragments(review.global).includes('未分题词汇说明'));
+ const target=review.sentences[0].fragments.find(f=>f.source.includes('本题纠正46'));
+ const changed=applyChanges(source,review,46,[{id:target.id,markdown:'本题纠正46专属。补充解释。'}],q,answers);
+ assert(changed.includes('补充解释'));assert.equal(parseTranslationReview(changed,q,answers).sentences[1].groups[0].markdown,review.sentences[1].groups[0].markdown);
+});
+
+test('explicit verdict variants receive consistent colors without reading later reasons as verdicts',()=>{
+ const cases={correct:['正确，不扣分','意思正确，不扣分','基本正确，不扣分','意思正确，建议规范措辞','不同但正确','等值异译正确','无需修改','不算漏译'],optional:['可接受，建议优化','可以接受，不扣分','结合上下文可以接受','意思可接受，中文需整理','含义可以接受，建议优化'],error:['需要修改，影响得分','错误，影响得分','存在遗漏，影响得分','存在轻微漏译，需要补足','不够准确，需要调整','不正确','词义错误']};
+ for(const [verdict,labels] of Object.entries(cases))for(const label of labels)assert.equal(translationVerdict(`**${label}**`),verdict,label);
+ assert.equal(translationVerdict('正确。不应因其他表达有错误而改变此处判定。'),'correct');
+ for(const label of ['','待核实','这一表达是否合适需要另行核对'])assert.equal(translationVerdict(label),null);
 });
 
 const differenceTable=(rows,header='我的表达|参考表达|判定|原因与评分影响')=>`## 3. 与参考答案的差异判定\n\n### 第46题\n\n|${header}|\n|${header.split('|').map(()=>'---').join('|')}|\n${rows}`;

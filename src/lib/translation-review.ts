@@ -11,7 +11,7 @@ export interface TranslationReview {total:number|null;summary:string;global:Revi
 type Block={type:string;raw:string;text?:string;depth?:number;header?:{text:string}[];rows?:{text:string}[][];items?:{raw:string}[]};
 const plain=(s:string)=>s.replace(/[*_`]/g,'').replace(/<[^>]*>/g,'').trim();
 const normalized=(s:string)=>plain(s).toLowerCase().replace(/[’‘]/g,"'").replace(/\s+/g,' ').trim();
-const explicitNumber=(s:string)=>{const m=plain(s).replace(/^#{1,6}\s+/,'').match(/^(?:第\s*)?(4[6-9]|50)\s*(?:题|[.．、:：)）]|$)/);return m?Number(m[1]):null;};
+const explicitNumber=(s:string)=>{const value=plain(s).replace(/^#{1,6}\s+/,'').replace(/^(?:[（(]?\d{1,2}[）).．、]|[一二三四五六七八九十]+[、.．])\s*(?=第\s*(?:4[6-9]|50)\s*题)/,'');const m=value.match(/^(?:第\s*)?(4[6-9]|50)\s*(?:题|[.．、:：)）]|$)/);return m?Number(m[1]):null;};
 function sectionNumber(title:string):number|null {
  const t=plain(title).replace(/^[一二三四五六七八九十\d]+[、.．:：]\s*/,'');
  if(t.length>80)return null;
