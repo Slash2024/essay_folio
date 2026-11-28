@@ -3,6 +3,7 @@ import {ArrowUpRight, ChevronLeft, ChevronRight, PenLine, Trash2, X} from 'lucid
 import {examName, questionCategories, questionYearLabel, typeName, wordCount, type Question, type Writing} from '../../lib/folio';
 import {dateLabel} from '../../lib/client';
 import type {PracticeRecordSummary} from '../../lib/practice-records';
+import MarkdownView from './MarkdownView';
 import '../../styles/practice-records.css';
 
 const statuses = {draft: '草稿', submitted: '待批阅', reviewed: '已批阅'};
@@ -25,7 +26,7 @@ function TemplateErrors({writing, summary, onClose, onOpen}: {
     {summary.templateErrors?.map(item => <article className="record-template-item" key={item.id}>
       <header><strong>{item.labels.join(' · ')}</strong><button className="text-button" onClick={() => {onClose(); onOpen(writing.id, item.reviewId, item.noteId);}}>查看原批阅<ArrowUpRight size={14}/></button></header>
       <div><section><h3>原文</h3><p className="english">{item.original}</p></section><section><h3>修改建议</h3><p className="english">{item.replacement || '原批阅未提供独立修改句'}</p></section></div>
-      <p className="record-template-explanation">{item.explanation || '请查看原批阅中的具体说明。'}</p>
+      <div className="record-template-explanation"><MarkdownView markdown={item.explanation || '请查看原批阅中的具体说明。'}/></div>
     </article>)}
     {summary.templateUnlocated > 0 && <p className="caption">另有批注原文位置待核对，未计入上述数量。</p>}
   </dialog>;
