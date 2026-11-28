@@ -1,3 +1,4 @@
+import {practiceRecordSummaries} from '../../server/practice-records';
 import {collectQuizAchievements,earnedQuizMilestones} from '../../server/quiz-achievements';
 import type {QuizSession,QuizAnswer,QuizReview,QuizCorrection} from '../../lib/expression-quiz';
 import {prepareCompletionMessage,readCompletionMessage} from '../../server/completion-encouragement';
@@ -51,7 +52,12 @@ export const POST:APIRoute=async({request})=>{
       const progress=collectPracticeProgress(practiceQuestions,writingData,reviewData);
       return json({...progress,milestones:[...earnedMilestoneRules(practiceQuestions,progress,personalNoteCounts(practiceQuestions,writingData,reviewData)),...earnedQuizMilestones(collectQuizAchievements(quizSessions.map(r=>decode<QuizSession>(r)),quizAnswers.map(r=>decode<QuizAnswer>(r)),quizReviews.map(r=>decode<QuizReview>(r)),quizCorrections.map(r=>decode<QuizCorrection>(r))))]});
     }
-    if(action==='list') {const p=await list('writing',{offset:Math.max(0,Number(body.offset)||0),limit:30,questionId:body.questionId?str(body.questionId,100):'',status:body.status?str(body.status,20):''});return json({items:p.rows.map(r=>decode<Writing>(r)),total:p.total,hasNext:p.hasNext});}
+    if(action==='list'||action==='practiceRecords') {
+      const p=await list('writing',{offset:Math.max(0,Number(body.offset)||0),limit:30,questionId:body.questionId?str(body.questionId,100):'',status:body.status?str(body.status,20):''});
+      const items=p.rows.map(r=>decode<Writing>(r));
+      const summaries=action==='practiceRecords'?await practiceRecordSummaries(items,practiceQuestions):undefined;
+      return json({items,total:p.total,hasNext:p.hasNext,...(summaries?{summaries}:{})});
+    }
     if(action==='get') {
       const row=await find(id(body.id));if(!row||row.kind!=='writing')return json({error:'记录不存在'},404);
       const writing=decode<Writing>(row);

@@ -4,6 +4,7 @@ import {confirmUnsavedNavigation} from '../../lib/navigation';
 import { AchievementMedal } from '../achievements/AchievementArt';
 import {checkPunctuation,type PunctuationCheck as PunctuationResult} from '../../lib/punctuation-check';
 import type { WritingVersion } from '../../lib/revisions';
+import type {PracticeRecordSummary} from '../../lib/practice-records';
 import type { LibraryFilters } from './QuestionLibrary';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Languages, BookOpen, PenLine, Files, LibraryBig, SlidersHorizontal, CheckCircle2, Send, Eye, Upload, Download, Bell, Plus, X, Copy, ArrowUpRight, FileText, Search, LogOut, ChevronLeft, ChevronRight, RefreshCw, ShieldCheck, LoaderCircle, Trash2, ChartNoAxesCombined, Bookmark, FlaskConical } from 'lucide-react';
@@ -18,6 +19,7 @@ const ExpressionAdvicePanel=lazy(()=>import('../expression-advice/ExpressionAdvi
 const AchievementsPanel=lazy(()=>import('../achievements/AchievementsPanel'));
 const ExpressionLibraryPanel=lazy(()=>import('../expressions/ExpressionLibraryPanel'));
 const HighlightReader=lazy(()=>import('../expressions/HighlightReader'));
+const PracticeRecordsPanel=lazy(()=>import('./PracticeRecordsPanel'));
 const RevisionHistory=lazy(()=>import('./RevisionHistory'));
 const StructuredReview=lazy(()=>import('./StructuredReview'));
 const AnnotationAISettings=lazy(()=>import('./AnnotationAISettings'));
@@ -80,6 +82,7 @@ export default function FolioApp() {
   const [editText,setEditText]=useState(''),[editError,setEditError]=useState('');
   const [importText,setImportText]=useState(''),[importFilename,setImportFilename]=useState('批阅结果.md'),[importLabel,setImportLabel]=useState(''),[importError,setImportError]=useState('');
   const [reviewId,setReviewId]=useState(''),[focusNoteId,setFocusNoteId]=useState('');
+  const [recordSummaries,setRecordSummaries]=useState<Record<string,PracticeRecordSummary>>({});
   const [rows,setRows]=useState<Writing[]>([]),[rowsBusy,setRowsBusy]=useState(false),[offset,setOffset]=useState(0),[total,setTotal]=useState(0),[filterStatus,setFilterStatus]=useState(''),[filterQuestion,setFilterQuestion]=useState('');
   const [adviceQuestion,setAdviceQuestion]=useState<Question|null>(null),[adviceWritingId,setAdviceWritingId]=useState<string|undefined>();
   const [showAchievements,setShowAchievements]=useState(false);
@@ -204,9 +207,10 @@ export default function FolioApp() {
     rowsRequest.current=request;
     setRowsBusy(true);
     try{
-      const result=await api('list',{offset,status:filterStatus,questionId:filterQuestion},request.signal);
+      const result=await api('practiceRecords',{offset,status:filterStatus,questionId:filterQuestion},request.signal);
       if(request.signal.aborted)return;
       setRows(result.items);
+      setRecordSummaries(result.summaries);
       setTotal(result.total);
     }catch(error){
       if(!request.signal.aborted)message((error as Error).message);
@@ -240,7 +244,7 @@ export default function FolioApp() {
     </>}
     {page==='bookmarks'&&<Suspense fallback={<p className="muted">正在打开我的收藏…</p>}><BookmarksPanel onOpen={openRecord} onChange={r=>setReviews(old=>old.map(x=>x.id===r.id?r:x))}/></Suspense>}
     {page==='library'&&<Suspense fallback={<div className="panel empty-state">正在打开真题库…</div>}><QuestionLibrary onAdvice={question=>{setAdviceWritingId(undefined);setAdviceQuestion(question);}} questions={questions} busy={busy} onStart={startDraft} filters={libraryFilters} setFilters={setLibraryFilters}/></Suspense>}
-    {page==='records'&&<><div className="filter-bar"><select aria-label="筛选记录状态" value={filterStatus} onChange={e=>{setFilterStatus(e.target.value);setOffset(0);}}><option value="">全部状态</option><option value="draft">草稿</option><option value="submitted">待批阅</option><option value="reviewed">已批阅</option></select><select aria-label="筛选题目" value={filterQuestion} onChange={e=>{setFilterQuestion(e.target.value);setOffset(0);}}><option value="">全部题目</option>{questions.map(x=><option key={x.id} value={x.id}>{questionYearLabel(x)} · {examName(x)} · {typeName(x.type)} · {x.title}</option>)}</select><span className="caption">共 {total} 稿</span><button className="text-button" onClick={loadRows}><RefreshCw size={16}/>刷新</button></div><section className="panel records-panel" aria-busy={rowsBusy}><div className="table-head"><span>题目与稿件</span><span>词数</span><span>状态</span><span>更新时间</span><span>操作</span></div>{rows.length===0?<div className="empty-state"><PenLine size={33}/><p>{rowsBusy?'正在读取记录…':'从第一稿开始积累'}</p><span>保存的草稿、提交的作文和批阅都会在这里出现。</span></div>:rows.map(w=>{const question=questions.find(q=>q.id===w.questionId)!;return <div key={w.id} className="record-row" data-record-id={w.id}><button className="record-title" disabled={busy} onClick={()=>openRecord(w.id)}><strong>{question&&questionYearLabel(question)} · {question&&examName(question)} · {typeName(question?.type||'large')} · {question?.title}</strong><small>{w.parentId?'重写稿':'初始稿'} · {w.text.slice(0,70)}</small></button><span>{wordCount(w.text)}</span><span><b className={`status status-${w.status}`}>{labelStatus(w.status)}</b></span><span>{dateLabel(w.updatedAt)}</span><div className="record-actions"><button className="icon-button record-open" aria-label="打开这条练习记录" disabled={busy} onClick={()=>openRecord(w.id)}><ArrowUpRight size={17}/></button><button className="record-delete" aria-label="删除这条练习记录" disabled={busy||rowsBusy} onClick={()=>beginDelete(w)}><Trash2 size={15}/><span>删除</span></button></div></div>;})}<div className="pagination"><button className="button ghost small" disabled={offset===0||rowsBusy} onClick={()=>setOffset(Math.max(0,offset-30))}><ChevronLeft size={16}/>上一页</button><span>{Math.floor(offset/30)+1} / {Math.max(1,Math.ceil(total/30))}</span><button className="button ghost small" disabled={offset+30>=total||rowsBusy} onClick={()=>setOffset(offset+30)}>下一页<ChevronRight size={16}/></button></div></section></>}
+    {page==='records'&&<><div className="filter-bar"><select aria-label="筛选记录状态" value={filterStatus} onChange={e=>{setFilterStatus(e.target.value);setOffset(0);}}><option value="">全部状态</option><option value="draft">草稿</option><option value="submitted">待批阅</option><option value="reviewed">已批阅</option></select><select aria-label="筛选题目" value={filterQuestion} onChange={e=>{setFilterQuestion(e.target.value);setOffset(0);}}><option value="">全部题目</option>{questions.map(x=><option key={x.id} value={x.id}>{questionYearLabel(x)} · {examName(x)} · {typeName(x.type)} · {x.title}</option>)}</select><span className="caption">共 {total} 稿</span><button className="text-button" onClick={loadRows}><RefreshCw size={16}/>刷新</button></div><Suspense fallback={<div className="panel empty-state">正在打开练习记录…</div>}><PracticeRecordsPanel items={rows} summaries={recordSummaries} questions={questions} busy={busy} loading={rowsBusy} offset={offset} total={total} onOffset={setOffset} onOpen={openRecord} onDelete={beginDelete}/></Suspense></>}
     {page==='laboratory'&&<Suspense fallback={<div className="panel empty-state">正在打开实验室…</div>}><LaboratoryPanel key={quizEntry||'default'} initialView={quizEntry?'quiz':initialLabEntry.current} initialSessionId={quizEntry} onOpenRecord={openRecord}/></Suspense>}
     {page==='analytics'&&<Suspense fallback={<div className="panel empty-state">正在打开批阅统计…</div>}><AnalyticsPanel questions={questions} onOpen={openRecord}/></Suspense>}
     {page==='expressions'&&<>{expressionError&&<p className="error" role="alert">{expressionError}<button className="text-button" onClick={loadExpressions}>重试</button></p>}{expressionLibrary?<Suspense fallback={<p className="expression-loading muted">正在打开表达库…</p>}><ExpressionLibraryPanel onOpenQuiz={openQuizRecord} questions={questions} onOpen={openRecord} library={expressionLibrary} loading={expressionLoading} onSave={saveExpressions} onRefresh={loadExpressions}/></Suspense>:!expressionError&&<div className="panel empty-state"><LoaderCircle className="spin"/><p>正在读取表达库…</p></div>}</>}
